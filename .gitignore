@@ -1,0 +1,49 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Coverage
+coverage
+*.lcov
+
+# Dependencies
+node_modules/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Build output
+dist/
+
+# dotenv / secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# npm
+*.tgz
+.npm
+
+# OS files
+.DS_Store
+**/.DS_Store
+Thumbs.db
+
+# IDE / Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Claude Code local-only state
+.claude/settings.local.json
+.claude/agent-memory/
+
+# Local test playgrounds
+.ivy/
+
+# spec-workflow MCP local state (not part of IvyFlow source)
+.spec-workflow/

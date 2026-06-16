@@ -1,0 +1,12 @@
+{
+  "version": "0.1.0",
+  "skills": [
+    "ivy/SKILL.md",
+    "ivy/references/explore-fast-track.md",
+    "ivy/references/step8-9-closure.md"
+  ],
+  "rules": [
+    "ivy-phase-guard.md"
+  ],
+  "hooks": []
+}
