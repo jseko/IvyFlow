@@ -47,3 +47,8 @@ Thumbs.db
 
 # spec-workflow MCP local state (not part of IvyFlow source)
 .spec-workflow/
+.docs/
+openspec/
+.claude/
+CLAUDE.md
+CHANGELOG.md

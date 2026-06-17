@@ -32,12 +32,22 @@ export async function runStatus(opts: StatusOptions = {}): Promise<number> {
   const cwd = opts.cwd ?? process.cwd();
 
   // Project-level summary first.
-  const projectYaml = await readYaml(path.join(cwd, '.ivy', 'project.yaml'));
+  const projectYaml = await readYaml<{
+    platform?: string;
+    platforms?: string[];
+    scope?: string;
+    version?: string;
+  }>(path.join(cwd, '.ivy', 'project.yaml'));
   if (!projectYaml) {
     logger.error('No `.ivy/project.yaml` found. Run `ivy init` first.');
     return 1;
   }
-  logger.info(`IvyFlow project (${projectYaml.platform ?? 'unknown'}/${projectYaml.scope ?? 'unknown'})`);
+  // v0.2 stores `platforms: string[]`; v0.1 stored `platform: string`. Read either.
+  const platformLabel =
+    projectYaml.platforms && projectYaml.platforms.length > 0
+      ? projectYaml.platforms.join(',')
+      : projectYaml.platform ?? 'unknown';
+  logger.info(`IvyFlow project (${platformLabel}/${projectYaml.scope ?? 'unknown'})`);
 
   if (!opts.change) {
     logger.dim('  Pass --change <name> to inspect a specific change.');

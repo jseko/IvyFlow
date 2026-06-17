@@ -1,8 +1,11 @@
 /**
- * Skill / Rule distribution — manifest-driven copy of `assets/skills/ivy/`,
- * `assets/rules/`, and (later) hook scripts to the target platform's
- * directories. v0.1 ships only the Claude Code platform with plain markdown
- * rules and no PreToolUse hooks.
+ * Skill / Rule / Hook distribution — manifest-driven copy of `assets/skills/ivy/`,
+ * `assets/rules/`, and `assets/hooks/` to the target platform's directories.
+ *
+ * v0.2:
+ *   - Skills: byte-identical copy across all 7 platforms.
+ *   - Rules: per-platform render via `core/render/` (md / mdc / copilot).
+ *   - Hooks: claude-code (static), windsurf (rendered via render/hook-windsurf).
  */
 
 import path from 'path';
@@ -11,18 +14,25 @@ import { fileURLToPath } from 'url';
 import { fileExists, readJson, copyFile, ensureDir, readFile, writeFile } from '../utils/fs.js';
 import { getPlatformSkillsDir, type Platform } from './platforms.js';
 import type { InstallScope } from './types.js';
+import { renderRule, renderHook } from './render/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+interface ManifestHook {
+  type: 'static' | 'rendered';
+  asset?: string;
+  installPath?: string;
+  renderer?: string;
+  installPathRelativeToSkillsDir?: string;
+}
+
 interface Manifest {
   version: string;
-  /** Skill files relative to `assets/skills/`, e.g. `ivy/SKILL.md`. */
+  schemaVersion?: number;
   skills: string[];
-  /** Rule files relative to `assets/rules/`, e.g. `ivy-phase-guard.md`. */
   rules?: string[];
-  /** Hook scripts relative to `assets/hooks/`, e.g. `ivy-git-prepush.sh`. */
-  hooks?: string[];
+  hooks?: Record<string, ManifestHook> | string[];
 }
 
 export function getAssetsDir(): string {
@@ -83,9 +93,27 @@ export async function copyIvySkillsForPlatform(
   return { copied, skipped };
 }
 
+/** Resolve the destination path for the rendered rule on a given platform. */
+function resolveRuleDest(
+  baseDir: string,
+  platform: Platform,
+  scope: InstallScope,
+  ruleRelPath: string,
+): string {
+  const skillsDir = getPlatformSkillsDir(platform, scope);
+  // GitHub Copilot writes to <skillsDir>/copilot-instructions.md (no rulesDir).
+  if (platform.rulesFormat === 'copilot') {
+    return path.join(baseDir, skillsDir, 'copilot-instructions.md');
+  }
+  const baseName = path.basename(ruleRelPath, path.extname(ruleRelPath));
+  const ext = platform.rulesFormat === 'mdc' ? '.mdc' : '.md';
+  const rulesDir = platform.rulesDir ?? 'rules';
+  return path.join(baseDir, skillsDir, rulesDir, baseName + ext);
+}
+
 /**
- * Copy IvyFlow rule files (e.g., ivy-phase-guard.md) into
- * `<projectRoot>/<platform.skillsDir>/<platform.rulesDir>/<file>`.
+ * Render+copy rule files into the platform's rules directory.
+ * Each platform applies its own format via `core/render/`.
  */
 export async function copyIvyRulesForPlatform(
   baseDir: string,
@@ -93,7 +121,7 @@ export async function copyIvyRulesForPlatform(
   overwrite: boolean,
   scope: InstallScope = 'project',
 ): Promise<CopyResult> {
-  if (!platform.rulesDir || !platform.rulesFormat) {
+  if (!platform.rulesFormat) {
     return { copied: 0, skipped: 0 };
   }
   const manifest = await readManifest();
@@ -103,11 +131,6 @@ export async function copyIvyRulesForPlatform(
   }
 
   const assetsDir = getAssetsDir();
-  const rulesDestBase = path.join(
-    baseDir,
-    getPlatformSkillsDir(platform, scope),
-    platform.rulesDir,
-  );
   let copied = 0;
   let skipped = 0;
 
@@ -116,18 +139,49 @@ export async function copyIvyRulesForPlatform(
     if (!(await fileExists(src))) {
       throw new Error(`Rule source not found: ${src}`);
     }
-    const dest = path.join(rulesDestBase, path.basename(ruleRelPath));
+    const dest = resolveRuleDest(baseDir, platform, scope, ruleRelPath);
 
     if (!overwrite && (await fileExists(dest))) {
       skipped++;
       continue;
     }
-    // v0.1 only emits 'md' format → straight copy without frontmatter rewrite.
-    const content = await readFile(src);
+    const md = await readFile(src);
+    const rendered = renderRule(platform.rulesFormat, md);
     await ensureDir(path.dirname(dest));
-    await writeFile(dest, content);
+    await writeFile(dest, rendered);
     copied++;
   }
 
   return { copied, skipped };
+}
+
+export interface HookInstallResult {
+  installed: boolean;
+  path: string;
+  reason?: string;
+}
+
+/**
+ * Install platform-specific PreToolUse hook (currently Windsurf only).
+ * No-op for platforms without `hookFormat: 'windsurf-json'`.
+ */
+export async function installIvyHookForPlatform(
+  baseDir: string,
+  platform: Platform,
+  overwrite: boolean,
+  scope: InstallScope = 'project',
+): Promise<HookInstallResult> {
+  if (platform.hookFormat !== 'windsurf-json' || !platform.hookPath) {
+    return { installed: false, path: '', reason: 'platform-has-no-rendered-hook' };
+  }
+  const skillsDir = getPlatformSkillsDir(platform, scope);
+  const dest = path.join(baseDir, skillsDir, platform.hookPath);
+
+  if (!overwrite && (await fileExists(dest))) {
+    return { installed: false, path: dest, reason: 'exists' };
+  }
+  const content = renderHook(platform.hookFormat);
+  await ensureDir(path.dirname(dest));
+  await writeFile(dest, content);
+  return { installed: true, path: dest };
 }

@@ -1,12 +1,27 @@
 {
-  "version": "0.1.0",
+  "version": "0.2.0",
+  "schemaVersion": 2,
   "skills": [
     "ivy/SKILL.md",
     "ivy/references/explore-fast-track.md",
-    "ivy/references/step8-9-closure.md"
+    "ivy/references/step8-9-closure.md",
+    "ivy/references/phase-state-machine.md",
+    "ivy/references/cross-cutting.md"
   ],
   "rules": [
-    "ivy-phase-guard.md"
+    "ivy-phase-guard.md",
+    "ivy-security.md"
   ],
-  "hooks": []
+  "hooks": {
+    "claude-code": {
+      "type": "static",
+      "asset": "ivy-git-prepush.sh",
+      "installPath": ".git/hooks/pre-push"
+    },
+    "windsurf": {
+      "type": "rendered",
+      "renderer": "windsurf-json",
+      "installPathRelativeToSkillsDir": "hooks/ivy-phase-guard.json"
+    }
+  }
 }

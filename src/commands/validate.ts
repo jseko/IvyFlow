@@ -11,6 +11,10 @@ import { readYaml } from '../utils/yaml.js';
 import { fileExists } from '../utils/fs.js';
 import { canTransition, parsePhase, listPhases, IvyPhase } from '../core/phase-machine.js';
 import { logger } from '../utils/logger.js';
+import { getPlatformById } from '../core/platforms.js';
+import { runSecurityCheck } from '../core/security.js';
+import type { Platform } from '../core/platforms.js';
+import type { InstallScope } from '../core/types.js';
 
 interface PhaseHistoryEntry {
   from?: string;
@@ -23,8 +27,17 @@ interface ChangeYaml {
   phase_history?: PhaseHistoryEntry[];
 }
 
+interface ProjectYaml {
+  version?: string;
+  scope?: InstallScope;
+  platform?: string;
+  platforms?: string[];
+}
+
 export interface ValidateOptions {
   cwd?: string;
+  /** Enable security checks (default true since v0.3). */
+  security?: boolean;
 }
 
 interface Issue {
@@ -125,6 +138,32 @@ export async function runValidate(opts: ValidateOptions = {}): Promise<number> {
     logger.error(`\n${totalIssues} validation issue(s) found.`);
     return 1;
   }
+
+  // Security check (v0.3)
+  const securityEnabled = opts.security !== false;
+  if (securityEnabled) {
+    const projectYaml = await readYaml<ProjectYaml>(path.join(cwd, '.ivy', 'project.yaml'));
+    const platformIds = projectYaml?.platforms ?? (projectYaml?.platform ? [projectYaml.platform] : []);
+    const platforms = platformIds.map((id) => getPlatformById(id)).filter((p): p is Platform => p !== undefined);
+    if (platforms.length > 0) {
+      const securityResult = await runSecurityCheck({
+        cwd,
+        platforms,
+        scope: projectYaml?.scope ?? 'project',
+      });
+      if (securityResult.warnings.length > 0) {
+        logger.warn(`\n${securityResult.warnings.length} security warning(s):`);
+        for (const w of securityResult.warnings) {
+          logger.warn(`  • ${w.message}`);
+        }
+        // Non-zero exit for sensitive files; warnings for missing rules are non-blocking
+        if (securityResult.warnings.some((w) => w.type === 'sensitive-file')) {
+          return 1;
+        }
+      }
+    }
+  }
+
   logger.success(`\nAll ${changes.length} change(s) valid.`);
   return 0;
 }

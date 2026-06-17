@@ -6,20 +6,22 @@ import { promises as fs } from 'fs';
 import {
   copyIvySkillsForPlatform,
   copyIvyRulesForPlatform,
+  installIvyHookForPlatform,
   getManifestSkills,
   getAssetsDir,
 } from './skills.js';
-import { PLATFORMS } from './platforms.js';
+import { PLATFORMS, getPlatformById } from './platforms.js';
 
 async function mkTmpDir(): Promise<string> {
   return fs.mkdtemp(path.join(os.tmpdir(), 'ivyflow-test-'));
 }
 
-describe('skills.ts — assets/manifest.json', () => {
-  it('manifest lists at least one skill', async () => {
+describe('skills.ts — assets/manifest.json (v0.2)', () => {
+  it('manifest lists all v0.2 skill assets', async () => {
     const skills = await getManifestSkills();
-    expect(skills.length).toBeGreaterThan(0);
     expect(skills).toContain('ivy/SKILL.md');
+    expect(skills).toContain('ivy/references/phase-state-machine.md');
+    expect(skills).toContain('ivy/references/cross-cutting.md');
   });
 
   it('getAssetsDir resolves to a real directory', async () => {
@@ -70,9 +72,17 @@ describe('copyIvySkillsForPlatform', () => {
     const content = await fs.readFile(dest, 'utf-8');
     expect(content).not.toBe('tampered\n');
   });
+
+  it('copies skills for non-claude md-only platforms (trae)', async () => {
+    const trae = getPlatformById('trae')!;
+    const result = await copyIvySkillsForPlatform(tmp, trae, true, 'project');
+    expect(result.copied).toBeGreaterThan(0);
+    const f = path.join(tmp, '.trae', 'skills', 'ivy', 'SKILL.md');
+    expect((await fs.stat(f)).isFile()).toBe(true);
+  });
 });
 
-describe('copyIvyRulesForPlatform', () => {
+describe('copyIvyRulesForPlatform — per-platform rendering', () => {
   let tmp: string;
 
   beforeEach(async () => {
@@ -83,28 +93,82 @@ describe('copyIvyRulesForPlatform', () => {
     await fs.rm(tmp, { recursive: true, force: true });
   });
 
-  it('copies rule files to <skillsDir>/<rulesDir>/', async () => {
-    const claude = PLATFORMS[0];
+  it('claude (md): byte-identical to source', async () => {
+    const claude = getPlatformById('claude')!;
     const result = await copyIvyRulesForPlatform(tmp, claude, true, 'project');
-
     expect(result.copied).toBeGreaterThan(0);
-    const ruleFile = path.join(tmp, claude.skillsDir, 'rules', 'ivy-phase-guard.md');
-    const stat = await fs.stat(ruleFile);
-    expect(stat.isFile()).toBe(true);
+
+    const src = path.join(getAssetsDir(), 'rules', 'ivy-phase-guard.md');
+    const dest = path.join(tmp, '.claude', 'rules', 'ivy-phase-guard.md');
+    expect(await fs.readFile(dest, 'utf-8')).toBe(await fs.readFile(src, 'utf-8'));
+  });
+
+  it('cursor (mdc): writes .mdc file with frontmatter', async () => {
+    const cursor = getPlatformById('cursor')!;
+    await copyIvyRulesForPlatform(tmp, cursor, true, 'project');
+    const dest = path.join(tmp, '.cursor', 'rules', 'ivy-phase-guard.mdc');
+    const content = await fs.readFile(dest, 'utf-8');
+    expect(content.startsWith('---')).toBe(true);
+    expect(content).toContain('alwaysApply: true');
+  });
+
+  it('github-copilot: writes .github/copilot-instructions.md', async () => {
+    const copilot = getPlatformById('github-copilot')!;
+    await copyIvyRulesForPlatform(tmp, copilot, true, 'project');
+    const dest = path.join(tmp, '.github', 'copilot-instructions.md');
+    const content = await fs.readFile(dest, 'utf-8');
+    expect(content).toContain('## DO');
+    expect(content).toContain('## DO NOT');
   });
 
   it('overwrite=false skips existing rule files', async () => {
     const claude = PLATFORMS[0];
     await copyIvyRulesForPlatform(tmp, claude, true, 'project');
     const second = await copyIvyRulesForPlatform(tmp, claude, false, 'project');
-
     expect(second.copied).toBe(0);
     expect(second.skipped).toBeGreaterThan(0);
   });
 
-  it('returns zeros when platform has no rulesDir', async () => {
-    const platformNoRules = { ...PLATFORMS[0], rulesDir: undefined, rulesFormat: undefined };
-    const result = await copyIvyRulesForPlatform(tmp, platformNoRules, true, 'project');
+  it('returns zeros when platform has no rulesFormat', async () => {
+    const stub = { ...PLATFORMS[0], rulesFormat: undefined };
+    const result = await copyIvyRulesForPlatform(tmp, stub, true, 'project');
     expect(result).toEqual({ copied: 0, skipped: 0 });
+  });
+});
+
+describe('installIvyHookForPlatform — windsurf only', () => {
+  let tmp: string;
+
+  beforeEach(async () => {
+    tmp = await mkTmpDir();
+  });
+
+  afterEach(async () => {
+    await fs.rm(tmp, { recursive: true, force: true });
+  });
+
+  it('writes valid JSON for windsurf', async () => {
+    const windsurf = getPlatformById('windsurf')!;
+    const result = await installIvyHookForPlatform(tmp, windsurf, true, 'project');
+    expect(result.installed).toBe(true);
+
+    const content = await fs.readFile(path.join(tmp, '.windsurf', 'hooks', 'ivy-phase-guard.json'), 'utf-8');
+    const parsed = JSON.parse(content);
+    expect(parsed.event).toBe('PreToolUse');
+  });
+
+  it('no-op for non-windsurf platforms', async () => {
+    const cursor = getPlatformById('cursor')!;
+    const result = await installIvyHookForPlatform(tmp, cursor, true, 'project');
+    expect(result.installed).toBe(false);
+    expect(result.reason).toBe('platform-has-no-rendered-hook');
+  });
+
+  it('skips when file exists and overwrite=false', async () => {
+    const windsurf = getPlatformById('windsurf')!;
+    await installIvyHookForPlatform(tmp, windsurf, true, 'project');
+    const second = await installIvyHookForPlatform(tmp, windsurf, false, 'project');
+    expect(second.installed).toBe(false);
+    expect(second.reason).toBe('exists');
   });
 });

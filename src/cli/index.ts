@@ -4,6 +4,9 @@ import { createRequire } from 'module';
 import { runInit } from '../commands/init.js';
 import { runStatus } from '../commands/status.js';
 import { runValidate } from '../commands/validate.js';
+import { runDoctor } from '../commands/doctor.js';
+import { runUninstall } from '../commands/uninstall.js';
+import { runUpdate } from '../commands/update.js';
 
 const require = createRequire(import.meta.url);
 const { version } = require('../../package.json');
@@ -45,12 +48,48 @@ program
 program
   .command('validate')
   .description('Validate phase + phase_history against the phase machine')
-  .action(async () => {
-    const exitCode = await runValidate({});
+  .option('--security [bool]', 'Run security checks (default: true)', true)
+  .action(async (opts: { security?: string }) => {
+    const security = opts.security !== 'false';
+    const exitCode = await runValidate({ security });
     process.exit(exitCode);
   });
 
-// v0.2: doctor / uninstall / update — explicitly NOT registered in v0.1.
+// v0.2: doctor — strict local invariant check (§9.4).
+program
+  .command('doctor')
+  .description('Local invariant health check (§9.4: no telemetry / network / state inference)')
+  .option('--fix', 'Re-create missing skills/rules/hooks (never rewrites existing files)', false)
+  .action(async (opts: { fix?: boolean }) => {
+    const exitCode = await runDoctor({ fix: opts.fix });
+    process.exit(exitCode);
+  });
+
+// v0.3: uninstall — safe removal with dry-run + force.
+program
+  .command('uninstall')
+  .description('Remove IvyFlow files from installed platforms')
+  .option('--platforms <ids>', 'Comma-separated platform ids')
+  .option('--dry-run', 'Print what would be removed without deleting', false)
+  .option('--force', 'Skip confirmation prompt', false)
+  .action(async (opts: { platforms?: string; dryRun?: boolean; force?: boolean }) => {
+    const exitCode = await runUninstall({
+      platforms: opts.platforms?.split(','),
+      dryRun: opts.dryRun,
+      force: opts.force,
+    });
+    process.exit(exitCode);
+  });
+
+// v0.3: update — check-only, prints command, does not auto-install.
+program
+  .command('update')
+  .description('Check for updates (prints command, does not auto-install)')
+  .option('--check', 'Check-only, return exit code', false)
+  .action(async (opts: { check?: boolean }) => {
+    const exitCode = await runUpdate({ check: opts.check });
+    process.exit(exitCode);
+  });
 
 program.parseAsync(process.argv).catch((err: unknown) => {
   console.error((err as Error).message ?? err);

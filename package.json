@@ -1,7 +1,7 @@
 {
   "name": "ivyflow-cli",
-  "version": "0.1.0",
-  "description": "A Workflow Enforcer for AI Coding Agents — distributes Skills, Rules, and Hooks to enforce a structured 9-step development workflow",
+  "version": "0.2.0-rc.1",
+  "description": "A Workflow Enforcer for AI Coding Agents — distributes Skills, Rules, and Hooks across 7 platforms to enforce a structured 9-step development workflow",
   "keywords": [
     "ivyflow",
     "ivy",
@@ -24,6 +24,9 @@
     "bin",
     "assets",
     "!dist/**/*.test.js",
+    "!dist/**/*.test.js.map",
+    "!dist/**/*.test.d.ts",
+    "!dist/**/*.test.d.ts.map",
     "!dist/**/__tests__"
   ],
   "scripts": {
@@ -35,7 +38,9 @@
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
     "sync-phases": "node scripts/sync-phases.js",
-    "sync-phases:check": "node scripts/sync-phases.js --check"
+    "sync-phases:check": "node scripts/sync-phases.js --check",
+    "check-manifest": "node scripts/check-manifest.js",
+    "check-skill-blocks": "node scripts/check-skill-blocks.js"
   },
   "engines": {
     "node": ">=20"

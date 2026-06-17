@@ -19,6 +19,9 @@ export type HookInstallResult =
 const HOOK_NAME = 'pre-push';
 const HOOK_SOURCE = 'ivy-git-prepush.sh';
 
+export const HOOK_START_MARKER = '# === IvyFlow pre-push hook — auto-generated ===';
+export const HOOK_END_MARKER = '# === IvyFlow pre-push hook END ===';
+
 export async function installGitPrePushHook(
   projectRoot: string,
   overwrite: boolean,
@@ -46,7 +49,8 @@ export async function installGitPrePushHook(
 
   await ensureDir(hooksDir);
   const content = await readFile(srcPath);
-  await writeFile(destPath, content);
+  const wrapped = `${HOOK_START_MARKER}\n${content}\n${HOOK_END_MARKER}\n`;
+  await writeFile(destPath, wrapped);
   await chmod(destPath, 0o755);
 
   return { installed: true, path: destPath };
