@@ -11,8 +11,8 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-import { fileExists, readJson, copyFile, ensureDir, readFile, writeFile } from '../utils/fs.js';
-import { getPlatformSkillsDir, type Platform } from './platforms.js';
+import { fileExists, readJson, copyFile, ensureDir, readFile, writeFile, chmod } from '../utils/fs.js';
+import { getPlatformSkillsDir, type Platform, type HookFormat } from './platforms.js';
 import type { InstallScope } from './types.js';
 import { renderRule, renderHook } from './render/index.js';
 
@@ -100,15 +100,29 @@ function resolveRuleDest(
   scope: InstallScope,
   ruleRelPath: string,
 ): string {
-  const skillsDir = getPlatformSkillsDir(platform, scope);
   // GitHub Copilot writes to <skillsDir>/copilot-instructions.md (no rulesDir).
   if (platform.rulesFormat === 'copilot') {
+    const skillsDir = getPlatformSkillsDir(platform, scope);
     return path.join(baseDir, skillsDir, 'copilot-instructions.md');
   }
   const baseName = path.basename(ruleRelPath, path.extname(ruleRelPath));
   const ext = platform.rulesFormat === 'mdc' ? '.mdc' : '.md';
+  const rulesDir = getPlatformRulesDir(platform, baseDir, scope);
+  return path.join(rulesDir, baseName + ext);
+}
+
+/**
+ * Get the platform's rules installation directory.
+ * When `platform.rulesBaseDir` is set, uses that path; otherwise falls back to
+ * `skillsDir` + `rulesDir` (pre-v0.8 behavior).
+ */
+export function getPlatformRulesDir(platform: Platform, cwd: string, scope: InstallScope = 'project'): string {
+  if (platform.rulesBaseDir) {
+    return path.join(cwd, platform.rulesBaseDir);
+  }
+  const skillsDir = getPlatformSkillsDir(platform, scope);
   const rulesDir = platform.rulesDir ?? 'rules';
-  return path.join(baseDir, skillsDir, rulesDir, baseName + ext);
+  return path.join(cwd, skillsDir, rulesDir);
 }
 
 /**
@@ -162,8 +176,10 @@ export interface HookInstallResult {
 }
 
 /**
- * Install platform-specific PreToolUse hook (currently Windsurf only).
- * No-op for platforms without `hookFormat: 'windsurf-json'`.
+ * Install platform-specific PreToolUse hook.
+ * - Windsurf: renders JSON hook config only.
+ * - Cursor: renders hooks.json + copies guard script.
+ * No-op for platforms without rendered hook support.
  */
 export async function installIvyHookForPlatform(
   baseDir: string,
@@ -171,17 +187,34 @@ export async function installIvyHookForPlatform(
   overwrite: boolean,
   scope: InstallScope = 'project',
 ): Promise<HookInstallResult> {
-  if (platform.hookFormat !== 'windsurf-json' || !platform.hookPath) {
+  const renderedFormats: HookFormat[] = ['windsurf-json', 'cursor-json'];
+  if (!renderedFormats.includes(platform.hookFormat as HookFormat) || !platform.hookPath) {
     return { installed: false, path: '', reason: 'platform-has-no-rendered-hook' };
   }
+
   const skillsDir = getPlatformSkillsDir(platform, scope);
   const dest = path.join(baseDir, skillsDir, platform.hookPath);
 
   if (!overwrite && (await fileExists(dest))) {
     return { installed: false, path: dest, reason: 'exists' };
   }
-  const content = renderHook(platform.hookFormat);
+  const content = renderHook(platform.hookFormat as HookFormat);
   await ensureDir(path.dirname(dest));
   await writeFile(dest, content);
+
+  // For Cursor: also install the guard script that hooks.json references
+  if (platform.hookFormat === 'cursor-json') {
+    const scriptSrc = path.join(getAssetsDir(), 'hooks', 'ivy-cursor-guard.sh');
+    if (await fileExists(scriptSrc)) {
+      const scriptDestDir = path.join(baseDir, skillsDir, 'hooks');
+      const scriptDest = path.join(scriptDestDir, 'ivy-phase-guard.sh');
+      if (overwrite || !(await fileExists(scriptDest))) {
+        await ensureDir(scriptDestDir);
+        await copyFile(scriptSrc, scriptDest);
+        await chmod(scriptDest, 0o755);
+      }
+    }
+  }
+
   return { installed: true, path: dest };
 }

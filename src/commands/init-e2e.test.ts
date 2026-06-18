@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import path from 'path';
 import os from 'os';
 import { promises as fs } from 'fs';
 
 import { runInit } from './init.js';
+import { runStatus } from './status.js';
 import { PLATFORMS } from '../core/platforms.js';
 import { readYaml } from '../utils/yaml.js';
 
@@ -19,7 +20,7 @@ interface ProjectYaml {
   analytics_enabled?: boolean;
 }
 
-describe('end-to-end init — all 7 platforms (v0.2)', () => {
+describe('end-to-end init — all 11 platforms (v0.5)', () => {
   let tmp: string;
 
   beforeEach(async () => {
@@ -123,5 +124,36 @@ describe('v0.1 → v0.2 backwards compatibility', () => {
     const data = await readYaml<ProjectYaml & { platform?: string }>(path.join(tmp, '.ivy', 'project.yaml'));
     expect(data?.platforms).toBeUndefined();
     expect(data?.platform).toBe('claude');
+  });
+});
+
+// TC-12: v0.4 → v0.5 data compatibility
+describe('v0.4 → v0.5 backwards compatibility', () => {
+  let tmp: string;
+  const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+  const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+  beforeEach(async () => {
+    tmp = await mkTmpDir();
+    logSpy.mockClear();
+    errSpy.mockClear();
+  });
+
+  afterEach(async () => {
+    logSpy.mockRestore();
+    errSpy.mockRestore();
+    await fs.rm(tmp, { recursive: true, force: true });
+  });
+
+  it('reads v0.4 project.yaml with analytics_enabled field', async () => {
+    const ivyDir = path.join(tmp, '.ivy');
+    await fs.mkdir(ivyDir, { recursive: true });
+    // v0.4 schema: version 0.4.0, platforms array, analytics_enabled flag
+    await fs.writeFile(
+      path.join(ivyDir, 'project.yaml'),
+      ['version: 0.4.0', 'platforms: [claude]', 'scope: project', 'analytics_enabled: false', ''].join('\n'),
+    );
+    const code = await runStatus({ cwd: tmp });
+    expect(code).toBe(0);
   });
 });

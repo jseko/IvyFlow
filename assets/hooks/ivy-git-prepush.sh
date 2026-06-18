@@ -6,6 +6,7 @@
 #   - Reads `openspec/changes/<change-name>/.ivy.yaml`, extracts the top-level
 #     `phase:` value with grep/awk (no yq / yaml lib required).
 #   - Blocks the push when phase != "archive".
+#   - When blocked, also runs `ivy suggest --stuck` for workflow suggestions.
 #   - All other branches / missing yaml / unparseable yaml → exit 0 (no-op).
 #
 # Bypass: `git push --no-verify`. This is an enforcer, not a sandbox.
@@ -45,6 +46,14 @@ if [ -z "${phase_value}" ]; then
   exit 0
 fi
 
+# Non-blocking: run ivy check to show critical suggestions (advisory only)
+if command -v ivy >/dev/null 2>&1; then
+  check_output="$(ivy check --change "${change_name}" --exit-code --fail-on any_critical 2>&1)" && {
+    echo "" >&2
+    echo "${check_output}" >&2
+  }
+fi
+
 if [ "${phase_value}" = "archive" ]; then
   exit 0
 fi
@@ -56,4 +65,12 @@ cat >&2 <<EOF
    - Run \`ivy status --change ${change_name}\` to inspect current state.
    - Bypass (escape hatch): \`git push --no-verify\`
 EOF
+
+# Also run suggest engine (best-effort) to show workflow suggestions
+if command -v ivy >/dev/null 2>&1; then
+  suggest_output="$(ivy suggest --change "${change_name}" --stuck 2>/dev/null)" && {
+    echo "${suggest_output}" >&2
+  }
+fi
+
 exit 1

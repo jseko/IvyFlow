@@ -21,11 +21,13 @@ import {
   installIvyHookForPlatform,
   getManifestSkills,
 } from '../core/skills.js';
+import { computePlatformHealth, renderPlatformHealth } from '../core/platform-health.js';
 import type { InstallScope } from '../core/types.js';
 
 export interface DoctorOptions {
   cwd?: string;
   fix?: boolean;
+  platforms?: boolean;
 }
 
 interface CheckResult {
@@ -132,7 +134,7 @@ async function checkHookForPlatform(
   platform: Platform,
   scope: InstallScope,
 ): Promise<CheckResult> {
-  if (platform.hookFormat !== 'windsurf-json' || !platform.hookPath) {
+  if (!['windsurf-json', 'cursor-json'].includes(platform.hookFormat ?? '') || !platform.hookPath) {
     return { name: `${platform.name}: hook n/a`, status: 'passed' };
   }
   const dest = path.join(cwd, getPlatformSkillsDir(platform, scope), platform.hookPath);
@@ -163,9 +165,22 @@ async function fixForPlatform(
 
 export async function runDoctor(opts: DoctorOptions = {}): Promise<number> {
   const cwd = opts.cwd ?? process.cwd();
+
+  // v0.8: --platforms — platform health certification report (read-only, early return).
+  if (opts.platforms) {
+    logger.step('ivy doctor --platforms');
+    const report = await computePlatformHealth(cwd);
+    const output = renderPlatformHealth(report);
+    console.log(output);
+    return 0;
+  }
+
   logger.step(`ivy doctor → ${cwd}${opts.fix ? ' (--fix)' : ''}`);
 
   const results: CheckResult[] = [];
+
+  // 0) Environment checks (v0.6).
+  results.push(await checkEnvironment(cwd));
 
   // 1) project.yaml.
   const { result: yamlResult, data: yaml } = await checkProjectYaml(cwd);
@@ -206,6 +221,9 @@ export async function runDoctor(opts: DoctorOptions = {}): Promise<number> {
     results.push({ name: 'phase-guard source present', status: 'passed' });
   }
 
+  // 7) Calibration status (v0.6).
+  results.push(await checkCalibrationStatus(cwd));
+
   // Output + optional fix pass.
   summarize(results);
   const overall = aggregate(results);
@@ -213,12 +231,90 @@ export async function runDoctor(opts: DoctorOptions = {}): Promise<number> {
   if (opts.fix && overall !== 'passed') {
     logger.step('Applying --fix (missing-only) ...');
     for (const p of installed) await fixForPlatform(baseDir, p, scope);
+    // v0.6: --fix also triggers calibration if feedback ≥ 50
+    await tryAutoCalibrate(cwd);
     logger.info('Fix complete. Re-run `ivy doctor` to verify.');
   }
 
   if (overall === 'failed') return 1;
   if (overall === 'warning') return 0; // warnings non-fatal
   return 0;
+}
+
+/**
+ * Check environment: Node.js, Git, openspec, GitNexus.
+ */
+async function checkEnvironment(cwd: string): Promise<CheckResult> {
+  const checks: string[] = [];
+
+  // Node.js version
+  const nodeVer = process.version.slice(1);
+  const nodeMajor = parseInt(nodeVer.split('.')[0], 10);
+  if (nodeMajor >= 18) {
+    checks.push(`Node.js ${nodeVer}`);
+  } else {
+    return { name: `Node.js version`, status: 'warning', detail: `${nodeVer} — v18+ recommended` };
+  }
+
+  // Git repo
+  try {
+    const { execSync } = await import('child_process');
+    execSync('git rev-parse --git-dir', { cwd, stdio: 'pipe' });
+    checks.push('Git repo');
+  } catch {
+    return { name: 'Git repository', status: 'warning', detail: 'not a git repository' };
+  }
+
+  // openspec (optional)
+  try {
+    const { execSync } = await import('child_process');
+    execSync('openspec --version', { stdio: 'pipe' });
+    checks.push('openspec');
+  } catch {
+    checks.push('openspec (optional, not installed)');
+  }
+
+  return { name: `Environment: ${checks.join(', ')}`, status: 'passed' };
+}
+
+/**
+ * Check calibration profile status.
+ */
+async function checkCalibrationStatus(projectPath: string): Promise<CheckResult> {
+  try {
+    const { readCalibrationProfile } = await import('../core/quality-calibrator.js');
+    const profile = await readCalibrationProfile(projectPath);
+    if (!profile) {
+      return { name: 'calibration profile', status: 'passed', detail: 'not yet calibrated' };
+    }
+    return {
+      name: 'calibration profile',
+      status: 'passed',
+      detail: `mode=${profile.mode}, count=${profile.calibrationCount}, version=#${profile.calibrationVersion}`,
+    };
+  } catch {
+    return { name: 'calibration profile', status: 'passed', detail: 'quality-calibrator unavailable' };
+  }
+}
+
+/**
+ * Auto-trigger calibration when feedback count ≥ 50 and --fix is active.
+ */
+async function tryAutoCalibrate(projectPath: string): Promise<void> {
+  try {
+    const { getSuggestionQuality } = await import('../core/feedback-recorder.js');
+    const quality = await getSuggestionQuality(projectPath);
+    if (quality.total >= 50) {
+      const { calibrateThresholds, applyCalibration } = await import('../core/quality-calibrator.js');
+      const result = await calibrateThresholds(projectPath);
+      if (result.dataPoints >= 5) {
+        await applyCalibration(projectPath, result, 'hybrid');
+        logger.info(`  fix: calibration auto-triggered (${result.dataPoints} data points, #${result.calibrationVersion})`);
+      }
+    }
+  } catch {
+    // calibration is optional — silent failure
+  }
 }
 
 // Self-audit helper exported for tests: ensures the platform list never grows beyond 7.

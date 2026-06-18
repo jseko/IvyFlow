@@ -1,6 +1,6 @@
 {
   "name": "ivyflow-cli",
-  "version": "0.2.0-rc.1",
+  "version": "0.6.0",
   "description": "A Workflow Enforcer for AI Coding Agents — distributes Skills, Rules, and Hooks across 7 platforms to enforce a structured 9-step development workflow",
   "keywords": [
     "ivyflow",
@@ -40,7 +40,8 @@
     "sync-phases": "node scripts/sync-phases.js",
     "sync-phases:check": "node scripts/sync-phases.js --check",
     "check-manifest": "node scripts/check-manifest.js",
-    "check-skill-blocks": "node scripts/check-skill-blocks.js"
+    "check-skill-blocks": "node scripts/check-skill-blocks.js",
+    "check-suggest-redlines": "node scripts/check-suggest-redlines.js"
   },
   "engines": {
     "node": ">=20"

@@ -54,10 +54,14 @@ export async function readFile(filePath: string): Promise<string> {
   return fs.readFile(filePath, 'utf-8');
 }
 
-export async function writeFile(filePath: string, content: string): Promise<void> {
+export async function writeFile(filePath: string, content: string, options?: { flag?: string }): Promise<void> {
   const resolved = await resolveSymlinkPath(filePath);
   await ensureDir(path.dirname(resolved));
-  await fs.writeFile(resolved, content, 'utf-8');
+  await fs.writeFile(resolved, content, { encoding: 'utf-8', flag: options?.flag });
+}
+
+export async function appendFile(filePath: string, content: string): Promise<void> {
+  await writeFile(filePath, content, { flag: 'a' });
 }
 
 export async function readDir(dirPath: string): Promise<string[]> {

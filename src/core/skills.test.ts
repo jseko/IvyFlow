@@ -9,6 +9,7 @@ import {
   installIvyHookForPlatform,
   getManifestSkills,
   getAssetsDir,
+  getPlatformRulesDir,
 } from './skills.js';
 import { PLATFORMS, getPlatformById } from './platforms.js';
 
@@ -136,7 +137,7 @@ describe('copyIvyRulesForPlatform — per-platform rendering', () => {
   });
 });
 
-describe('installIvyHookForPlatform — windsurf only', () => {
+describe('installIvyHookForPlatform — windsurf + cursor', () => {
   let tmp: string;
 
   beforeEach(async () => {
@@ -157,11 +158,26 @@ describe('installIvyHookForPlatform — windsurf only', () => {
     expect(parsed.event).toBe('PreToolUse');
   });
 
-  it('no-op for non-windsurf platforms', async () => {
-    const cursor = getPlatformById('cursor')!;
-    const result = await installIvyHookForPlatform(tmp, cursor, true, 'project');
+  it('no-op for platforms without rendered hooks', async () => {
+    const trae = getPlatformById('trae')!;
+    const result = await installIvyHookForPlatform(tmp, trae, true, 'project');
     expect(result.installed).toBe(false);
     expect(result.reason).toBe('platform-has-no-rendered-hook');
+  });
+
+  it('writes valid hooks.json for cursor', async () => {
+    const cursor = getPlatformById('cursor')!;
+    const result = await installIvyHookForPlatform(tmp, cursor, true, 'project');
+    expect(result.installed).toBe(true);
+
+    const content = await fs.readFile(path.join(tmp, '.cursor', 'hooks.json'), 'utf-8');
+    const parsed = JSON.parse(content);
+    expect(parsed.hooks.preToolUse).toBeDefined();
+    expect(parsed.hooks.preToolUse[0].command).toContain('ivy-phase-guard.sh');
+
+    const guardScript = path.join(tmp, '.cursor', 'hooks', 'ivy-phase-guard.sh');
+    const scriptExists = await fs.stat(guardScript).then(() => true).catch(() => false);
+    expect(scriptExists).toBe(true);
   });
 
   it('skips when file exists and overwrite=false', async () => {
@@ -170,5 +186,20 @@ describe('installIvyHookForPlatform — windsurf only', () => {
     const second = await installIvyHookForPlatform(tmp, windsurf, false, 'project');
     expect(second.installed).toBe(false);
     expect(second.reason).toBe('exists');
+  });
+});
+
+describe('getPlatformRulesDir — rulesBaseDir support (v0.8)', () => {
+  it('returns rulesBaseDir when set', () => {
+    const platform = getPlatformById('claude')!;
+    const withBaseDir = { ...platform, rulesBaseDir: '.clinerules' };
+    const result = getPlatformRulesDir(withBaseDir, '/tmp/test', 'project');
+    expect(result).toBe('/tmp/test/.clinerules');
+  });
+
+  it('falls back to skillsDir when rulesBaseDir is not set', () => {
+    const claude = getPlatformById('claude')!;
+    const result = getPlatformRulesDir(claude, '/tmp/test', 'project');
+    expect(result).toBe('/tmp/test/.claude/rules');
   });
 });

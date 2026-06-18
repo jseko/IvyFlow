@@ -27,6 +27,9 @@ execFileSync(process.execPath, ['scripts/check-manifest.js'], { stdio: 'inherit'
 console.log('Validating SKILL.md 4-block structure...');
 execFileSync(process.execPath, ['scripts/check-skill-blocks.js'], { stdio: 'inherit' });
 
+console.log('Validating §9.9/§9.10/§9.11/§9.12 evolution constraints...');
+execFileSync(process.execPath, ['scripts/check-suggest-redlines.js'], { stdio: 'inherit' });
+
 console.log('Compiling TypeScript...');
 try {
   runTsc(['--version']);

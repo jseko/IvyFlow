@@ -1,6 +1,7 @@
 {
-  "version": "0.2.0",
-  "schemaVersion": 2,
+  "version": "0.7.0",
+  "schemaVersion": 6,
+  "dataModelVersion": "DTM-v2",
   "skills": [
     "ivy/SKILL.md",
     "ivy/references/explore-fast-track.md",
@@ -22,6 +23,86 @@
       "type": "rendered",
       "renderer": "windsurf-json",
       "installPathRelativeToSkillsDir": "hooks/ivy-phase-guard.json"
+    },
+    "cursor": {
+      "type": "rendered",
+      "renderer": "cursor-json",
+      "installPathRelativeToSkillsDir": "hooks.json"
+    }
+  },
+  "analytics": {
+    "dataModelVersion": "L1L2L3-v1",
+    "hook": {
+      "type": "static",
+      "asset": "ivy-session-tracker.sh",
+      "installPath": ".git/hooks/post-commit"
+    }
+  },
+  "suggest": {
+    "version": "2.0",
+    "config": {
+      "stuckDetection": {
+        "thresholdByPhase": {
+          "open": 14,
+          "design": 21,
+          "build": 30,
+          "verify": 14,
+          "archive": 0
+        },
+        "rollbackWindowDays": 7
+      },
+      "feedback": {
+        "storePath": ".ivy/sessions/cache/suggestion_feedback.json"
+      },
+      "cache": {
+        "ttlMs": 3600000
+      },
+      "calibration": {
+        "enabled": true,
+        "storePath": ".ivy/sessions/cache/calibration_profile.json",
+        "minDataPoints": 5,
+        "percentileThreshold": 0.8
+      },
+      "visibility": {
+        "consecutiveDismissalsForQuiet": 2,
+        "consecutiveDismissalsForHidden": 4,
+        "maxSnoozeCount": 3
+      },
+      "expiration": {
+        "pendingMaxDays": 60,
+        "snoozeDefaultDays": 7
+      }
+    }
+  },
+  "review": {
+    "version": "1.0",
+    "config": {
+      "batchModes": ["accept", "snooze"],
+      "snoozeDaysDefault": 7
+    }
+  },
+  "check": {
+    "version": "1.0",
+    "config": {
+      "modes": ["quick", "standard", "full"],
+      "outputFormats": ["cli", "markdown", "json"],
+      "failOnLevels": ["none", "stuck_critical", "any_critical"],
+      "exitCodeDefault": false
+    }
+  },
+  "explain": {
+    "version": "1.0",
+    "config": {
+      "readOnly": true,
+      "maxExplanations": 50
+    }
+  },
+  "ruleGovernance": {
+    "version": "1.0",
+    "config": {
+      "maxRules": 10,
+      "manifestPath": ".ivy/sessions/cache/rule_manifest.json",
+      "overrideScope": "derived_cache_only"
     }
   }
 }

@@ -5,6 +5,9 @@ import {
   renderRuleAsMdc,
   renderRuleAsCopilot,
   renderHookForWindsurf,
+  renderHookForGemini,
+  renderHookForQwen,
+  renderHookForKiro,
 } from './index.js';
 
 describe('render/index', () => {
@@ -41,6 +44,56 @@ describe('render/index', () => {
 
   it('claude-code hook is shipped statically and rejects render', () => {
     expect(() => renderHook('claude-code')).toThrowError(/static asset/);
+  });
+
+  it('gemini hook renders valid JSON with beforeTool and Experimental label', () => {
+    const out = renderHook('gemini');
+    const parsed = JSON.parse(out);
+    expect(parsed.beforeTool).toBeDefined();
+    expect(parsed.beforeTool.command).toContain('ivy-phase-guard.sh');
+    expect(parsed.beforeTool.description).toContain('Experimental');
+  });
+
+  it('qwen hook renders valid JSON with preToolUse and Experimental label', () => {
+    const out = renderHook('qwen');
+    const parsed = JSON.parse(out);
+    expect(parsed.preToolUse).toBeDefined();
+    expect(parsed.preToolUse.enabled).toBe(true);
+    expect(parsed.preToolUse.description).toContain('Experimental');
+  });
+
+  it('kiro hook renders valid JSON with preToolUse type and Experimental label', () => {
+    const out = renderHook('kiro');
+    const parsed = JSON.parse(out);
+    expect(parsed.hook).toBeDefined();
+    expect(parsed.hook.type).toBe('preToolUse');
+    expect(parsed.hook.label).toContain('Experimental');
+  });
+});
+
+describe('renderHookForGemini', () => {
+  it('renders beforeTool command with Experimental label', () => {
+    const parsed = JSON.parse(renderHookForGemini());
+    expect(parsed.beforeTool.command).toContain('.ivy/hooks/ivy-phase-guard.sh');
+    expect(parsed.beforeTool.description).toContain('Experimental');
+  });
+});
+
+describe('renderHookForQwen', () => {
+  it('renders preToolUse with enabled script and Experimental label', () => {
+    const parsed = JSON.parse(renderHookForQwen());
+    expect(parsed.preToolUse.enabled).toBe(true);
+    expect(parsed.preToolUse.script).toContain('.ivy/hooks/ivy-phase-guard.sh');
+    expect(parsed.preToolUse.description).toContain('Experimental');
+  });
+});
+
+describe('renderHookForKiro', () => {
+  it('renders hook with type preToolUse and Experimental label', () => {
+    const parsed = JSON.parse(renderHookForKiro());
+    expect(parsed.hook.type).toBe('preToolUse');
+    expect(parsed.hook.command).toContain('ivy-phase-guard.sh');
+    expect(parsed.hook.label).toContain('Experimental');
   });
 });
 

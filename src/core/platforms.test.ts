@@ -8,19 +8,28 @@ import {
 } from './platforms.js';
 
 describe('platforms', () => {
-  describe('PLATFORMS invariants (v0.2)', () => {
-    it('ships exactly 7 platforms', () => {
-      expect(PLATFORMS).toHaveLength(7);
+  describe('PLATFORMS invariants (v0.8)', () => {
+    it('ships exactly 16 platforms (11 Certified + 5 Experimental)', () => {
+      expect(PLATFORMS).toHaveLength(16);
     });
 
-    it('contains all v0.2 platform ids exactly once', () => {
+    it('contains all v0.8 platform ids exactly once', () => {
       const ids = PLATFORMS.map((p) => p.id).sort();
       expect(ids).toEqual([
+        'amazon-q',
+        'auggie',
         'claude',
+        'cline',
         'codebuddy',
+        'continue',
         'cursor',
+        'gemini-cli',
         'github-copilot',
+        'kilocode',
+        'kimi-code',
+        'lingma',
         'qoder',
+        'roocode',
         'trae',
         'windsurf',
       ]);
@@ -56,22 +65,46 @@ describe('platforms', () => {
       expect(w?.hookPath).toBe('hooks/ivy-phase-guard.json');
     });
 
-    it('trae / qoder / codebuddy are md-only same-shape platforms (D8 validation)', () => {
+    it('trae / qoder / codebuddy / cline / amazon-q are md-only same-shape platforms (D8 validation)', () => {
       const sameShape = PLATFORMS.filter((p) =>
-        ['trae', 'qoder', 'codebuddy'].includes(p.id),
+        ['trae', 'qoder', 'codebuddy', 'cline', 'amazon-q'].includes(p.id),
       );
-      expect(sameShape).toHaveLength(3);
+      expect(sameShape).toHaveLength(5);
       for (const p of sameShape) {
         expect(p.rulesFormat).toBe('md');
         expect(p.rulesDir).toBe('rules');
         expect(p.supportsHooks).toBeFalsy();
       }
     });
+
+    it('all 16 platforms have detectionPaths populated (v0.7)', () => {
+      for (const p of PLATFORMS) {
+        expect(p.detectionPaths).toBeDefined();
+        expect(p.detectionPaths!.length).toBeGreaterThan(0);
+      }
+    });
+
+    it('all 16 platforms have certification field (v0.8)', () => {
+      const certified = PLATFORMS.filter((p) => p.certification === 'certified');
+      const experimental = PLATFORMS.filter((p) => p.certification === 'experimental');
+      expect(certified.length).toBe(11);
+      expect(experimental.length).toBe(5);
+    });
+
+    it('claude detectionPaths matches documented paths', () => {
+      const claude = PLATFORMS.find((p) => p.id === 'claude');
+      expect(claude?.detectionPaths).toEqual([
+        { rel: '.claude/settings.json', confidence: 1.0 },
+        { rel: '.claude/settings.local.json', confidence: 1.0 },
+        { rel: '.claude/skills', confidence: 0.8 },
+        { rel: '.claude', confidence: 0.6 },
+      ]);
+    });
   });
 
   describe('getPlatformById', () => {
     it('returns the matching platform for each known id', () => {
-      for (const id of ['claude', 'cursor', 'github-copilot', 'windsurf', 'codebuddy', 'trae', 'qoder']) {
+      for (const id of ['claude', 'cursor', 'github-copilot', 'windsurf', 'codebuddy', 'trae', 'qoder', 'cline', 'amazon-q']) {
         expect(getPlatformById(id)?.id).toBe(id);
       }
     });
@@ -88,12 +121,14 @@ describe('platforms', () => {
       skillsDir: '.x-project',
       globalSkillsDir: '.x-global',
       openspecToolId: 'x',
+      certification: 'certified',
     };
     const withoutGlobal: Platform = {
       id: 'y',
       name: 'Y',
       skillsDir: '.y-project',
       openspecToolId: 'y',
+      certification: 'certified',
     };
 
     it('returns project dir for project scope', () => {

@@ -4,7 +4,7 @@ import os from 'os';
 import { promises as fs } from 'fs';
 import { execFileSync } from 'child_process';
 
-import { installGitPrePushHook } from './git-hook.js';
+import { installGitPrePushHook, installGitPostCommitHook } from './git-hook.js';
 
 async function mkTmpDir(): Promise<string> {
   return fs.mkdtemp(path.join(os.tmpdir(), 'ivyflow-githook-'));
@@ -127,5 +127,43 @@ describe('installGitPrePushHook', () => {
 
     await installGitPrePushHook(tmp, true);
     expect(runHookOnBranch(tmp).exit).toBe(0);
+  });
+});
+
+describe('installGitPostCommitHook', () => {
+  let tmp: string;
+
+  beforeEach(async () => {
+    tmp = await mkTmpDir();
+  });
+
+  afterEach(async () => {
+    await fs.rm(tmp, { recursive: true, force: true });
+  });
+
+  it('returns no-git when target dir is not a git repo', async () => {
+    const result = await installGitPostCommitHook(tmp, true);
+    expect(result).toEqual({ installed: false, reason: 'no-git' });
+  });
+
+  it('installs executable post-commit hook in a git repo', async () => {
+    git(tmp, 'init', '-q');
+    const result = await installGitPostCommitHook(tmp, true);
+    expect(result.installed).toBe(true);
+    if (!result.installed) return;
+
+    const stat = await fs.stat(result.path);
+    expect(stat.isFile()).toBe(true);
+    expect(stat.mode & 0o100).toBe(0o100);
+  });
+
+  it('skipped-existing when overwrite=false and hook already present', async () => {
+    git(tmp, 'init', '-q');
+    await installGitPostCommitHook(tmp, true);
+    const second = await installGitPostCommitHook(tmp, false);
+    expect(second.installed).toBe(false);
+    if (!second.installed) {
+      expect(second.reason).toBe('skipped-existing');
+    }
   });
 });

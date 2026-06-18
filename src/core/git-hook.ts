@@ -16,8 +16,8 @@ export type HookInstallResult =
   | { installed: true; path: string }
   | { installed: false; reason: 'no-git' | 'skipped-existing'; path?: string };
 
-const HOOK_NAME = 'pre-push';
-const HOOK_SOURCE = 'ivy-git-prepush.sh';
+const PRE_PUSH_HOOK_NAME = 'pre-push';
+const PRE_PUSH_HOOK_SOURCE = 'ivy-git-prepush.sh';
 
 export const HOOK_START_MARKER = '# === IvyFlow pre-push hook — auto-generated ===';
 export const HOOK_END_MARKER = '# === IvyFlow pre-push hook END ===';
@@ -36,13 +36,13 @@ export async function installGitPrePushHook(
   }
 
   const hooksDir = path.join(gitDir, 'hooks');
-  const destPath = path.join(hooksDir, HOOK_NAME);
+  const destPath = path.join(hooksDir, PRE_PUSH_HOOK_NAME);
 
   if (!overwrite && (await fileExists(destPath))) {
     return { installed: false, reason: 'skipped-existing', path: destPath };
   }
 
-  const srcPath = path.join(getAssetsDir(), 'hooks', HOOK_SOURCE);
+  const srcPath = path.join(getAssetsDir(), 'hooks', PRE_PUSH_HOOK_SOURCE);
   if (!(await fileExists(srcPath))) {
     throw new Error(`Hook source not found: ${srcPath}`);
   }
@@ -50,6 +50,50 @@ export async function installGitPrePushHook(
   await ensureDir(hooksDir);
   const content = await readFile(srcPath);
   const wrapped = `${HOOK_START_MARKER}\n${content}\n${HOOK_END_MARKER}\n`;
+  await writeFile(destPath, wrapped);
+  await chmod(destPath, 0o755);
+
+  return { installed: true, path: destPath };
+}
+
+const POST_COMMIT_HOOK_NAME = 'post-commit';
+const POST_COMMIT_HOOK_SOURCE = 'ivy-session-tracker.sh';
+
+export const POST_COMMIT_START_MARKER = '# === IvyFlow post-commit hook — auto-generated ===';
+export const POST_COMMIT_END_MARKER = '# === IvyFlow post-commit hook END ===';
+
+/**
+ * Install the post-commit hook for L1 session event tracking (v0.4 analytics).
+ * Best-effort: failures are logged but do not block init.
+ */
+export async function installGitPostCommitHook(
+  projectRoot: string,
+  overwrite: boolean,
+): Promise<HookInstallResult> {
+  if (!(await isGitRepo(projectRoot))) {
+    return { installed: false, reason: 'no-git' };
+  }
+
+  const gitDir = await resolveGitDir(projectRoot);
+  if (!gitDir) {
+    return { installed: false, reason: 'no-git' };
+  }
+
+  const hooksDir = path.join(gitDir, 'hooks');
+  const destPath = path.join(hooksDir, POST_COMMIT_HOOK_NAME);
+
+  if (!overwrite && (await fileExists(destPath))) {
+    return { installed: false, reason: 'skipped-existing', path: destPath };
+  }
+
+  const srcPath = path.join(getAssetsDir(), 'hooks', POST_COMMIT_HOOK_SOURCE);
+  if (!(await fileExists(srcPath))) {
+    throw new Error(`Hook source not found: ${srcPath}`);
+  }
+
+  await ensureDir(hooksDir);
+  const content = await readFile(srcPath);
+  const wrapped = `${POST_COMMIT_START_MARKER}\n${content}\n${POST_COMMIT_END_MARKER}\n`;
   await writeFile(destPath, wrapped);
   await chmod(destPath, 0o755);
 

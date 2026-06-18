@@ -7,6 +7,7 @@ import { execFileSync } from 'child_process';
 import { runInit } from './init.js';
 import { runStatus } from './status.js';
 import { runValidate } from './validate.js';
+import { runDashboard } from './dashboard.js';
 
 async function mkTmpDir(): Promise<string> {
   return fs.mkdtemp(path.join(os.tmpdir(), 'ivyflow-cmd-'));
@@ -211,5 +212,51 @@ describe('runValidate', () => {
   it('returns 0 with warning when no changes exist', async () => {
     const code = await runValidate({ cwd: tmp });
     expect(code).toBe(0);
+  });
+});
+
+describe('runDashboard', () => {
+  let tmp: string;
+  const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+  beforeEach(async () => {
+    tmp = await mkTmpDir();
+    logSpy.mockClear();
+    gitInit(tmp);
+    await runInit({ mode: 'quick', cwd: tmp, skipOpenSpec: true });
+    // Enable analytics
+    const yamlPath = path.join(tmp, '.ivy', 'project.yaml');
+    const yaml = await fs.readFile(yamlPath, 'utf-8');
+    await fs.writeFile(yamlPath, yaml.replace('analytics_enabled: false', 'analytics_enabled: true'));
+  });
+
+  afterEach(async () => {
+    logSpy.mockRestore();
+    await fs.rm(tmp, { recursive: true, force: true });
+  });
+
+  // TC-8: Dashboard trend chart rendering
+  it('renders trend chart section in output', async () => {
+    const code = await runDashboard({ cwd: tmp });
+    expect(code).toBe(0);
+    const output = logSpy.mock.calls.map((c) => c.map(String).join(' ')).join('\n');
+    expect(output).toContain('IvyFlow Dashboard');
+    expect(output).toContain('Commit Trend');
+    expect(output).toContain('Data Source Declaration');
+    expect(output).toContain('Verified Metrics');
+  });
+
+  // TC-9: Dashboard HTML export
+  it('exports HTML report with --html flag', async () => {
+    const code = await runDashboard({ cwd: tmp, html: true });
+    expect(code).toBe(0);
+    // Should write to .ivy/reports/
+    const reportDir = path.join(tmp, '.ivy', 'reports');
+    const files = await fs.readdir(reportDir);
+    const htmlFiles = files.filter((f) => f.endsWith('.html'));
+    expect(htmlFiles.length).toBeGreaterThanOrEqual(1);
+    const content = await fs.readFile(path.join(reportDir, htmlFiles[0]), 'utf-8');
+    expect(content).toContain('IvyFlow Dashboard');
+    expect(content).toContain('<!DOCTYPE html>');
   });
 });

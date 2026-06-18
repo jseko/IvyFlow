@@ -1,0 +1,22 @@
+# IvyFlow Check — GitHub Actions workflow
+# Copy this file to .github/workflows/ivy-check.yml and customize.
+# Template: runs ivy check on pull requests for workflow health verification.
+
+name: IvyFlow Check
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ivy-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install -g ivyflow-cli
+      - run: ivy init --quick --skip-openspec
+      - run: ivy check --change ${{ github.head_ref || github.ref_name }} --mode quick

@@ -41,9 +41,9 @@ describe('detectPlatforms (v0.2)', () => {
     await fs.rm(tmp, { recursive: true, force: true });
   });
 
-  it('returns 7 entries, all undetected on a clean dir', async () => {
+  it('returns 16 entries, all undetected on a clean dir', async () => {
     const results = await detectPlatforms(tmp);
-    expect(results).toHaveLength(7);
+    expect(results).toHaveLength(16);
     expect(results.every((r) => r.detected === false)).toBe(true);
   });
 
@@ -91,4 +91,47 @@ describe('detectPlatforms (v0.2)', () => {
     expect(claude?.confidence).toBe(1.0);
     expect(claude?.matchedPath).toBe('.claude/settings.json');
   });
+
+  it('detects cline via settings.json (confidence 1.0)', async () => {
+    await fs.mkdir(path.join(tmp, '.cline'), { recursive: true });
+    await fs.writeFile(path.join(tmp, '.cline/settings.json'), '{}');
+    const cline = (await detectPlatforms(tmp)).find((r) => r.platform.id === 'cline');
+    expect(cline?.detected).toBe(true);
+    expect(cline?.confidence).toBe(1.0);
+    expect(cline?.matchedPath).toBe('.cline/settings.json');
+  });
+
+  it('detects cline via rules dir (confidence 0.8)', async () => {
+    await fs.mkdir(path.join(tmp, '.cline/rules'), { recursive: true });
+    const cline = (await detectPlatforms(tmp)).find((r) => r.platform.id === 'cline');
+    expect(cline?.detected).toBe(true);
+    expect(cline?.confidence).toBe(0.8);
+    expect(cline?.matchedPath).toBe('.cline/rules');
+  });
+
+  it('detects amazon-q via rules dir (confidence 0.8)', async () => {
+    await fs.mkdir(path.join(tmp, '.amazonq/rules'), { recursive: true });
+    const amazonq = (await detectPlatforms(tmp)).find((r) => r.platform.id === 'amazon-q');
+    expect(amazonq?.detected).toBe(true);
+    expect(amazonq?.confidence).toBe(0.8);
+    expect(amazonq?.matchedPath).toBe('.amazonq/rules');
+  });
+
+  it('detects amazon-q via generic dir (confidence 0.6)', async () => {
+    await fs.mkdir(path.join(tmp, '.amazonq'), { recursive: true });
+    const amazonq = (await detectPlatforms(tmp)).find((r) => r.platform.id === 'amazon-q');
+    expect(amazonq?.detected).toBe(true);
+    expect(amazonq?.confidence).toBe(0.6);
+    expect(amazonq?.matchedPath).toBe('.amazonq');
+  });
+
+  it('uses detectionPaths from Platform interface (v0.8 single source)', async () => {
+    // All platforms now have detectionPaths populated. Verify they are used
+    // by checking detection works (both sources have identical data).
+    await fs.mkdir(path.join(tmp, '.claude/skills'), { recursive: true });
+    const claude = (await detectPlatforms(tmp)).find((r) => r.platform.id === 'claude');
+    expect(claude?.detected).toBe(true);
+    expect(claude?.confidence).toBe(0.8);
+  });
+
 });

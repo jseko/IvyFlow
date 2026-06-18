@@ -7,6 +7,14 @@ import { runValidate } from '../commands/validate.js';
 import { runDoctor } from '../commands/doctor.js';
 import { runUninstall } from '../commands/uninstall.js';
 import { runUpdate } from '../commands/update.js';
+import { runAnalytics } from '../commands/analytics.js';
+import { runDashboard } from '../commands/dashboard.js';
+import { runSuggest } from '../commands/suggest.js';
+import { runReview, type ReviewOptions } from '../commands/review.js';
+import { runCheck, type CheckOptions } from '../commands/check.js';
+import { runExplain, type ExplainOptions } from '../commands/explain.js';
+import { runRules, type RulesOptions } from '../commands/rules.js';
+import { runArchive, type ArchiveOptions } from '../commands/archive.js';
 
 const require = createRequire(import.meta.url);
 const { version } = require('../../package.json');
@@ -55,13 +63,15 @@ program
     process.exit(exitCode);
   });
 
-// v0.2: doctor — strict local invariant check (§9.4).
+// v0.2: doctor — strict local invariant health check (§9.4).
+// v0.8: --platforms — platform certification report.
 program
   .command('doctor')
   .description('Local invariant health check (§9.4: no telemetry / network / state inference)')
   .option('--fix', 'Re-create missing skills/rules/hooks (never rewrites existing files)', false)
-  .action(async (opts: { fix?: boolean }) => {
-    const exitCode = await runDoctor({ fix: opts.fix });
+  .option('--platforms', 'Show platform health certification report', false)
+  .action(async (opts: { fix?: boolean; platforms?: boolean }) => {
+    const exitCode = await runDoctor({ fix: opts.fix, platforms: opts.platforms });
     process.exit(exitCode);
   });
 
@@ -88,6 +98,181 @@ program
   .option('--check', 'Check-only, return exit code', false)
   .action(async (opts: { check?: boolean }) => {
     const exitCode = await runUpdate({ check: opts.check });
+    process.exit(exitCode);
+  });
+
+// v0.7: analytics — adoption metrics with confidence transparency (rewritten).
+program
+  .command('analytics')
+  .description('Show adoption metrics with data-source transparency (§9.13)')
+  .option('--change <name>', 'Filter to a specific change')
+  .option('--project', 'Aggregate across all changes')
+  .option('--period <days>', 'Time window: 7d, 30d, 90d', '7d')
+  .option('--enable', 'Enable analytics tracking', false)
+  .option('--disable', 'Disable analytics tracking', false)
+  .option('--json', 'Output as JSON', false)
+  .option('--confidence', 'Show detailed confidence disclosure', false)
+  .action(async (opts: { change?: string; project?: boolean; period?: string; enable?: boolean; disable?: boolean; json?: boolean; confidence?: boolean }) => {
+    const period = opts.period === '90d' ? '90d' : opts.period === '30d' ? '30d' : '7d';
+    const exitCode = await runAnalytics({
+      change: opts.change,
+      project: opts.project,
+      period,
+      enable: opts.enable,
+      disable: opts.disable,
+      json: opts.json,
+      confidence: opts.confidence,
+    });
+    process.exit(exitCode);
+  });
+
+// v0.4: dashboard — ASCII dashboard with data-source declaration.
+program
+  .command('dashboard')
+  .description('Interactive ASCII dashboard for workflow insights')
+  .option('--change <name>', 'Filter to a specific change')
+  .option('--watch', 'Auto-refresh every 30 seconds', false)
+  .option('--html', 'Export dashboard as HTML report', false)
+  .option('--period <days>', 'Time window: 7d, 30d, 90d', '7d')
+  .option('--quality', 'Show suggestion quality panel', false)
+  .option('--team', 'Show team-level overview (cross-change aggregation)', false)
+  .action(async (opts: { change?: string; watch?: boolean; html?: boolean; period?: string; quality?: boolean; team?: boolean }) => {
+    const period = opts.period === '90d' ? '90d' : opts.period === '30d' ? '30d' : '7d';
+    const exitCode = await runDashboard({
+      change: opts.change,
+      watch: opts.watch,
+      html: opts.html,
+      period,
+      quality: opts.quality,
+      team: opts.team,
+    });
+    process.exit(exitCode);
+  });
+
+// v0.5: suggest — workflow suggestions (advisory, never auto-execute).
+// v0.6 adds: --calibrate, --quality, --show-expired, --show-all.
+// v0.7 adds: --explain.
+program
+  .command('suggest')
+  .description('Show workflow suggestions (stuck/rollback/phase-review)')
+  .option('--change <name>', 'Filter to a specific change')
+  .option('--stuck', 'Only show stuck detections', false)
+  .option('--json', 'Output as JSON with quality metrics', false)
+  .option('--mark-resolved <id>', 'Mark a suggestion as resolved')
+  .option('--action <action>', 'Feedback action: accepted, dismissed, ignored (default: accepted)', 'accepted')
+  .option('--calibrate', 'Run stuck threshold calibration', false)
+  .option('--quality', 'Show suggestion quality dashboard', false)
+  .option('--show-expired', 'Include expired suggestions in output', false)
+  .option('--show-all', 'Show suggestions at all visibility levels', false)
+  .option('--explain', 'Attach inline trace explanation to each suggestion', false)
+  .action(async (opts: { change?: string; stuck?: boolean; json?: boolean; markResolved?: string; action?: string; calibrate?: boolean; quality?: boolean; showExpired?: boolean; showAll?: boolean; explain?: boolean }) => {
+    const exitCode = await runSuggest({
+      change: opts.change,
+      stuck: opts.stuck,
+      json: opts.json,
+      markResolved: opts.markResolved,
+      action: opts.action,
+      calibrate: opts.calibrate,
+      quality: opts.quality,
+      showExpired: opts.showExpired,
+      showAll: opts.showAll,
+      explain: opts.explain,
+    });
+    process.exit(exitCode);
+  });
+
+// v0.6: review — interactive suggestion processing.
+program
+  .command('review')
+  .description('Interactive suggestion review (accept/dismiss/snooze/ignore)')
+  .option('--change <name>', 'Filter to a specific change')
+  .option('--type <type>', 'Filter by suggestion type: stuck, phase_review, rollback_warning')
+  .option('--auto <action>', 'Batch mode: accept or snooze')
+  .option('--snooze-days <days>', 'Days to snooze (default: 7)', '7')
+  .option('--json', 'Output as JSON', false)
+  .action(async (opts: { change?: string; type?: string; auto?: string; snoozeDays?: string; json?: boolean }) => {
+    const exitCode = await runReview({
+      change: opts.change,
+      type: opts.type as ReviewOptions['type'],
+      auto: !!opts.auto,
+      autoAction: opts.auto === 'snooze' ? 'snooze' : 'accept',
+      snoozeDays: parseInt(opts.snoozeDays ?? '7', 10),
+      json: opts.json,
+    });
+    process.exit(exitCode);
+  });
+
+// v0.6: check — CI-friendly workflow health check (non-blocking).
+program
+  .command('check')
+  .description('Non-blocking workflow health check for CI/team sharing')
+  .option('--change <name>', 'Change to inspect')
+  .option('--mode <mode>', 'Execution depth: quick, standard (default), full', 'standard')
+  .option('--output <format>', 'Output format: cli (default), markdown, json', 'cli')
+  .option('--env', 'Environment detection mode', false)
+  .option('--exit-code', 'Enable non-zero exit codes for failures', false)
+  .option('--fail-on <level>', 'Exit code trigger: none, stuck_critical, any_critical', 'none')
+  .action(async (opts: { change?: string; mode?: string; output?: string; env?: boolean; exitCode?: boolean; failOn?: string }) => {
+    const exitCode = await runCheck({
+      change: opts.change,
+      mode: opts.mode as CheckOptions['mode'],
+      output: opts.output as CheckOptions['output'],
+      env: opts.env,
+      exitCode: opts.exitCode,
+      failOn: opts.failOn as CheckOptions['failOn'],
+    });
+    process.exit(exitCode);
+  });
+
+// v0.7: explain — suggestion traceability (read-only, per §9.15).
+program
+  .command('explain')
+  .description('Show suggestion traceability (read-only, never modifies data)')
+  .option('--id <id>', 'Explain a specific suggestion by ID')
+  .option('--change <name>', 'Filter to a specific change')
+  .option('--type <type>', 'Filter by suggestion type: stuck, phase_review, rollback_warning')
+  .option('--json', 'Output as JSON', false)
+  .action(async (opts: { id?: string; change?: string; type?: string; json?: boolean }) => {
+    const exitCode = await runExplain({
+      id: opts.id,
+      change: opts.change,
+      type: opts.type,
+      json: opts.json,
+    });
+    process.exit(exitCode);
+  });
+
+// v0.7: rules — rule governance (list/info/override/remove, §9.14).
+program
+  .command('rules')
+  .description('List and manage Advisor rules (overrides stored in Derived Cache)')
+  .option('--list', 'List all active rules with config versions', false)
+  .option('--info <name>', 'Show detailed info for a specific rule')
+  .option('--override <rule.param=value>', 'Override a rule parameter (e.g., stuck_detection.build=25)')
+  .option('--remove <rule.param>', 'Remove a user override (e.g., stuck_detection.build)')
+  .option('--json', 'Output as JSON', false)
+  .action(async (opts: { list?: boolean; info?: string; override?: string; remove?: string; json?: boolean }) => {
+    const exitCode = await runRules({
+      list: opts.list,
+      info: opts.info,
+      override: opts.override,
+      remove: opts.remove,
+      json: opts.json,
+    });
+    process.exit(exitCode);
+  });
+
+// v0.8: archive — archive a change with optional implementation report.
+program
+  .command('archive')
+  .description('Archive a change (optionally generate implementation report)')
+  .option('--change <name>', 'Change to archive')
+  .option('--report', 'Generate implementation report at .ivy/reports/<name>-<date>.md', false)
+  .action(async (opts: { change?: string; report?: boolean }) => {
+    const exitCode = await runArchive({
+      change: opts.change,
+      report: opts.report,
+    });
     process.exit(exitCode);
   });
 

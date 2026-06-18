@@ -10,6 +10,10 @@ async function mkTmpDir(): Promise<string> {
   return fs.mkdtemp(path.join(os.tmpdir(), 'ivyflow-doctor-'));
 }
 
+// Capture console output for --platforms tests
+let capturedLogs: string[] = [];
+const originalLog = console.log;
+
 describe('runDoctor (v0.2 local invariant)', () => {
   let tmp: string;
 
@@ -65,5 +69,59 @@ describe('runDoctor (v0.2 local invariant)', () => {
     });
     const code = await runDoctor({ cwd: tmp });
     expect(code).toBe(0);
+  });
+});
+
+// Separate describe block for --platforms tests with console capture
+describe('runDoctor --platforms (v0.8)', () => {
+  let tmp: string;
+
+  beforeEach(async () => {
+    tmp = await mkTmpDir();
+    capturedLogs = [];
+    console.log = (...args: string[]) => {
+      capturedLogs.push(args.map(String).join(' '));
+    };
+  });
+
+  afterEach(async () => {
+    console.log = originalLog;
+    await fs.rm(tmp, { recursive: true, force: true });
+  });
+
+  it('shows platform health report with claude installed', async () => {
+    await runInit({ mode: 'quick', cwd: tmp, skipOpenSpec: true, platforms: ['claude'] });
+    const code = await runDoctor({ cwd: tmp, platforms: true });
+    expect(code).toBe(0);
+
+    const out = capturedLogs.join('\n');
+    expect(out).toContain('IvyFlow Platform Certification Report');
+    expect(out).toContain('Certified');
+    expect(out).toContain('claude');
+    expect(out).toContain('skills');
+    expect(out).toContain('rules');
+  });
+
+  it('shows all 16 platforms in clean project', async () => {
+    const code = await runDoctor({ cwd: tmp, platforms: true });
+    expect(code).toBe(0);
+
+    const out = capturedLogs.join('\n');
+    // Should reference total count (16 platforms)
+    expect(out).toMatch(/\d+ \/ 16 /);
+    expect(out).toContain('Certified');
+    expect(out).toContain('Experimental');
+  });
+
+  it('reports platform certification counts', async () => {
+    await runInit({ mode: 'quick', cwd: tmp, skipOpenSpec: true, platforms: ['claude', 'cursor'] });
+    const code = await runDoctor({ cwd: tmp, platforms: true });
+    expect(code).toBe(0);
+
+    const out = capturedLogs.join('\n');
+    // Should show Certified count = 11
+    expect(out).toContain('Certified: 11');
+    // Should show Experimental count = 5
+    expect(out).toContain('Experimental: 5');
   });
 });

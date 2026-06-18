@@ -1,0 +1,12 @@
+# IvyFlow Check — GitLab CI workflow
+# Copy this file to .gitlab-ci.yml and customize.
+# Template: runs ivy check on merge requests for workflow health verification.
+
+ivy-check:
+  image: node:20
+  script:
+    - npm install -g ivyflow-cli
+    - ivy init --quick --skip-openspec
+    - ivy check --change $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME --mode quick
+  only:
+    - merge_requests

@@ -9,7 +9,8 @@
 import type { InstallScope } from './types.js';
 
 export type RuleFormat = 'md' | 'mdc' | 'copilot';
-export type HookFormat = 'claude-code' | 'windsurf-json';
+export type HookFormat = 'claude-code' | 'windsurf-json' | 'cursor-json' | 'gemini' | 'qwen' | 'kiro';
+export type PlatformCertification = 'certified' | 'experimental' | 'planned';
 
 export interface Platform {
   id: string;
@@ -30,6 +31,22 @@ export interface Platform {
   hookFormat?: HookFormat;
   /** Where to write hook config relative to skillsDir (only when hookFormat is set). */
   hookPath?: string;
+  /**
+   * Detection probe paths in priority order (first match wins).
+   * When set, detectPlatforms uses these instead of the deprecated CONFIDENCE_BY_PATH.
+   * @since v0.7
+   */
+  detectionPaths?: Array<{ rel: string; confidence: 1.0 | 0.8 | 0.6 }>;
+  /**
+   * Certification level for platform maturity tracking.
+   * @since v0.8
+   */
+  certification: PlatformCertification;
+  /**
+   * Optional rules base directory. When set, rules are installed here instead of skillsDir.
+   * @since v0.8
+   */
+  rulesBaseDir?: string;
 }
 
 export function getPlatformSkillsDir(platform: Platform, scope: InstallScope): string {
@@ -40,8 +57,9 @@ export function getPlatformSkillsDir(platform: Platform, scope: InstallScope): s
 }
 
 /**
- * v0.2 supports 7 platforms. Order matters: 4 unique-format platforms first,
- * 3 md-only same-shape platforms last (Trae / Qoder / CodeBuddy validate D1).
+ * v0.8 supports 16 platforms (11 Certified + 5 Experimental).
+ * Order matters: 4 unique-format platforms first, then md-only platforms,
+ * then new Certified platforms, then Experimental platforms.
  */
 export const PLATFORMS: Platform[] = [
   {
@@ -54,6 +72,13 @@ export const PLATFORMS: Platform[] = [
     rulesFormat: 'md',
     supportsHooks: true,
     hookFormat: 'claude-code',
+    certification: 'certified',
+    detectionPaths: [
+      { rel: '.claude/settings.json', confidence: 1.0 },
+      { rel: '.claude/settings.local.json', confidence: 1.0 },
+      { rel: '.claude/skills', confidence: 0.8 },
+      { rel: '.claude', confidence: 0.6 },
+    ],
   },
   {
     id: 'cursor',
@@ -62,6 +87,15 @@ export const PLATFORMS: Platform[] = [
     openspecToolId: '',
     rulesDir: 'rules',
     rulesFormat: 'mdc',
+    supportsHooks: true,
+    hookFormat: 'cursor-json',
+    hookPath: 'hooks.json',
+    certification: 'certified',
+    detectionPaths: [
+      { rel: '.cursor/settings.json', confidence: 1.0 },
+      { rel: '.cursor/rules', confidence: 0.8 },
+      { rel: '.cursor', confidence: 0.6 },
+    ],
   },
   {
     id: 'github-copilot',
@@ -72,6 +106,11 @@ export const PLATFORMS: Platform[] = [
     // file written at the skillsDir root via custom path in render.
     rulesDir: '',
     rulesFormat: 'copilot',
+    certification: 'certified',
+    detectionPaths: [
+      { rel: '.github/copilot-instructions.md', confidence: 1.0 },
+      { rel: '.github', confidence: 0.6 },
+    ],
   },
   {
     id: 'windsurf',
@@ -83,6 +122,12 @@ export const PLATFORMS: Platform[] = [
     supportsHooks: true,
     hookFormat: 'windsurf-json',
     hookPath: 'hooks/ivy-phase-guard.json',
+    certification: 'certified',
+    detectionPaths: [
+      { rel: '.windsurf/settings.json', confidence: 1.0 },
+      { rel: '.windsurf/rules', confidence: 0.8 },
+      { rel: '.windsurf', confidence: 0.6 },
+    ],
   },
   {
     id: 'codebuddy',
@@ -91,6 +136,11 @@ export const PLATFORMS: Platform[] = [
     openspecToolId: '',
     rulesDir: 'rules',
     rulesFormat: 'md',
+    certification: 'certified',
+    detectionPaths: [
+      { rel: '.codebuddy/rules', confidence: 0.8 },
+      { rel: '.codebuddy', confidence: 0.6 },
+    ],
   },
   {
     id: 'trae',
@@ -99,6 +149,12 @@ export const PLATFORMS: Platform[] = [
     openspecToolId: '',
     rulesDir: 'rules',
     rulesFormat: 'md',
+    certification: 'certified',
+    detectionPaths: [
+      { rel: '.trae/rules/project_rules.md', confidence: 1.0 },
+      { rel: '.trae/rules', confidence: 0.8 },
+      { rel: '.trae', confidence: 0.6 },
+    ],
   },
   {
     id: 'qoder',
@@ -107,6 +163,131 @@ export const PLATFORMS: Platform[] = [
     openspecToolId: '',
     rulesDir: 'rules',
     rulesFormat: 'md',
+    certification: 'certified',
+    detectionPaths: [
+      { rel: '.qoder/rules', confidence: 0.8 },
+      { rel: '.qoder', confidence: 0.6 },
+    ],
+  },
+  {
+    id: 'cline',
+    name: 'Cline',
+    skillsDir: '.cline',
+    openspecToolId: '',
+    rulesDir: 'rules',
+    rulesFormat: 'md',
+    certification: 'certified',
+    detectionPaths: [
+      { rel: '.cline/settings.json', confidence: 1.0 },
+      { rel: '.cline/rules', confidence: 0.8 },
+      { rel: '.cline', confidence: 0.6 },
+    ],
+  },
+  {
+    id: 'amazon-q',
+    name: 'Amazon Q',
+    skillsDir: '.amazonq',
+    openspecToolId: '',
+    rulesDir: 'rules',
+    rulesFormat: 'md',
+    certification: 'certified',
+    detectionPaths: [
+      { rel: '.amazonq/rules', confidence: 0.8 },
+      { rel: '.amazonq', confidence: 0.6 },
+    ],
+  },
+  // ── v0.8 New Certified Platforms ──
+  {
+    id: 'gemini-cli',
+    name: 'Gemini CLI',
+    skillsDir: '.gemini',
+    openspecToolId: '',
+    rulesDir: 'rules',
+    rulesFormat: 'md',
+    certification: 'certified',
+    detectionPaths: [
+      { rel: '.gemini/settings.json', confidence: 1.0 },
+      { rel: '.gemini', confidence: 0.8 },
+    ],
+  },
+  {
+    id: 'roocode',
+    name: 'RooCode',
+    skillsDir: '.roo',
+    openspecToolId: '',
+    rulesDir: 'rules',
+    rulesFormat: 'md',
+    certification: 'certified',
+    detectionPaths: [
+      { rel: '.roo/rules', confidence: 0.8 },
+      { rel: '.roo', confidence: 0.6 },
+    ],
+  },
+  // ── v0.8 Experimental Platforms ──
+  {
+    id: 'continue',
+    name: 'Continue',
+    skillsDir: '.continue',
+    openspecToolId: '',
+    rulesDir: 'rules',
+    rulesFormat: 'md',
+    certification: 'experimental',
+    detectionPaths: [
+      { rel: '.continue/config.json', confidence: 0.8 },
+      { rel: '.continue', confidence: 0.6 },
+    ],
+  },
+  {
+    id: 'kilocode',
+    name: 'Kilo Code',
+    skillsDir: '.kilocode',
+    openspecToolId: '',
+    rulesDir: 'rules',
+    rulesFormat: 'md',
+    certification: 'experimental',
+    detectionPaths: [
+      { rel: '.kilocode/rules', confidence: 0.8 },
+      { rel: '.kilocode', confidence: 0.6 },
+    ],
+  },
+  {
+    id: 'auggie',
+    name: 'Auggie (Augment)',
+    skillsDir: '.augment',
+    openspecToolId: '',
+    rulesDir: 'rules',
+    rulesFormat: 'md',
+    certification: 'experimental',
+    detectionPaths: [
+      { rel: '.augment/rules', confidence: 0.8 },
+      { rel: '.augment', confidence: 0.6 },
+    ],
+  },
+  {
+    id: 'kimi-code',
+    name: 'Kimi Code',
+    skillsDir: '.kimi-code',
+    openspecToolId: '',
+    rulesDir: 'rules',
+    rulesFormat: 'md',
+    certification: 'experimental',
+    detectionPaths: [
+      { rel: '.kimi-code/rules', confidence: 0.8 },
+      { rel: '.kimi-code', confidence: 0.6 },
+    ],
+  },
+  {
+    id: 'lingma',
+    name: 'Lingma',
+    skillsDir: '.lingma',
+    openspecToolId: '',
+    rulesDir: 'rules',
+    rulesFormat: 'md',
+    certification: 'experimental',
+    detectionPaths: [
+      { rel: '.lingma/rules', confidence: 0.8 },
+      { rel: '.lingma', confidence: 0.6 },
+    ],
   },
 ];
 

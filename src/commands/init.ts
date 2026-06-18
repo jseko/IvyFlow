@@ -1,7 +1,7 @@
 /**
  * `ivy init` — bootstraps a project for the IvyFlow workflow.
  *
- * v0.2: detects all 7 platforms with confidence scores; prompts user to
+ * v0.4: detects all 9 platforms with confidence scores; prompts user to
  * multi-select platforms (or auto-selects in quick mode); installs Skills /
  * Rules / Hooks per-platform in parallel.
  */
@@ -16,7 +16,7 @@ import {
   copyIvyRulesForPlatform,
   installIvyHookForPlatform,
 } from '../core/skills.js';
-import { installGitPrePushHook } from '../core/git-hook.js';
+import { installGitPrePushHook, installGitPostCommitHook } from '../core/git-hook.js';
 import { defaultSpecAdapter } from '../core/spec-adapter.js';
 import { writeYaml } from '../utils/yaml.js';
 import { logger } from '../utils/logger.js';
@@ -196,16 +196,26 @@ export async function runInit(opts: InitOptions = {}): Promise<number> {
   );
   const failed = reports.filter((r) => !r.ok);
 
-  // 3) Git pre-push hook (project scope only).
+  // 3) Git hooks (project scope only): pre-push + post-commit.
   if (decisions.scope === 'project') {
     logger.step('Installing git pre-push hook...');
-    const hookResult = await installGitPrePushHook(cwd, decisions.overwrite);
-    if (hookResult.installed) {
-      logger.success(`Hook installed at ${path.relative(cwd, hookResult.path)}`);
-    } else if (hookResult.reason === 'no-git') {
-      logger.warn('Not a git repo — skipping pre-push hook (you can re-run `ivy init` later).');
+    const prePushResult = await installGitPrePushHook(cwd, decisions.overwrite);
+    if (prePushResult.installed) {
+      logger.success(`Pre-push hook installed at ${path.relative(cwd, prePushResult.path)}`);
+    } else if (prePushResult.reason === 'no-git') {
+      logger.warn('Not a git repo — skipping git hooks (you can re-run `ivy init` later).');
     } else {
-      logger.dim(`Hook already exists at ${hookResult.path} (use --overwrite to replace).`);
+      logger.dim(`Pre-push hook already exists at ${prePushResult.path} (use --overwrite to replace).`);
+    }
+
+    logger.step('Installing git post-commit hook (analytics)...');
+    const postCommitResult = await installGitPostCommitHook(cwd, decisions.overwrite);
+    if (postCommitResult.installed) {
+      logger.success(`Post-commit hook installed at ${path.relative(cwd, postCommitResult.path)}`);
+    } else if (postCommitResult.reason === 'no-git') {
+      // already warned above
+    } else {
+      logger.dim(`Post-commit hook already exists at ${postCommitResult.path} (use --overwrite to replace).`);
     }
   }
 

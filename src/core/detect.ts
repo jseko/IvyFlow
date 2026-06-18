@@ -1,10 +1,11 @@
 /**
- * Platform detection — v0.2 scans all 7 platforms with three-layer confidence:
+ * Platform detection — v0.8 scans all 16 platforms via Platform.detectionPaths.
  *   1.0 = settings/config file hit (e.g. .claude/settings.json)
  *   0.8 = explicit rules dir hit  (e.g. .cursor/rules)
  *   0.6 = generic dir hit         (e.g. .github/, may exist for Actions only)
  *
  * No DetectionStrategy interface, no git history, no network — design.md §9.2.
+ * No fallback table: every platform carries its own detectionPaths (v0.8 migration).
  */
 
 import path from 'path';
@@ -26,48 +27,6 @@ interface PathCheck {
   confidence: Confidence;
 }
 
-/**
- * Per-platform probe paths in priority order. First match wins → that confidence
- * is reported. Order MUST be: 1.0 (config) → 0.8 (rules dir) → 0.6 (generic).
- *
- * Hardcoded by design (D3): no continuous float scoring, no strategy registry.
- */
-export const CONFIDENCE_BY_PATH: Record<string, PathCheck[]> = {
-  claude: [
-    { rel: '.claude/settings.json', confidence: 1.0 },
-    { rel: '.claude/settings.local.json', confidence: 1.0 },
-    { rel: '.claude/skills', confidence: 0.8 },
-    { rel: '.claude', confidence: 0.6 },
-  ],
-  cursor: [
-    { rel: '.cursor/settings.json', confidence: 1.0 },
-    { rel: '.cursor/rules', confidence: 0.8 },
-    { rel: '.cursor', confidence: 0.6 },
-  ],
-  'github-copilot': [
-    { rel: '.github/copilot-instructions.md', confidence: 1.0 },
-    { rel: '.github', confidence: 0.6 },
-  ],
-  windsurf: [
-    { rel: '.windsurf/settings.json', confidence: 1.0 },
-    { rel: '.windsurf/rules', confidence: 0.8 },
-    { rel: '.windsurf', confidence: 0.6 },
-  ],
-  codebuddy: [
-    { rel: '.codebuddy/rules', confidence: 0.8 },
-    { rel: '.codebuddy', confidence: 0.6 },
-  ],
-  trae: [
-    { rel: '.trae/rules/project_rules.md', confidence: 1.0 },
-    { rel: '.trae/rules', confidence: 0.8 },
-    { rel: '.trae', confidence: 0.6 },
-  ],
-  qoder: [
-    { rel: '.qoder/rules', confidence: 0.8 },
-    { rel: '.qoder', confidence: 0.6 },
-  ],
-};
-
 async function probe(projectPath: string, checks: PathCheck[]): Promise<{ matchedPath: string; confidence: Confidence } | null> {
   for (const check of checks) {
     const abs = path.join(projectPath, check.rel);
@@ -79,14 +38,20 @@ async function probe(projectPath: string, checks: PathCheck[]): Promise<{ matche
 }
 
 /**
- * Detect all 7 platforms in a project. Returns one result per platform; entries
+ * Detect all 16 platforms in a project. Returns one result per platform; entries
  * with `detected: false` retain the lowest confidence value (0.6) as a default
  * placeholder — callers MUST gate on `detected` before reading confidence.
+ *
+ * Each platform defines its own detectionPaths — no fallback table needed.
  */
 export async function detectPlatforms(projectPath: string): Promise<PlatformDetectResult[]> {
   const results: PlatformDetectResult[] = [];
   for (const platform of PLATFORMS) {
-    const checks = CONFIDENCE_BY_PATH[platform.id] ?? [];
+    const checks = platform.detectionPaths;
+    if (!checks || checks.length === 0) {
+      results.push({ platform, detected: false, confidence: 0.6, matchedPath: '' });
+      continue;
+    }
     const hit = await probe(projectPath, checks);
     if (hit) {
       results.push({ platform, detected: true, confidence: hit.confidence, matchedPath: hit.matchedPath });
