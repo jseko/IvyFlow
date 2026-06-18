@@ -14,6 +14,8 @@ import { fileExists, readFile, ensureDir } from '../utils/fs.js';
 import { readYaml, writeYaml } from '../utils/yaml.js';
 import { logger } from '../utils/logger.js';
 import type { EvidenceRecord, EvidenceReport } from '../core/types.js';
+import { MemoryStore } from '../core/memory-arch.js';
+import { createAutoLink } from '../core/knowledge-linking.js';
 
 // ─── Types ───
 
@@ -123,6 +125,12 @@ export async function runVerify(opts: VerifyOptions = {}): Promise<number> {
 
   // Write evidence report
   await writeYaml(report.writtenTo, report as unknown as Record<string, unknown>);
+
+  // ── Auto-link passing gates to decision memory ──
+  const passingGates = results.filter((r) => r.passed);
+  if (passingGates.length > 0 && changeName) {
+    await autoLinkEvidence(cwd, changeName, passingGates);
+  }
 
   logger.info('');
   if (overall === 'passed') {
@@ -250,4 +258,52 @@ function checkCoverage(output: string | undefined, minPct: number): boolean {
   const match = output.match(/(\d+(?:\.\d+)?)%/);
   if (!match) return false;
   return parseFloat(match[1]) >= minPct;
+}
+
+/**
+ * Auto-link passing quality gates to decision memory records.
+ * When a gate passes, creates an evidence memory record and links
+ * `evidence → decision` using createAutoLink().
+ * Fully optional: silently skips if no memory store or decision records exist.
+ */
+async function autoLinkEvidence(cwd: string, changeName: string, gates: EvidenceRecord[]): Promise<void> {
+  const ivyDir = path.join(cwd, '.ivy');
+  const memoryDir = path.join(ivyDir, 'memory');
+
+  // Skip if memory dir doesn't exist (no records to link to)
+  if (!(await fileExists(memoryDir))) return;
+
+  try {
+    const store = new MemoryStore(cwd);
+
+    // Find decision records for this change
+    const decisions = await store.query({ types: ['decision'], changeName });
+    if (decisions.length === 0) return;
+
+    const targetDecisionId = decisions[0].id;
+
+    for (const gate of gates) {
+      // Create evidence memory record
+      const evidenceId = await store.write({
+        type: 'evidence',
+        title: `Gate: ${gate.gate}`,
+        timestamp: new Date().toISOString(),
+        changeName,
+        source: 'verify',
+        content: gate.output?.substring(0, 500) ?? 'passed',
+        tags: ['auto-linked', `gate:${gate.gate}`],
+      });
+
+      // Auto-link evidence → first decision record
+      await createAutoLink(
+        path.join(ivyDir, 'memory'),
+        evidenceId,
+        targetDecisionId,
+        'evidences',
+        `Gate "${gate.gate}" passed (${gate.durationMs}ms)`,
+      );
+    }
+  } catch {
+    // Fully optional: never break verify for linking failures
+  }
 }
