@@ -12,7 +12,7 @@ import path from 'path';
 import os from 'os';
 
 import { readYaml } from '../utils/yaml.js';
-import { fileExists } from '../utils/fs.js';
+import { fileExists, readDir } from '../utils/fs.js';
 import { logger } from '../utils/logger.js';
 import { PLATFORMS, getPlatformById, getPlatformSkillsDir, type Platform } from '../core/platforms.js';
 import {
@@ -28,6 +28,7 @@ export interface DoctorOptions {
   cwd?: string;
   fix?: boolean;
   platforms?: boolean;
+  environment?: boolean;
 }
 
 interface CheckResult {
@@ -165,6 +166,11 @@ async function fixForPlatform(
 
 export async function runDoctor(opts: DoctorOptions = {}): Promise<number> {
   const cwd = opts.cwd ?? process.cwd();
+
+  // v0.9: --environment — tool presence check (read-only).
+  if (opts.environment) {
+    return runEnvironmentCheck(cwd);
+  }
 
   // v0.8: --platforms — platform health certification report (read-only, early return).
   if (opts.platforms) {
@@ -319,3 +325,71 @@ async function tryAutoCalibrate(projectPath: string): Promise<void> {
 
 // Self-audit helper exported for tests: ensures the platform list never grows beyond 7.
 export const DOCTOR_PLATFORM_INVARIANT = PLATFORMS.length;
+
+/**
+ * v0.9: Environment health check — Node.js, Git, Java, package manager.
+ * Read-only: never modifies files.
+ */
+async function runEnvironmentCheck(cwd: string): Promise<number> {
+  logger.info('');
+  logger.info('Environment Health');
+  logger.info('═'.repeat(50));
+
+  const checks: Array<{ name: string; ok: boolean; detail: string }> = [];
+
+  // Node.js
+  const nodeVer = process.version.slice(1);
+  const nodeMajor = parseInt(nodeVer.split('.')[0], 10);
+  checks.push({
+    name: 'Node.js',
+    ok: nodeMajor >= 18,
+    detail: `v${nodeVer}${nodeMajor >= 18 ? '' : ' (≥ 18 required)'}`,
+  });
+
+  // Package manager
+  const nodeFiles = await readDir(cwd).catch(() => [] as string[]);
+  const hasPackageJson = nodeFiles.includes('package.json');
+  if (hasPackageJson) {
+    for (const [bin, label] of [['pnpm', 'pnpm'], ['yarn', 'yarn'], ['npm', 'npm']] as const) {
+      try {
+        const { execSync } = await import('child_process');
+        const ver = execSync(`${bin} --version`, { encoding: 'utf-8' }).trim();
+        checks.push({ name: label, ok: true, detail: `v${ver}` });
+        break;
+      } catch { /* try next */ }
+    }
+  }
+
+  // Git
+  try {
+    const { execSync } = await import('child_process');
+    const gitVer = execSync('git --version', { encoding: 'utf-8' }).trim();
+    execSync('git rev-parse --git-dir', { cwd, stdio: 'pipe' });
+    checks.push({ name: 'Git', ok: true, detail: `${gitVer} (repository)` });
+  } catch {
+    checks.push({ name: 'Git', ok: false, detail: 'not found or not a git repository' });
+  }
+
+  // Java (only if pom.xml exists)
+  if (nodeFiles.includes('pom.xml') || nodeFiles.includes('build.gradle')) {
+    try {
+      const { execSync } = await import('child_process');
+      const javaVer = execSync('java -version 2>&1', { encoding: 'utf-8' }).trim();
+      checks.push({ name: 'Java', ok: true, detail: javaVer.split('\n')[0] });
+    } catch {
+      checks.push({ name: 'Java', ok: false, detail: 'not found (required for Java project)' });
+    }
+  }
+
+  // Output
+  let allOk = true;
+  for (const check of checks) {
+    if (check.ok) logger.success(`✓ ${check.name}  ${check.detail}`);
+    else { logger.error(`✗ ${check.name}  ${check.detail}`); allOk = false; }
+  }
+
+  logger.info('');
+  if (allOk) logger.success('All environment checks passed');
+  else logger.error('Some environment checks failed');
+  return allOk ? 0 : 1;
+}

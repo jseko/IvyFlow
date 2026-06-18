@@ -69,7 +69,7 @@ describe('queryProjectMetrics', () => {
   });
 
   it('skips unsupported metrics gracefully', async () => {
-    const results = await queryProjectMetrics(tmp, ['bottleneck_phases' as any]);
+    const results = await queryProjectMetrics(tmp, ['bottleneck_phases' as unknown as 'active_changes']);
     expect(Array.isArray(results)).toBe(true);
     expect(results).toHaveLength(0);
   });

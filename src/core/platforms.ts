@@ -204,6 +204,9 @@ export const PLATFORMS: Platform[] = [
     openspecToolId: '',
     rulesDir: 'rules',
     rulesFormat: 'md',
+    supportsHooks: true,
+    hookFormat: 'gemini',
+    hookPath: 'hooks/ivy-phase-guard.json',
     certification: 'certified',
     detectionPaths: [
       { rel: '.gemini/settings.json', confidence: 1.0 },

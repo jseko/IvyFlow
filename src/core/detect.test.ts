@@ -4,6 +4,76 @@ import os from 'os';
 import { promises as fs } from 'fs';
 
 import { detectPlatform, detectPlatforms } from './detect.js';
+import { readYaml } from '../utils/yaml.js';
+
+describe('project.yaml v0.9→v0.10 backward compat', () => {
+  let tmp: string;
+
+  beforeEach(async () => {
+    tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'ivyflow-compat-'));
+  });
+
+  afterEach(async () => {
+    await fs.rm(tmp, { recursive: true, force: true });
+  });
+
+  it('reads v0.9 project.yaml format transparently', async () => {
+    const v09Yaml = {
+      version: '0.9.0',
+      scope: 'change',
+      platforms: ['claude', 'cursor'],
+      detected_platforms: [{ id: 'claude', detected: true, confidence: 1.0 }],
+      analytics_enabled: false,
+      project_knowledge: { enabled: true, extractable_types: ['decision', 'constraint', 'risk', 'fact'] },
+      quality_gates: { compile: true, test: true, task_check: true, coverage: false },
+      fingerprint: { auto_refresh: true },
+    };
+    const yamlPath = path.join(tmp, 'project.yaml');
+    await fs.writeFile(yamlPath, JSON.stringify(v09Yaml));
+
+    const data = await readYaml<Record<string, unknown>>(yamlPath);
+    expect(data).not.toBeNull();
+    expect(data!.version).toBe('0.9.0');
+    expect(data!.platforms).toEqual(['claude', 'cursor']);
+  });
+
+  it('reads v0.10 project.yaml with v0.9 fields intact', async () => {
+    const v010Yaml = {
+      version: '0.10.0',
+      scope: 'change',
+      platforms: ['claude', 'cursor'],
+      detected_platforms: [{ id: 'claude', detected: true, confidence: 1.0 }],
+      analytics_enabled: false,
+      project_knowledge: { enabled: true, extractable_types: ['decision', 'constraint', 'risk', 'fact', 'evidence'] },
+      quality_gates: { compile: true, test: true, task_check: true, coverage: false },
+      fingerprint: { auto_refresh: true },
+    };
+    const yamlPath = path.join(tmp, 'project.yaml');
+    await fs.writeFile(yamlPath, JSON.stringify(v010Yaml));
+
+    const data = await readYaml<Record<string, unknown>>(yamlPath);
+    expect(data).not.toBeNull();
+    expect(data!.version).toBe('0.10.0');
+    expect(data!.project_knowledge).toBeDefined();
+  });
+
+  it('v0.10 readYaml tolerates extra unknown fields', async () => {
+    const yaml = {
+      version: '0.10.0',
+      scope: 'change',
+      platforms: ['windsurf'],
+      analytics_enabled: false,
+      future_field: { test: true },
+    };
+    const yamlPath = path.join(tmp, 'project.yaml');
+    await fs.writeFile(yamlPath, JSON.stringify(yaml));
+
+    const data = await readYaml<Record<string, unknown>>(yamlPath);
+    expect(data).not.toBeNull();
+    expect(data!.version).toBe('0.10.0');
+    expect(data!.future_field).toEqual({ test: true });
+  });
+});
 
 describe('detectPlatform (v0.1 compat)', () => {
   let tmp: string;

@@ -162,7 +162,7 @@ describe('installIvyHookForPlatform — windsurf + cursor', () => {
     const trae = getPlatformById('trae')!;
     const result = await installIvyHookForPlatform(tmp, trae, true, 'project');
     expect(result.installed).toBe(false);
-    expect(result.reason).toBe('platform-has-no-rendered-hook');
+    expect(result.reason).toBe('platform-has-no-hook-format');
   });
 
   it('writes valid hooks.json for cursor', async () => {

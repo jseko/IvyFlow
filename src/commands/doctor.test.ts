@@ -125,3 +125,52 @@ describe('runDoctor --platforms (v0.8)', () => {
     expect(out).toContain('Experimental: 5');
   });
 });
+
+// ─── --environment (v0.9) ───
+
+describe('runDoctor --environment', () => {
+  let tmp: string;
+
+  async function gitInit(cwd: string): Promise<void> {
+    const { execFileSync } = await import('child_process');
+    execFileSync('git', ['init', '-q'], { cwd });
+    execFileSync('git', ['config', 'user.email', 't@e.com'], { cwd });
+    execFileSync('git', ['config', 'user.name', 'T'], { cwd });
+    execFileSync('git', ['commit', '--allow-empty', '-q', '-m', 'init'], { cwd });
+  }
+
+  beforeEach(async () => {
+    tmp = await mkTmpDir();
+  });
+
+  afterEach(async () => {
+    await fs.rm(tmp, { recursive: true, force: true });
+  });
+
+  it('exits 0 in a valid environment', async () => {
+    await gitInit(tmp);
+    const code = await runDoctor({ cwd: tmp, environment: true });
+    expect(code).toBe(0);
+  });
+
+  it('does not crash when package.json is present', async () => {
+    await gitInit(tmp);
+    await fs.writeFile(path.join(tmp, 'package.json'), JSON.stringify({ name: 'test' }));
+    const code = await runDoctor({ cwd: tmp, environment: true });
+    expect(code).toBe(0);
+  });
+
+  it('handles pom.xml without Java gracefully', async () => {
+    await gitInit(tmp);
+    await fs.writeFile(path.join(tmp, 'pom.xml'), '<project></project>');
+    const code = await runDoctor({ cwd: tmp, environment: true });
+    // Should not crash — if Java is missing, it logs a warning
+    expect([0, 1]).toContain(code);
+  });
+
+  it('handles git presence gracefully in non-repo directory', async () => {
+    // No git init — git rev-parse will fail
+    const code = await runDoctor({ cwd: tmp, environment: true });
+    expect(code).toBe(1);
+  });
+});

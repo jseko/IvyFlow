@@ -96,7 +96,7 @@ describe('queryChangeMetrics', () => {
   it('skips unsupported metrics gracefully', async () => {
     await writeRawEvent(tmp, { ts: '2026-06-01T10:00:00Z', eventId: 'e1', change: 'feat-f', event: 'git_commit', source: 'git-hook' });
 
-    const results = await queryChangeMetrics(tmp, 'feat-f', ['active_changes' as any]);
+    const results = await queryChangeMetrics(tmp, 'feat-f', ['active_changes' as unknown as 'bottleneck_phases']);
     expect(Array.isArray(results)).toBe(true);
     expect(results).toHaveLength(0);
   });

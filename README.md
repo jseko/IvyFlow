@@ -4,7 +4,7 @@
 
 [简体中文](./README.zh-CN.md)
 
-IvyFlow (`ivyflow-cli`) is a CLI that distributes Skills, Rules, and Git hooks to AI coding platforms (16 platforms in v0.8) so an AI agent is constrained to follow a structured **9-step development workflow** instead of jumping straight to writing code.
+IvyFlow (`ivyflow-cli`) is a CLI that distributes Skills, Rules, and Git hooks to AI coding platforms (16 platforms in v0.10) so an AI agent is constrained to follow a structured **9-step development workflow** instead of jumping straight to writing code.
 
 It is **not** an LLM runtime, **not** a SaaS. It is a thin local enforcer that ships alongside any AI coding tool.
 
@@ -44,9 +44,9 @@ ivy init --enterprise    # standard + reserved plugin slots (v0.1 is a no-op)
 3. Ensures `@fission-ai/openspec` is available when at least one selected platform exposes an OpenSpec tool id.
 4. Copies the `ivy` Skill (4-block layout: ROUTER / CONSTRAINTS / VARIABLES / REFERENCES) into each platform's skills directory.
 5. Renders the `ivy-phase-guard` + `ivy-security` Rules per platform: `.md` (Claude / CodeBuddy / Trae / Qoder), `.mdc` (Cursor), `.github/copilot-instructions.md` (GitHub Copilot).
-6. Installs the Windsurf PreToolUse hook (`.windsurf/hooks/ivy-phase-guard.json`) when Windsurf is selected.
+6. Installs PreToolUse hooks via typed TypeScript guard: Windsurf (`hooks/ivy-phase-guard.json`), Cursor (`.cursor/hooks.json`), Gemini CLI (`beforeTool` command `ivy validate`).
 7. Installs `.git/hooks/pre-push` (the secondary defense).
-8. Writes `.ivy/project.yaml` with `version: '0.3.0'`, `platforms[]`, `detected_platforms[]`, and `analytics_enabled: false`.
+8. Writes `.ivy/project.yaml` with `version: '0.10.0'`, `platforms[]`, `detected_platforms[]`, `analytics_enabled: false`, `project_knowledge`, `quality_gates`, and `fingerprint` sections.
 
 Then per change:
 
@@ -58,9 +58,12 @@ ivy validate --security=false      # skip security checks
 ivy doctor                         # local invariant health check (no telemetry / network)
 ivy doctor --fix                   # re-create missing skill / rule / hook files (never rewrites existing)
 ivy doctor --platforms             # platform certification report (v0.8)
+ivy doctor --environment           # tool presence check (Node.js, Git, Java, package manager) (v0.9)
 ivy analytics                      # adoption metrics with data-source transparency
 ivy analytics --bias               # show inference bias log (calibration actions)
 ivy dashboard                      # interactive ASCII dashboard with trend charts
+ivy dashboard --adr                # show ADR index (decision memory view) (v0.10)
+ivy dashboard --memory             # show memory overview with type counts (v0.10)
 ivy dashboard --team               # team-level cross-change aggregation (v0.8)
 ivy dashboard --html --period 90d  # export as HTML report
 ivy suggest                        # workflow suggestions (stuck/rollback/phase-review)
@@ -80,8 +83,22 @@ ivy rules                          # list and manage Advisor rules
 ivy rules --info stuck_detection   # detailed rule info with effective config
 ivy rules --override stuck_detection.build=25  # override a parameter (Derived Cache only)
 ivy rules --remove stuck_detection.build      # remove an override
-ivy archive --change <name>                   # archive a change
-ivy archive --change <name> --report           # archive with implementation report (v0.8)
+ivy archive --change <name>                   # archive a change with knowledge extraction (v0.9)
+ivy archive --change <name> --adr              # generate detailed ADR entries (v0.10)
+ivy archive --change <name> --no-extract       # skip knowledge extraction
+ivy archive --change <name> --force            # archive from any phase
+ivy archive --change <name> --action discard   # post-archive action (keep-state, discard, push-pr)
+ivy verify --change <name>                    # quality gates: compile, test, task check, coverage (v0.9)
+ivy verify --change <name> --gate compile      # run specific gate only
+ivy verify --change <name> --skip coverage     # skip specific gate
+ivy fingerprint                               # confidence-scored tech stack detection (v0.9)
+ivy fingerprint --refresh                     # re-scan from scratch
+ivy fingerprint --json                        # JSON output
+ivy release --change <name>                   # bundle completed change artifacts (v0.9)
+ivy release --change <name>                   # bundle completed change artifacts (v0.9)
+ivy export metrics                           # export project data to JSON (v0.10)
+ivy export metrics --pipe                    # stdout JSON output (pipe-friendly)
+ivy export metrics --dimension changes       # export specific dimension only
 ivy uninstall                      # safely remove IvyFlow files (asks for confirmation)
 ivy uninstall --dry-run            # preview what would be removed
 ivy uninstall --force              # skip confirmation (for CI)
@@ -89,15 +106,35 @@ ivy update                         # check npm for newer version, print upgrade 
 ivy update --check                 # return exit code 0 (latest) or 1 (update available)
 ```
 
-## What is in v0.8
+## What is in v0.10
 
-- **16 commands**: `init` / `status` / `validate` / `doctor` / `analytics` / `dashboard` / `suggest` / `review` / `check` / `explain` / `rules` / `archive` / `uninstall` / `update` (+ `--platforms`, `--team` flag expansions).
-- **Connected Advisor** — Adds implementation reports, team-level insights, and platform certification.
-- **`ivy archive --report`** — generates `.ivy/reports/<name>-<date>.md` with Summary, Timeline, Decision Log, Suggestion Impact, and Lessons Learned. Read-only (Derived Cache, never creates events).
-- **`ivy doctor --platforms`** — Platform Certification Report: scans all 16 platforms for detection, certification level, and skills/rules/hooks installation.
-- **`ivy dashboard --team`** — cross-change team dashboard: project overview (completion rate, cycle time, P80 active change limit), bottleneck identification (phase deviations), suggestion system health. All metrics include "correlation observation" (§9.13).
-- **Metric Layer** — `src/core/metrics/` unified query abstraction. Types: `MetricQuery`, `MetricResult`. Scopes: change (phase_durations, commit_frequency) and project (active_changes, completion_rate).
-- **Platform Certification** — 11 Certified + 5 Experimental = 16 total platforms. `PlatformCertification` type with `'certified' | 'experimental' | 'planned'`.
+- **21 commands**: `init` / `status` / `validate` / `doctor` / `analytics` / `dashboard` / `suggest` / `review` / `check` / `explain` / `rules` / `archive` / `verify` / `fingerprint` / `release` / `export` / `uninstall` / `update` (+ `--adr`, `--memory` flag expansions).
+- **TypeScript PreToolUse Guard** — `PreToolUseGuard` class with typed evaluation pipeline (global block → phase rules → archive guard). Three decision types: `allow` / `block` / `warn`. `PlatformHookAdapter` interface with 3 implementations: Windsurf (JSON), Cursor (JSON), Gemini (CLI). Legacy v0.7-v0.9 hook config backward-compatible.
+- **Memory Schema freeze** — `.ivy/memory/schema.yaml` with 5 record types (decision, constraint, risk, fact, evidence). `MemoryStore` class: write (validated YAML + JSON index), query (multi-condition filter), ADR view, memory overview.
+- **ADR View** — `ivy dashboard --adr` renders decision records as ADR index. `ivy dashboard --memory` shows type-count overview. `ivy archive --adr` generates detailed ADR entries during archive.
+- **Export API** — `ivy export metrics` with `--pipe` (stdout JSON), `--project` (multi-project), `--dimension` (changes/metrics/knowledge). Read-only: never modifies `.ivy/` state.
+- **Community templates** — GitHub Issue templates (bug report, feature request), PR template, RFC template (`docs/rfc/`). CONTRIBUTING.md, CODE_OF_CONDUCT.md, SECURITY.md.
+- **Gemini CLI PreToolUse hook** — Promoted from Experimental. Hook command changed from shell script to `ivy validate`.
+- **517 passing tests** across 49 test files.
+- **5 phases**: `open → design → build → verify → archive`.
+- **16 platforms** (no change from v0.9).
+
+## What is in v0.9
+
+- **20 commands**: `init` / `status` / `validate` / `doctor` / `analytics` / `dashboard` / `suggest` / `review` / `check` / `explain` / `rules` / `archive` / `verify` / `fingerprint` / `release` / `uninstall` / `update` (+ `--platforms`, `--team`, `--environment` flag expansions).
+- **Project Knowledge Foundation** — Three new deterministic project assets:
+  - **Fingerprint** — Confidence-scored tech stack detection (1.0/0.9/0.8/0.7/0.6).
+  - **Evidence** — Quality gates with structured evidence output.
+  - **Knowledge** — Regex-only extraction from structured headings.
+- **`ivy archive` (v0.9 rewrite)** — Knowledge extraction + L0 Memory integration. Scans proposal.md/design.md/tasks.md for Decisions, Constraints, Risks, and Facts. Writes `.ivy/knowledge/<change>.yaml` and `.ivy/memory/<change>/`.
+- **`ivy verify`** — Quality gates: compile, test, task check (tasks.md), and coverage. Report-only (no auto-fix). Evidence written to `.ivy/evidence/<change>.yaml`. Error-tolerant: one gate failure doesn't block others.
+- **`ivy fingerprint`** — Confidence-scored tech stack detection. Scans package.json, pom.xml, go.mod, Cargo.toml, pyproject.toml. Outputs project type, language, build tool, test framework, package manager, frontend/backend. Cached to `.ivy/fingerprint.yaml`. JSON output available.
+- **`ivy release`** — Bundle completed change artifacts (archive report, knowledge, evidence, L0 memory) into `.ivy/releases/<change>/.` Validates ARCHIVE phase only. Manifest written as `release.yaml`.
+- **`ivy doctor --environment`** — Tool presence checks: Node.js, Git, package manager (pnpm/yarn/npm), Java (if pom.xml found).
+- **L0 Memory Model** — Raw facts layer: per-type YAML files (decisions.yaml, constraints.yaml, risks.yaml, facts.yaml) with {type, key, value, source, confidence, timestamp} format. Designed for v1.0 L1/L2 expansion.
+- **Regex-only Knowledge Extraction** — 4 extractable types (decision, constraint, risk, fact). Forbidden: summary, recommendation, analysis. Deterministic, no AI, no inference.
+- **Public Data Contract** — Add-only field policy for all `.ivy/*` YAML outputs. Forward-compatible with future schema versions.
+- **project.yaml v0.9 schema** — New sections: `project_knowledge` (enabled, extractable_types), `quality_gates` (compile, test, task_check, coverage), `fingerprint` (auto_refresh). Backward-compatible with v0.8. (v0.8→v0.9 verified by test suite).
 - **New Certified platforms**: Gemini CLI, RooCode.
 - **New Experimental platforms**: Continue, Kilo Code, Auggie/Augment, Kimi Code, Lingma.
 - **`rulesBaseDir`** — optional field for non-standard rule directories (e.g., Cline's `.clinerules/`).
@@ -124,7 +161,7 @@ ivy update --check                 # return exit code 0 (latest) or 1 (update av
 - Adoption snapshots are computed from `git diff --shortstat <baseCommit>..HEAD` and are **always tagged `confidence: low`**. They do not distinguish AI-authored from human-authored lines.
 - A snapshot can only be taken when the change phase is `archive`. There is no `--force-snapshot`.
 - The pre-push hook can be bypassed with `git push --no-verify`. Treat the rule layer as the primary defense, the hook as a safety net.
-- PreToolUse hooks are only emitted for **Windsurf** (the only platform with a stable contract today). Other platforms rely on the Rule + Git hook layers.
+- PreToolUse hooks are now emitted for **Windsurf, Cursor, and Gemini CLI** (typed TypeScript guards via PlatformHookAdapter). Other platforms rely on the Rule + Git hook layers.
 - Session inference is based on a 30-minute heuristic and is calibrated but not validated against ground truth (no dataset ≥ 100 labels).
 - Suggestions are rule-based (no ML). Effectiveness depends on threshold tuning and user feedback quality.
 - Dashboard coverage estimate (~50%) is approximate — actual coverage depends on platform support.
@@ -155,7 +192,7 @@ npm run check-manifest
 npm run check-skill-blocks
 ```
 
-Coverage thresholds: 80% global lines / branches / functions / statements; the phase machine is held to 100%. Current coverage: **88.5%** lines.
+Coverage thresholds: 80% global lines / branches / functions / statements; the phase machine is held to 100%. Current coverage: **88.5%** lines (517 tests across 49 files).
 
 ## License
 

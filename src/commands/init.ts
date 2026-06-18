@@ -219,11 +219,11 @@ export async function runInit(opts: InitOptions = {}): Promise<number> {
     }
   }
 
-  // 4) `.ivy/project.yaml` — extends v0.1 schema with version + last_migration + detected_platforms[].
+  // 4) `.ivy/project.yaml` — v0.10 schema with project_knowledge, quality_gates, fingerprint sections.
   const ivyDir = decisions.scope === 'global' ? path.join(os.homedir(), '.ivy') : path.join(cwd, '.ivy');
   const projectYamlPath = path.join(ivyDir, 'project.yaml');
   await writeYaml(projectYamlPath, {
-    version: '0.3.0',
+    version: '0.10.0',
     last_migration: new Date().toISOString(),
     platforms: decisions.platforms.map((p) => p.id),
     scope: decisions.scope,
@@ -233,6 +233,19 @@ export async function runInit(opts: InitOptions = {}): Promise<number> {
     detected_platforms: detected
       .filter((r) => r.detected)
       .map((r) => ({ id: r.platform.id, confidence: r.confidence, matched: r.matchedPath })),
+    project_knowledge: {
+      enabled: true,
+      extractable_types: ['decision', 'constraint', 'risk', 'fact'],
+    },
+    quality_gates: {
+      compile: true,
+      test: true,
+      task_check: true,
+      coverage: { enabled: false, min_percentage: 80 },
+    },
+    fingerprint: {
+      auto_refresh: true,
+    },
   });
   logger.success(`Wrote ${path.relative(cwd, projectYamlPath)}`);
 

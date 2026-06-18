@@ -14,7 +14,12 @@ import { fileURLToPath } from 'url';
 import { fileExists, readJson, copyFile, ensureDir, readFile, writeFile, chmod } from '../utils/fs.js';
 import { getPlatformSkillsDir, type Platform, type HookFormat } from './platforms.js';
 import type { InstallScope } from './types.js';
+import type { PreToolUseGuardConfig } from './types.js';
 import { renderRule, renderHook } from './render/index.js';
+import { PreToolUseGuard, type PlatformHookAdapter } from './hook-runtime.js';
+import { WindsurfHookAdapter } from './render/hook-windsurf.js';
+import { CursorHookAdapter } from './render/hook-cursor.js';
+import { GeminiHookAdapter } from './render/hook-gemini.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -175,11 +180,18 @@ export interface HookInstallResult {
   reason?: string;
 }
 
+/** Map HookFormat to its adapter class. Returns null for unsupported formats. */
+function getHookAdapter(format: HookFormat): PlatformHookAdapter | null {
+  if (format === 'windsurf-json') return new WindsurfHookAdapter();
+  if (format === 'cursor-json') return new CursorHookAdapter();
+  if (format === 'gemini') return new GeminiHookAdapter();
+  return null;
+}
+
 /**
  * Install platform-specific PreToolUse hook.
- * - Windsurf: renders JSON hook config only.
- * - Cursor: renders hooks.json + copies guard script.
- * No-op for platforms without rendered hook support.
+ * v0.10: uses PlatformHookAdapter for Windsurf/Cursor/Gemini.
+ * Falls back to renderHook() for Experimental platforms (qwen, kiro).
  */
 export async function installIvyHookForPlatform(
   baseDir: string,
@@ -187,8 +199,12 @@ export async function installIvyHookForPlatform(
   overwrite: boolean,
   scope: InstallScope = 'project',
 ): Promise<HookInstallResult> {
-  const renderedFormats: HookFormat[] = ['windsurf-json', 'cursor-json'];
-  if (!renderedFormats.includes(platform.hookFormat as HookFormat) || !platform.hookPath) {
+  if (!platform.hookFormat) {
+    return { installed: false, path: '', reason: 'platform-has-no-hook-format' };
+  }
+
+  const adapter = getHookAdapter(platform.hookFormat);
+  if (!adapter || !platform.hookPath) {
     return { installed: false, path: '', reason: 'platform-has-no-rendered-hook' };
   }
 
@@ -198,9 +214,13 @@ export async function installIvyHookForPlatform(
   if (!overwrite && (await fileExists(dest))) {
     return { installed: false, path: dest, reason: 'exists' };
   }
-  const content = renderHook(platform.hookFormat as HookFormat);
-  await ensureDir(path.dirname(dest));
-  await writeFile(dest, content);
+
+  const guardConfig: PreToolUseGuardConfig = {
+    rules: [{ matcher: '**', allowedPhases: ['build', 'verify'] }],
+    globalBlock: [],
+  };
+  const guard = new PreToolUseGuard(guardConfig, adapter);
+  await guard.install(platform, baseDir);
 
   // For Cursor: also install the guard script that hooks.json references
   if (platform.hookFormat === 'cursor-json') {

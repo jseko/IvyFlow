@@ -28,6 +28,7 @@ import { getSuggestionQuality } from '../core/feedback-recorder.js';
 import { queryGitNexusOverlay } from '../core/gitnexus.js';
 import { runCiCheck } from '../core/ci-reporter.js';
 import { computeTeamInsights } from '../core/team-insights.js';
+import { MemoryStore } from '../core/memory-arch.js';
 
 export interface DashboardOptions {
   cwd?: string;
@@ -35,8 +36,10 @@ export interface DashboardOptions {
   watch?: boolean;
   html?: boolean;
   period?: '7d' | '30d' | '90d';
-  quality?: boolean; // v0.6: show suggestion quality panel
-  team?: boolean; // v0.8: team-level overview
+  quality?: boolean;
+  team?: boolean;
+  adr?: boolean;
+  memory?: boolean;
 }
 
 interface ProjectYaml {
@@ -48,6 +51,18 @@ const REFRESH_INTERVAL_MS = 30_000;
 
 export async function runDashboard(opts: DashboardOptions = {}): Promise<number> {
   const cwd = opts.cwd ?? process.cwd();
+
+  // v0.10: ADR view (decision memory filter)
+  if (opts.adr) {
+    await renderAdrView(cwd);
+    return 0;
+  }
+
+  // v0.10: Memory overview
+  if (opts.memory) {
+    await renderMemoryOverview(cwd);
+    return 0;
+  }
 
   // v0.8: team mode — bypasses analytics_enabled, reads raw events directly
   if (opts.team) {
@@ -357,6 +372,98 @@ This report is a snapshot — data may have changed since export.
   await fs.writeFile(reportPath, html, 'utf-8');
   logger.success(`Dashboard exported to ${path.relative(cwd, reportPath)}`);
   return reportPath;
+}
+
+// ─── ADR View (v0.10) ───
+
+async function renderAdrView(cwd: string): Promise<void> {
+  const store = new MemoryStore(cwd);
+  await store.ensureSchema();
+  const adrView = await store.renderAdrView();
+
+  const w = terminalWidth();
+  const boxWidth = Math.min(w - 4, 72);
+
+  const accepted = adrView.index.filter((e) => e.status === 'accepted').length;
+  const deprecated = adrView.index.filter((e) => e.status === 'deprecated' || e.status === 'superseded').length;
+
+  const lines: string[] = [];
+  const push = (s: string) => lines.push(s);
+
+  push(borderTop(boxWidth));
+  push(center('IvyFlow ADR Index (Decision Memory View)', boxWidth));
+  push(borderMid(boxWidth));
+  push(row(`Total Decisions: ${adrView.index.length} (accepted: ${accepted}, deprecated: ${deprecated})`, boxWidth));
+  push('');
+
+  if (adrView.index.length > 0) {
+    push(sectionHeader('Recent', boxWidth));
+    for (const entry of adrView.index.slice(0, 10)) {
+      const statusIcon = entry.status === 'accepted' ? '✓' : entry.status === 'deprecated' ? '✗' : '→';
+      push(row(`${entry.id.padEnd(10)}│ ${entry.date}  │ ${entry.changeName}`, boxWidth));
+      push(row(`           │ "${entry.title}" (${entry.status})`, boxWidth));
+    }
+    push('');
+
+    const superseded = adrView.index.filter((e) => e.supersededBy);
+    if (superseded.length > 0) {
+      push(sectionHeader('Superseded', boxWidth));
+      for (const entry of superseded) {
+        push(row(`${entry.id.padEnd(10)}│ "${entry.title}" → ${entry.supersededBy}`, boxWidth));
+      }
+      push('');
+    }
+  } else {
+    push(row('No decisions recorded yet. Archive a change with --adr to populate.', boxWidth));
+    push('');
+  }
+
+  push(borderMid(boxWidth));
+  push(row(`IvyFlow v0.10 | ADR is a Memory View (filter type=decision)`, boxWidth));
+  push(borderBottom(boxWidth));
+
+  console.log(lines.join('\n'));
+}
+
+// ─── Memory Overview (v0.10) ───
+
+async function renderMemoryOverview(cwd: string): Promise<void> {
+  const store = new MemoryStore(cwd);
+  await store.ensureSchema();
+  await store.referenceV09Knowledge();
+  const overview = await store.renderMemoryOverview();
+
+  const w = terminalWidth();
+  const boxWidth = Math.min(w - 4, 72);
+
+  const lines: string[] = [];
+  const push = (s: string) => lines.push(s);
+
+  push(borderTop(boxWidth));
+  push(center('IvyFlow Memory Overview', boxWidth));
+  push(borderMid(boxWidth));
+  push('');
+
+  if (overview.totalRecords > 0) {
+    push(sectionHeader('Records by Type', boxWidth));
+    const maxCount = Math.max(...Object.values(overview.byType), 1);
+    for (const [type, count] of Object.entries(overview.byType)) {
+      const barLen = Math.round((count / maxCount) * 20);
+      const bar = '█'.repeat(barLen) + '░'.repeat(Math.max(0, 20 - barLen));
+      push(row(`${type.padEnd(12)}│ ${bar}  ${count}`, boxWidth));
+    }
+    push(row('─'.repeat(35), boxWidth));
+    push(row(`Total: ${overview.totalRecords} records  |  KB: ${overview.knowledgeEntryCount} entries`, boxWidth));
+  } else {
+    push(row('No memory records found. Archive changes to populate memory.', boxWidth));
+  }
+  push('');
+
+  push(borderMid(boxWidth));
+  push(row('IvyFlow v0.10 | Memory Schema v0.10.0 | 5 record types', boxWidth));
+  push(borderBottom(boxWidth));
+
+  console.log(lines.join('\n'));
 }
 
 // ─── Layout Helpers ───

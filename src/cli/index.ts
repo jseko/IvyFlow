@@ -14,7 +14,11 @@ import { runReview, type ReviewOptions } from '../commands/review.js';
 import { runCheck, type CheckOptions } from '../commands/check.js';
 import { runExplain, type ExplainOptions } from '../commands/explain.js';
 import { runRules, type RulesOptions } from '../commands/rules.js';
-import { runArchive, type ArchiveOptions } from '../commands/archive.js';
+import { runArchive } from '../commands/archive.js';
+import { runVerify } from '../commands/verify.js';
+import { runFingerprint } from '../commands/fingerprint.js';
+import { runRelease } from '../commands/release.js';
+import { runExport } from '../commands/export.js';
 
 const require = createRequire(import.meta.url);
 const { version } = require('../../package.json');
@@ -136,7 +140,9 @@ program
   .option('--period <days>', 'Time window: 7d, 30d, 90d', '7d')
   .option('--quality', 'Show suggestion quality panel', false)
   .option('--team', 'Show team-level overview (cross-change aggregation)', false)
-  .action(async (opts: { change?: string; watch?: boolean; html?: boolean; period?: string; quality?: boolean; team?: boolean }) => {
+  .option('--adr', 'Show ADR index (decision memory view)', false)
+  .option('--memory', 'Show memory overview with type counts', false)
+  .action(async (opts: { change?: string; watch?: boolean; html?: boolean; period?: string; quality?: boolean; team?: boolean; adr?: boolean; memory?: boolean }) => {
     const period = opts.period === '90d' ? '90d' : opts.period === '30d' ? '30d' : '7d';
     const exitCode = await runDashboard({
       change: opts.change,
@@ -145,6 +151,8 @@ program
       period,
       quality: opts.quality,
       team: opts.team,
+      adr: opts.adr,
+      memory: opts.memory,
     });
     process.exit(exitCode);
   });
@@ -262,16 +270,84 @@ program
     process.exit(exitCode);
   });
 
-// v0.8: archive — archive a change with optional implementation report.
+// v0.9: archive — full archive with knowledge extraction + L0 Memory.
 program
   .command('archive')
-  .description('Archive a change (optionally generate implementation report)')
+  .description('Archive a change with knowledge extraction and L0 Memory')
   .option('--change <name>', 'Change to archive')
-  .option('--report', 'Generate implementation report at .ivy/reports/<name>-<date>.md', false)
-  .action(async (opts: { change?: string; report?: boolean }) => {
+  .option('--action <action>', 'Post-archive action: archive-local, push-pr, keep-state, discard')
+  .option('--message <msg>', 'Commit message for push-pr action')
+  .option('--no-extract', 'Skip knowledge extraction')
+  .option('--force', 'Archive from any phase (not just VERIFY)')
+  .option('--adr', 'Generate detailed ADR entries in MemoryStore', false)
+  .action(async (opts: { change?: string; action?: string; message?: string; extract?: boolean; force?: boolean; adr?: boolean }) => {
     const exitCode = await runArchive({
       change: opts.change,
-      report: opts.report,
+      action: opts.action,
+      message: opts.message,
+      noExtract: !opts.extract,
+      force: opts.force,
+      adr: opts.adr,
+    });
+    process.exit(exitCode);
+  });
+
+// v0.9: verify — quality gates with evidence output.
+program
+  .command('verify')
+  .description('Run quality gates and produce evidence report')
+  .option('--change <name>', 'Change to verify')
+  .option('--gate <gate>', 'Specific gate: compile, test, tasks, coverage')
+  .option('--skip <gate>', 'Gate to skip')
+  .action(async (opts: { change?: string; gate?: string; skip?: string }) => {
+    const exitCode = await runVerify({
+      change: opts.change,
+      gate: opts.gate,
+      skip: opts.skip,
+    });
+    process.exit(exitCode);
+  });
+
+// v0.9: fingerprint — confidence-scored tech stack detection.
+program
+  .command('fingerprint')
+  .description('Detect and display project tech stack with confidence scores')
+  .option('--json', 'Output as JSON', false)
+  .option('--refresh', 'Re-scan and update cache', false)
+  .action(async (opts: { json?: boolean; refresh?: boolean }) => {
+    const exitCode = await runFingerprint({
+      json: opts.json,
+      refresh: opts.refresh,
+    });
+    process.exit(exitCode);
+  });
+
+// v0.9: release — bundle archive + evidence + knowledge for handoff.
+program
+  .command('release')
+  .description('Bundle completed change artifacts for handoff')
+  .option('--change <name>', 'Change to release (must be in ARCHIVE phase)')
+  .option('--output <dir>', 'Output directory (default: .ivy/releases/<name>/)')
+  .action(async (opts: { change?: string; output?: string }) => {
+    const exitCode = await runRelease({
+      change: opts.change,
+      output: opts.output,
+    });
+    process.exit(exitCode);
+  });
+
+// v0.10: export — read-only data export.
+program
+  .command('export')
+  .description('Export project data to standard JSON format (read-only)')
+  .option('--pipe', 'Output JSON to stdout (pipe-friendly)', false)
+  .option('--project <paths...>', 'Include additional project paths')
+  .option('--dimension <dim>', 'Export specific dimension: changes, metrics, knowledge')
+  .action(async (opts: { pipe?: boolean; project?: string[]; dimension?: string }) => {
+    const exitCode = await runExport({
+      pipe: opts.pipe,
+      project: opts.project,
+      dimension: opts.dimension as 'changes' | 'metrics' | 'knowledge' | undefined,
     });
     process.exit(exitCode);
   });

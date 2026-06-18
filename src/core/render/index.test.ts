@@ -46,12 +46,11 @@ describe('render/index', () => {
     expect(() => renderHook('claude-code')).toThrowError(/static asset/);
   });
 
-  it('gemini hook renders valid JSON with beforeTool and Experimental label', () => {
+  it('gemini hook renders valid JSON with beforeTool and Certified command', () => {
     const out = renderHook('gemini');
     const parsed = JSON.parse(out);
     expect(parsed.beforeTool).toBeDefined();
-    expect(parsed.beforeTool.command).toContain('ivy-phase-guard.sh');
-    expect(parsed.beforeTool.description).toContain('Experimental');
+    expect(parsed.beforeTool.command).toContain('ivy validate');
   });
 
   it('qwen hook renders valid JSON with preToolUse and Experimental label', () => {
@@ -72,10 +71,9 @@ describe('render/index', () => {
 });
 
 describe('renderHookForGemini', () => {
-  it('renders beforeTool command with Experimental label', () => {
+  it('renders beforeTool command with ivy validate', () => {
     const parsed = JSON.parse(renderHookForGemini());
-    expect(parsed.beforeTool.command).toContain('.ivy/hooks/ivy-phase-guard.sh');
-    expect(parsed.beforeTool.description).toContain('Experimental');
+    expect(parsed.beforeTool.command).toContain('ivy validate');
   });
 });
 
