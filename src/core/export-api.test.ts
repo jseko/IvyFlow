@@ -39,7 +39,7 @@ describe('ExportPayload JSON output format (TC-11)', () => {
     await writeYaml(path.join(tmp, '.ivy', 'project.yaml'), projectYaml);
 
     const payload = await buildExportPayload({ cwd: tmp });
-    expect(payload).toHaveProperty('version', '0.10.0');
+    expect(payload).toHaveProperty('version', '0.11.0');
     expect(payload).toHaveProperty('exportedAt');
     expect(payload).toHaveProperty('project');
     expect(payload).toHaveProperty('changes');
@@ -95,7 +95,7 @@ describe('Export API — --pipe output format (TC-13)', () => {
     const payload = await buildExportPayload({ cwd: tmp2 });
     const json = JSON.stringify(payload);
     const parsed = JSON.parse(json);
-    expect(parsed.version).toBe('0.10.0');
+    expect(parsed.version).toBe('0.11.0');
     expect(parsed.exportedAt).toBeDefined();
     await clean(tmp2);
   });

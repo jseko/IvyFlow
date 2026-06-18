@@ -76,7 +76,7 @@ export async function buildExportPayload(opts: ExportOptions): Promise<ExportPay
   }
 
   return {
-    version: '0.10.0',
+    version: '0.11.0',
     exportedAt: new Date().toISOString(),
     project: {
       name: path.basename(opts.cwd),

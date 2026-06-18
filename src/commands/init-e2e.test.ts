@@ -64,9 +64,9 @@ describe('end-to-end init — all 11 platforms (v0.5)', () => {
         expect((await fs.stat(hookFile)).isFile()).toBe(true);
       }
 
-      // project.yaml schema v0.9.
+      // project.yaml schema v0.11.
       const data = await readYaml<ProjectYaml>(path.join(tmp, '.ivy', 'project.yaml'));
-      expect(data?.version).toBe('0.9.0');
+      expect(data?.version).toBe('0.11.0');
       expect(data?.platforms).toEqual([p.id]);
       expect(data?.analytics_enabled).toBe(false);
     });

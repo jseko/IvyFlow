@@ -223,7 +223,7 @@ export async function runInit(opts: InitOptions = {}): Promise<number> {
   const ivyDir = decisions.scope === 'global' ? path.join(os.homedir(), '.ivy') : path.join(cwd, '.ivy');
   const projectYamlPath = path.join(ivyDir, 'project.yaml');
   await writeYaml(projectYamlPath, {
-    version: '0.10.0',
+    version: '0.11.0',
     last_migration: new Date().toISOString(),
     platforms: decisions.platforms.map((p) => p.id),
     scope: decisions.scope,

@@ -45,7 +45,6 @@ describe('6.1 — HookAdapter + skills.ts installation flow (TC-15)', () => {
       toolName: 'Write',
       filePath: 'src/foo.ts',
       currentPhase: 'build',
-      phaseHistory: [],
     });
     expect(allowResult.decision).toBe('allow');
 
@@ -54,7 +53,6 @@ describe('6.1 — HookAdapter + skills.ts installation flow (TC-15)', () => {
       toolName: 'Write',
       filePath: 'src/foo.ts',
       currentPhase: 'open',
-      phaseHistory: [],
     });
     expect(blockResult.decision).toBe('block');
   });
@@ -146,7 +144,7 @@ describe('6.3 — export command (basic, --pipe, --project)', () => {
       expect(writeSpy).toHaveBeenCalled();
       const jsonArg = writeSpy.mock.calls[0][0] as string;
       const parsed = JSON.parse(jsonArg);
-      expect(parsed.version).toBe('0.10.0');
+      expect(parsed.version).toBe('0.11.0');
     } finally {
       writeSpy.mockRestore();
     }

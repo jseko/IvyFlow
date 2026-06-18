@@ -23,12 +23,16 @@ import {
 } from '../core/skills.js';
 import { computePlatformHealth, renderPlatformHealth } from '../core/platform-health.js';
 import type { InstallScope } from '../core/types.js';
+import { detectCapabilities, type CapabilityDetection } from '../core/ecosystem.js';
+import { syncReferencesForProject } from '../core/knowledge-sync.js';
 
 export interface DoctorOptions {
   cwd?: string;
   fix?: boolean;
   platforms?: boolean;
   environment?: boolean;
+  ecosystem?: boolean;
+  syncKb?: boolean;
 }
 
 interface CheckResult {
@@ -167,6 +171,16 @@ async function fixForPlatform(
 export async function runDoctor(opts: DoctorOptions = {}): Promise<number> {
   const cwd = opts.cwd ?? process.cwd();
 
+  // v0.11: --ecosystem — capability detection (read-only).
+  if (opts.ecosystem) {
+    return runEcosystemCheck(cwd);
+  }
+
+  // v0.11: --sync-kb — knowledge base reference sync.
+  if (opts.syncKb) {
+    return runKnowledgeSync(cwd);
+  }
+
   // v0.9: --environment — tool presence check (read-only).
   if (opts.environment) {
     return runEnvironmentCheck(cwd);
@@ -239,6 +253,10 @@ export async function runDoctor(opts: DoctorOptions = {}): Promise<number> {
     for (const p of installed) await fixForPlatform(baseDir, p, scope);
     // v0.6: --fix also triggers calibration if feedback ≥ 50
     await tryAutoCalibrate(cwd);
+    // v0.11: --fix also syncs knowledge base references
+    if (installed.length > 0) {
+      await runKnowledgeSync(cwd, true);
+    }
     logger.info('Fix complete. Re-run `ivy doctor` to verify.');
   }
 
@@ -392,4 +410,89 @@ async function runEnvironmentCheck(cwd: string): Promise<number> {
   if (allOk) logger.success('All environment checks passed');
   else logger.error('Some environment checks failed');
   return allOk ? 0 : 1;
+}
+
+// ─── v0.11: Ecosystem Check ───
+
+/**
+ * `ivy doctor --ecosystem`: Display capability detection results.
+ */
+async function runEcosystemCheck(cwd: string): Promise<number> {
+  logger.info('');
+  logger.info('IvyFlow Ecosystem');
+  logger.info('═'.repeat(60));
+
+  const capabilities = await detectCapabilities(cwd);
+
+  logger.info('');
+  logger.info('  Capability            │ Status    │ Provider    │ Version   │ Recommended');
+  logger.info('  ──────────────────────┼───────────┼─────────────┼───────────┼─────────────');
+
+  for (const cap of capabilities) {
+    const status = cap.detected ? '✓ ready' : '✗ missing';
+    const provider = (cap.provider ?? '-').padEnd(11);
+    const version = (cap.version ?? '-').padEnd(9);
+    const rec = cap.recommended ? '★ required' : 'optional';
+    logger.info(`  ${cap.name.padEnd(22)}│ ${status.padEnd(9)}│ ${provider}│ ${version}│ ${rec}`);
+  }
+
+  logger.info('');
+  const missing = capabilities.filter((c) => !c.detected && c.recommended);
+  if (missing.length > 0) {
+    logger.warn('Missing Required Capabilities:');
+    for (const cap of missing) {
+      logger.info(`  • ${cap.name} — IvyFlow recommends this capability`);
+    }
+  } else {
+    logger.success('All required capabilities are ready.');
+  }
+
+  logger.info('');
+  return 0;
+}
+
+// ─── v0.11: Knowledge Sync ───
+
+/**
+ * `ivy doctor --sync-kb` or integrated into `ivy doctor --fix`.
+ */
+async function runKnowledgeSync(cwd: string, silent = false): Promise<number> {
+  if (!silent) {
+    logger.step('IvyFlow Knowledge Sync (Experimental)');
+    logger.info('═'.repeat(60));
+  }
+
+  // Read installed platforms from project.yaml
+  const yamlPath = path.join(cwd, '.ivy', 'project.yaml');
+  const yaml = await readYaml<{ platforms?: string[] }>(yamlPath);
+
+  if (!yaml?.platforms || yaml.platforms.length === 0) {
+    if (!silent) logger.warn('No platforms found in .ivy/project.yaml. Run `ivy init` first.');
+    return 1;
+  }
+
+  const results = await syncReferencesForProject(cwd, yaml.platforms);
+
+  if (!silent) {
+    for (const r of results) {
+      switch (r.action) {
+        case 'created':
+          logger.success(`${path.basename(r.filePath)}  → 新建（含引用）`);
+          break;
+        case 'synced':
+          logger.success(`${path.basename(r.filePath)}  → 引用已同步`);
+          break;
+        case 'skipped':
+          logger.dim(`${path.basename(r.filePath)}  → 已跳过（已有 managed 标记）`);
+          break;
+        case 'error':
+          logger.error(`${path.basename(r.filePath)}  → ${r.error}`);
+          break;
+      }
+    }
+    logger.info('');
+    logger.success(`Knowledge Sync: ${results.filter((r) => r.action !== 'skipped').length}/${results.length} updated`);
+  }
+
+  return 0;
 }

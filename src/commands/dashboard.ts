@@ -28,6 +28,7 @@ import { getSuggestionQuality } from '../core/feedback-recorder.js';
 import { queryGitNexusOverlay } from '../core/gitnexus.js';
 import { runCiCheck } from '../core/ci-reporter.js';
 import { computeTeamInsights } from '../core/team-insights.js';
+import { computeOrgInsights, type OrgInsightsQuery } from '../core/organization-insights.js';
 import { MemoryStore } from '../core/memory-arch.js';
 
 export interface DashboardOptions {
@@ -40,6 +41,14 @@ export interface DashboardOptions {
   team?: boolean;
   adr?: boolean;
   memory?: boolean;
+  /** v0.11: Org Insights paths */
+  org?: string[];
+  /** v0.11: Knowledge graph overview */
+  knowledge?: boolean;
+  /** v0.11: Org Insights metrics filter */
+  metrics?: string;
+  /** v0.11: Output format (text/json) */
+  format?: 'text' | 'json';
 }
 
 interface ProjectYaml {
@@ -51,6 +60,18 @@ const REFRESH_INTERVAL_MS = 30_000;
 
 export async function runDashboard(opts: DashboardOptions = {}): Promise<number> {
   const cwd = opts.cwd ?? process.cwd();
+
+  // v0.11: Organization Insights (cross-project, read-only)
+  if (opts.org && opts.org.length > 0) {
+    await renderOrgDashboard(opts.org, opts.metrics, opts.format);
+    return 0;
+  }
+
+  // v0.11: Knowledge graph overview
+  if (opts.knowledge) {
+    await renderKnowledgeOverview(cwd);
+    return 0;
+  }
 
   // v0.10: ADR view (decision memory filter)
   if (opts.adr) {
@@ -460,7 +481,166 @@ async function renderMemoryOverview(cwd: string): Promise<void> {
   push('');
 
   push(borderMid(boxWidth));
-  push(row('IvyFlow v0.10 | Memory Schema v0.10.0 | 5 record types', boxWidth));
+  push(row('IvyFlow v0.11 | Memory Schema v0.11.0 | 5 record types', boxWidth));
+  push(borderBottom(boxWidth));
+
+  console.log(lines.join('\n'));
+}
+
+// ─── Organization Insights Dashboard (v0.11) ───
+
+async function renderOrgDashboard(
+  paths: string[],
+  metricsOpt?: string,
+  format?: 'text' | 'json',
+): Promise<void> {
+  const metrics = metricsOpt
+    ? metricsOpt.split(',').map((m) => m.trim()) as OrgInsightsQuery['metrics']
+    : undefined;
+
+  const result = await computeOrgInsights({
+    projectPaths: paths,
+    metrics,
+  });
+
+  if (format === 'json') {
+    console.log(JSON.stringify({ aggregates: result.aggregates, dataLimited: result.dataLimited, totalProjects: result.totalProjects, readableProjects: result.readableProjects, failedProjects: result.failedProjects }, null, 2));
+    return;
+  }
+
+  const w = terminalWidth();
+  const boxWidth = Math.min(w - 4, 72);
+  const lines: string[] = [];
+  const push = (s: string) => lines.push(s);
+
+  push(borderTop(boxWidth));
+  push(center('IvyFlow Organization Insights — Beta', boxWidth));
+  push(borderMid(boxWidth));
+  push('');
+  push(row(`  Projects:  ${result.totalProjects} (readable: ${result.readableProjects}, failed: ${result.failedProjects.length})  |  Total Changes:  ${result.totalChanges}`, boxWidth));
+
+  if (result.failedProjects.length > 0) {
+    push(row('', boxWidth));
+    push(sectionHeader('Failed Projects  —  read errors', boxWidth));
+    for (const f of result.failedProjects) {
+      push(row(`  ✗ ${f.path}: ${f.error}`, boxWidth));
+    }
+  }
+
+  if (result.dataLimited) {
+    push(row('', boxWidth));
+    push(row('⚠ Organization Insights 仅输出 Metrics / Distribution / Outlier。', boxWidth));
+    push(row('  当前数据量有限 (< 5 projects or < 50 changes)。', boxWidth));
+    push(row('  判断权交给用户。', boxWidth));
+  }
+
+  push(row('', boxWidth));
+
+  for (const [metric, dist] of Object.entries(result.aggregates)) {
+    push(sectionHeader(`${metricLabel(metric)}`, boxWidth));
+    for (const pp of dist.perProject) {
+      const barLen = Math.max(1, Math.round((pp.value / (dist.p95 || 1)) * 20));
+      const bar = '█'.repeat(Math.min(barLen, 20)) + '░'.repeat(Math.max(0, 20 - Math.min(barLen, 20)));
+      push(row(`  ${path.basename(pp.projectPath).padEnd(16)} ${bar}  ${formatMetric(metric, pp.value)} (${pp.changeCount} changes)`, boxWidth));
+    }
+    push(row(`  ${'─'.repeat(35)}`, boxWidth));
+    push(row(`  P50: ${formatMetric(metric, dist.p50)}  |  P80: ${formatMetric(metric, dist.p80)}  |  P95: ${formatMetric(metric, dist.p95)}`, boxWidth));
+    push(row('', boxWidth));
+  }
+
+  push(borderMid(boxWidth));
+  push(row('Organization Insights v0.11 | Beta | Metrics / Distribution / Outlier only', boxWidth));
+  push(row('⚠ 不输出 Recommendation / Insight / Conclusion。判断权交给用户。', boxWidth));
+  push(borderBottom(boxWidth));
+
+  console.log(lines.join('\n'));
+}
+
+function metricLabel(metric: string): string {
+  const labels: Record<string, string> = {
+    completion_rate: 'Completion Rate',
+    phase_durations: 'Phase Average Duration (days)',
+    commit_density: 'Commit Density',
+    bottleneck_phases: 'Bottleneck (max avg phase days)',
+    memory_coverage: 'Memory Records',
+  };
+  return labels[metric] ?? metric;
+}
+
+function formatMetric(metric: string, value: number): string {
+  if (metric === 'completion_rate') return `${(value * 100).toFixed(0)}%`;
+  return value.toFixed(1);
+}
+
+// ─── Knowledge Overview Dashboard (v0.11) ───
+
+async function renderKnowledgeOverview(cwd: string): Promise<void> {
+  const store = new MemoryStore(cwd);
+  await store.ensureSchema();
+  await store.referenceV09Knowledge();
+  const all = await store.query({});
+
+  // Count links across all records
+  let totalLinks = 0;
+  let linkedRecords = 0;
+  let linkEntries: Array<{ from: string; relation: string; to: string }> = [];
+
+  const linkPattern = /links:\s*\n(\s+- target:.*(?:\n\s+(?:relation|description|createdAt):.*)*)/g;
+  for (const rec of all) {
+    const recStr = JSON.stringify(rec);
+    const match = recStr.match(/"links"/);
+    if (match) {
+      linkedRecords++;
+      if ((rec as unknown as Record<string, unknown>).links) {
+        const links = (rec as unknown as { links?: Array<{ target: string; relation: string }> }).links;
+        if (links) {
+          totalLinks += links.length;
+          for (const l of links) {
+            linkEntries.push({ from: rec.id, relation: l.relation, to: l.target });
+          }
+        }
+      }
+    }
+  }
+
+  const w = terminalWidth();
+  const boxWidth = Math.min(w - 4, 72);
+  const lines: string[] = [];
+  const push = (s: string) => lines.push(s);
+
+  push(borderTop(boxWidth));
+  push(center('IvyFlow Knowledge Graph', boxWidth));
+  push(borderMid(boxWidth));
+  push('');
+
+  push(row(`  Total Records:      ${all.length}`, boxWidth));
+  push(row(`  Total Links:        ${totalLinks}`, boxWidth));
+  push(row(`  Linked Records:     ${linkedRecords} (${all.length > 0 ? Math.round((linkedRecords / all.length) * 100) : 0}% linked)`, boxWidth));
+  push(row(`  Avg Links/Record:   ${linkedRecords > 0 ? (totalLinks / all.length).toFixed(1) : '0'}`, boxWidth));
+  push('');
+
+  if (linkEntries.length > 0) {
+    push(sectionHeader('Recent Links', boxWidth));
+    for (const le of linkEntries.slice(-5)) {
+      push(row(`  ${le.from} → ${le.to} [${le.relation}]`, boxWidth));
+    }
+    push('');
+
+    const unlinked = all.length - linkedRecords;
+    if (unlinked > 0) {
+      push(sectionHeader('Unlinked Records', boxWidth));
+      push(row(`  ${unlinked} record(s) without links`, boxWidth));
+      push(row(`  建议使用 \`ivy knowledge link\` 建立关联`, boxWidth));
+      push('');
+    }
+  } else {
+    push(row('  No links created yet.', boxWidth));
+    push(row('  Use `ivy knowledge link` to connect records.', boxWidth));
+    push('');
+  }
+
+  push(borderMid(boxWidth));
+  push(row('IvyFlow v0.11 | Knowledge Linking | Links embedded in records', boxWidth));
   push(borderBottom(boxWidth));
 
   console.log(lines.join('\n'));

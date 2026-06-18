@@ -19,6 +19,12 @@ import { runVerify } from '../commands/verify.js';
 import { runFingerprint } from '../commands/fingerprint.js';
 import { runRelease } from '../commands/release.js';
 import { runExport } from '../commands/export.js';
+import {
+  runKnowledgeLink,
+  runKnowledgeLinks,
+  runKnowledgeTraverse,
+  runKnowledgeUnlink,
+} from '../commands/knowledge.js';
 
 const require = createRequire(import.meta.url);
 const { version } = require('../../package.json');
@@ -69,13 +75,16 @@ program
 
 // v0.2: doctor — strict local invariant health check (§9.4).
 // v0.8: --platforms — platform certification report.
+// v0.11: --ecosystem — capability detection, --sync-kb — knowledge sync.
 program
   .command('doctor')
   .description('Local invariant health check (§9.4: no telemetry / network / state inference)')
   .option('--fix', 'Re-create missing skills/rules/hooks (never rewrites existing files)', false)
   .option('--platforms', 'Show platform health certification report', false)
-  .action(async (opts: { fix?: boolean; platforms?: boolean }) => {
-    const exitCode = await runDoctor({ fix: opts.fix, platforms: opts.platforms });
+  .option('--ecosystem', 'v0.11: Show ecosystem capability detection', false)
+  .option('--sync-kb', 'v0.11: Sync knowledge base reference markers', false)
+  .action(async (opts: { fix?: boolean; platforms?: boolean; ecosystem?: boolean; syncKb?: boolean }) => {
+    const exitCode = await runDoctor({ fix: opts.fix, platforms: opts.platforms, ecosystem: opts.ecosystem, syncKb: opts.syncKb });
     process.exit(exitCode);
   });
 
@@ -131,6 +140,7 @@ program
   });
 
 // v0.4: dashboard — ASCII dashboard with data-source declaration.
+// v0.11: --org, --knowledge, --metrics, --format flags.
 program
   .command('dashboard')
   .description('Interactive ASCII dashboard for workflow insights')
@@ -142,7 +152,11 @@ program
   .option('--team', 'Show team-level overview (cross-change aggregation)', false)
   .option('--adr', 'Show ADR index (decision memory view)', false)
   .option('--memory', 'Show memory overview with type counts', false)
-  .action(async (opts: { change?: string; watch?: boolean; html?: boolean; period?: string; quality?: boolean; team?: boolean; adr?: boolean; memory?: boolean }) => {
+  .option('--org <paths...>', 'v0.11: Organization Insights (cross-project aggregation)', false)
+  .option('--knowledge', 'v0.11: Show knowledge graph overview', false)
+  .option('--metrics <list>', 'v0.11: Metrics filter for --org (comma-separated)')
+  .option('--format <fmt>', 'v0.11: Output format: text, json (default: text)', 'text')
+  .action(async (opts: { change?: string; watch?: boolean; html?: boolean; period?: string; quality?: boolean; team?: boolean; adr?: boolean; memory?: boolean; org?: string[]; knowledge?: boolean; metrics?: string; format?: string }) => {
     const period = opts.period === '90d' ? '90d' : opts.period === '30d' ? '30d' : '7d';
     const exitCode = await runDashboard({
       change: opts.change,
@@ -153,6 +167,10 @@ program
       team: opts.team,
       adr: opts.adr,
       memory: opts.memory,
+      org: opts.org,
+      knowledge: opts.knowledge,
+      metrics: opts.metrics,
+      format: opts.format as 'text' | 'json' | undefined,
     });
     process.exit(exitCode);
   });
@@ -349,6 +367,52 @@ program
       project: opts.project,
       dimension: opts.dimension as 'changes' | 'metrics' | 'knowledge' | undefined,
     });
+    process.exit(exitCode);
+  });
+
+// v0.11: knowledge — knowledge linking commands.
+const knowledge = program
+  .command('knowledge')
+  .description('v0.11: Knowledge linking and traversal commands');
+
+knowledge
+  .command('link')
+  .description('Create a manual link between Memory records')
+  .option('--source <id>', 'Source record ID')
+  .option('--target <id>', 'Target record ID')
+  .option('--relation <type>', 'Link relation: influences, implements, precedes, supersedes, evidences')
+  .option('--desc <text>', 'Link description')
+  .action(async (opts: { source?: string; target?: string; relation?: string; desc?: string }) => {
+    const exitCode = await runKnowledgeLink(opts);
+    process.exit(exitCode);
+  });
+
+knowledge
+  .command('links')
+  .argument('[record-id]', 'Record ID to query')
+  .description('Query outgoing and incoming links for a record')
+  .action(async (recordId?: string) => {
+    const exitCode = await runKnowledgeLinks({ recordId });
+    process.exit(exitCode);
+  });
+
+knowledge
+  .command('traverse')
+  .argument('<record-id>', 'Starting record ID')
+  .description('Traverse knowledge link path')
+  .option('--to <type>', 'Target record type: decision, constraint, risk, fact, evidence')
+  .action(async (recordId: string, opts: { to?: string }) => {
+    const exitCode = await runKnowledgeTraverse({ recordId, to: opts.to });
+    process.exit(exitCode);
+  });
+
+knowledge
+  .command('unlink')
+  .argument('<record-id>', 'Record ID containing the link')
+  .description('Delete a link from a record')
+  .option('--index <n>', 'Link index to remove', parseInt)
+  .action(async (recordId: string, opts: { index?: number }) => {
+    const exitCode = await runKnowledgeUnlink({ recordId, linkIndex: opts.index });
     process.exit(exitCode);
   });
 

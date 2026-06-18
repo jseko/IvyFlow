@@ -4,7 +4,7 @@
 
 [简体中文](./README.zh-CN.md)
 
-IvyFlow (`ivyflow-cli`) is a CLI that distributes Skills, Rules, and Git hooks to AI coding platforms (16 platforms in v0.10) so an AI agent is constrained to follow a structured **9-step development workflow** instead of jumping straight to writing code.
+IvyFlow (`ivyflow-cli`) is a CLI that distributes Skills, Rules, and Git hooks to AI coding platforms (16 platforms in v0.11) so an AI agent is constrained to follow a structured **9-step development workflow** instead of jumping straight to writing code.
 
 It is **not** an LLM runtime, **not** a SaaS. It is a thin local enforcer that ships alongside any AI coding tool.
 
@@ -46,7 +46,7 @@ ivy init --enterprise    # standard + reserved plugin slots (v0.1 is a no-op)
 5. Renders the `ivy-phase-guard` + `ivy-security` Rules per platform: `.md` (Claude / CodeBuddy / Trae / Qoder), `.mdc` (Cursor), `.github/copilot-instructions.md` (GitHub Copilot).
 6. Installs PreToolUse hooks via typed TypeScript guard: Windsurf (`hooks/ivy-phase-guard.json`), Cursor (`.cursor/hooks.json`), Gemini CLI (`beforeTool` command `ivy validate`).
 7. Installs `.git/hooks/pre-push` (the secondary defense).
-8. Writes `.ivy/project.yaml` with `version: '0.10.0'`, `platforms[]`, `detected_platforms[]`, `analytics_enabled: false`, `project_knowledge`, `quality_gates`, and `fingerprint` sections.
+8. Writes `.ivy/project.yaml` with `version: '0.11.0'`, `platforms[]`, `detected_platforms[]`, `analytics_enabled: false`, `project_knowledge`, `quality_gates`, `fingerprint`, and `capabilities` sections.
 
 Then per change:
 
@@ -59,11 +59,15 @@ ivy doctor                         # local invariant health check (no telemetry 
 ivy doctor --fix                   # re-create missing skill / rule / hook files (never rewrites existing)
 ivy doctor --platforms             # platform certification report (v0.8)
 ivy doctor --environment           # tool presence check (Node.js, Git, Java, package manager) (v0.9)
+ivy doctor --ecosystem             # capability detection: code_intelligence, documentation_lookup, spec_driven (v0.11)
+ivy doctor --sync-kb               # sync managed reference to CLAUDE.md/CURSOR.md/WINDSURF.md (v0.11)
 ivy analytics                      # adoption metrics with data-source transparency
 ivy analytics --bias               # show inference bias log (calibration actions)
 ivy dashboard                      # interactive ASCII dashboard with trend charts
 ivy dashboard --adr                # show ADR index (decision memory view) (v0.10)
 ivy dashboard --memory             # show memory overview with type counts (v0.10)
+ivy dashboard --org <paths...>     # organization insights: multi-project aggregation (v0.11)
+ivy dashboard --knowledge          # knowledge graph overview (v0.11)
 ivy dashboard --team               # team-level cross-change aggregation (v0.8)
 ivy dashboard --html --period 90d  # export as HTML report
 ivy suggest                        # workflow suggestions (stuck/rollback/phase-review)
@@ -96,9 +100,13 @@ ivy fingerprint --refresh                     # re-scan from scratch
 ivy fingerprint --json                        # JSON output
 ivy release --change <name>                   # bundle completed change artifacts (v0.9)
 ivy release --change <name>                   # bundle completed change artifacts (v0.9)
-ivy export metrics                           # export project data to JSON (v0.10)
+ivy export metrics                           # export project data to JSON (v0.11)
 ivy export metrics --pipe                    # stdout JSON output (pipe-friendly)
 ivy export metrics --dimension changes       # export specific dimension only
+ivy knowledge link --source <id> --target <id> --relation <type> --desc <txt>   # create knowledge link (v0.11)
+ivy knowledge links <record-id>              # show links for a record (v0.11)
+ivy knowledge traverse <record-id> --to <type>  # traverse knowledge graph (v0.11)
+ivy knowledge unlink <record-id> --index <n>  # delete a knowledge link (v0.11)
 ivy uninstall                      # safely remove IvyFlow files (asks for confirmation)
 ivy uninstall --dry-run            # preview what would be removed
 ivy uninstall --force              # skip confirmation (for CI)
@@ -106,18 +114,22 @@ ivy update                         # check npm for newer version, print upgrade 
 ivy update --check                 # return exit code 0 (latest) or 1 (update available)
 ```
 
-## What is in v0.10
+## What is in v0.11
 
-- **21 commands**: `init` / `status` / `validate` / `doctor` / `analytics` / `dashboard` / `suggest` / `review` / `check` / `explain` / `rules` / `archive` / `verify` / `fingerprint` / `release` / `export` / `uninstall` / `update` (+ `--adr`, `--memory` flag expansions).
-- **TypeScript PreToolUse Guard** — `PreToolUseGuard` class with typed evaluation pipeline (global block → phase rules → archive guard). Three decision types: `allow` / `block` / `warn`. `PlatformHookAdapter` interface with 3 implementations: Windsurf (JSON), Cursor (JSON), Gemini (CLI). Legacy v0.7-v0.9 hook config backward-compatible.
-- **Memory Schema freeze** — `.ivy/memory/schema.yaml` with 5 record types (decision, constraint, risk, fact, evidence). `MemoryStore` class: write (validated YAML + JSON index), query (multi-condition filter), ADR view, memory overview.
-- **ADR View** — `ivy dashboard --adr` renders decision records as ADR index. `ivy dashboard --memory` shows type-count overview. `ivy archive --adr` generates detailed ADR entries during archive.
-- **Export API** — `ivy export metrics` with `--pipe` (stdout JSON), `--project` (multi-project), `--dimension` (changes/metrics/knowledge). Read-only: never modifies `.ivy/` state.
-- **Community templates** — GitHub Issue templates (bug report, feature request), PR template, RFC template (`docs/rfc/`). CONTRIBUTING.md, CODE_OF_CONDUCT.md, SECURITY.md.
-- **Gemini CLI PreToolUse hook** — Promoted from Experimental. Hook command changed from shell script to `ivy validate`.
-- **517 passing tests** across 49 test files.
-- **5 phases**: `open → design → build → verify → archive`.
-- **16 platforms** (no change from v0.9).
+- **25 commands**: `init` / `status` / `validate` / `doctor` / `analytics` / `dashboard` / `suggest` / `review` / `check` / `explain` / `rules` / `archive` / `verify` / `fingerprint` / `release` / `export` / `knowledge` / `uninstall` / `update` (+ `--org`, `--knowledge`, `--ecosystem`, `--sync-kb` flag expansions).
+- **Organization Insights (Beta)** (`src/core/organization-insights.ts`) — Multi-project aggregation across `.ivy/` directories. Computes completion rate, phase duration distribution (P50/P80/P95), commit density, bottleneck phases, memory coverage. Always outputs Metrics/Distribution/Outlier only (no recommendations). Beta indicator for <5 projects or <50 changes.
+- **Knowledge Linking** (`src/core/knowledge-linking.ts`) — `KnowledgeLink` as `links` field in Memory YAML records (no independent storage). 5 relation types: `influences`, `implements`, `precedes`, `supersedes`, `evidences`. Max 10 outgoing links per record, max traversal depth 3. Manual linking (decision→any) + auto linking (quality gates→evidence).
+- **`ivy knowledge` command group** — Subcommands: `link`, `links`, `traverse`, `unlink`. Manage knowledge graph relationships between Memory records.
+- **Ecosystem Integration** (`src/core/ecosystem.ts`) — Capability-based detection: `code_intelligence` (gitnexus), `documentation_lookup` (context7), `spec_driven` (openspec). 24h cache in `.ivy/project.yaml`. Max 5 built-in capability limit.
+- **`ivy doctor --ecosystem`** — Capability status table (Status / Provider / Version / Recommended).
+- **Knowledge Sync (Experimental)** (`src/core/knowledge-sync.ts`) — Managed reference marker `<!-- ivy:managed -->` in CLAUDE.md / CURSOR.md / WINDSURF.md. Idempotent: skip if managed, append if unmanaged, create if missing.
+- **`ivy doctor --sync-kb` / `--fix --sync-kb`** — Sync managed reference to all installed platforms.
+- **Dashboard `--org`** — Multi-project ASCII bar chart + P50/P80/P95 distribution table.
+- **Dashboard `--knowledge`** — Knowledge graph overview: Total Records / Links / Linked Ratio / Avg Links / Unlinked Records.
+- **Export API v0.11.0** — Version bumped to `0.11.0`.
+- **578+ passing tests** across 56 test files.
+- **5 phases**: `open → design → build → verify → archive` (unchanged).
+- **16 platforms** (no change from v0.10).
 
 ## What is in v0.9
 
