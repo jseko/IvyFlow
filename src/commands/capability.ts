@@ -114,7 +114,7 @@ async function runList(cwd: string, opts: CapabilityOptions): Promise<number> {
 async function runProfile(cwd: string, opts: CapabilityOptions): Promise<number> {
   const detection = await detectTechStack(cwd);
   const maturity = (opts.maturity as MaturityLevel) ?? 'development';
-  const profile = await generateVerifyProfile(detection.techStack, maturity, detection.projectIntent as string);
+  const profile = await generateVerifyProfile(detection.techStack, maturity, detection.projectIntent);
   await writeVerifyProfile(cwd, profile);
   if (opts.format === 'json') { console.log(JSON.stringify(profile, null, 2)); return 0; }
   logger.info(`\nIvyFlow Verification Profile\n═══════════════════════════════════════════════════════\n`);
