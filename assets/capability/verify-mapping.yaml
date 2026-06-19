@@ -1,0 +1,36 @@
+verify_mapping:
+  default:
+    prototype:
+      compile: required
+      unitTest: optional
+      lint: optional
+      coverage: none
+      integrationTest: none
+      e2e: none
+    development:
+      compile: required
+      unitTest: required
+      lint: required
+      coverage: optional
+      integrationTest: optional
+      e2e: none
+    production:
+      compile: required
+      unitTest: required
+      lint: required
+      coverage: required
+      integrationTest: required
+      e2e: required
+  overrides:
+    - match: ["nextjs", "playwright"]
+      e2e: required
+    - match: ["springboot", "junit"]
+      compile: required
+      unitTest: required
+      integrationTest: required
+      e2e: optional
+    - match: ["go"]
+      compile: required
+      unitTest: required
+      lint: required
+      integrationTest: optional
