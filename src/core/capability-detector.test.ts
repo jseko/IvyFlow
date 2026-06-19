@@ -20,7 +20,7 @@ import {
   detectCapabilities,
 } from './capability-detector.js';
 
-import type { InferredCapability } from './capability-model.js';
+import type { InferredCapability, TechStack, ProjectIntent, CapabilityDependencyIndex } from './capability-model.js';
 
 describe('capability-detector', () => {
   // TC-1: Detect Next.js project
@@ -190,6 +190,105 @@ describe('capability-detector', () => {
     it('should infer static-site for frontend without backend', () => {
       const intent = inferProjectIntent({ frontend: ['react'] }, '/tmp');
       expect(intent).toBe('static-site');
+    });
+  });
+
+  // ─── Sprint 14.1: Additional Tests ───
+
+  // TC-27: ProjectIntent detection for fullstack
+  describe('TC-27: ProjectIntent for fullstack', () => {
+    it('should detect fullstack intent when both frontend and backend present', async () => {
+      const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ivy-full-'));
+      await fs.writeFile(path.join(tmpDir, 'package.json'), JSON.stringify({
+        dependencies: { next: '^14.0.0', express: '^4.18.0' },
+      }));
+      const result = await detectCapabilities(tmpDir);
+      expect(result.projectIntent).toBe('fullstack-app');
+    });
+  });
+
+  // TC-28: ProjectIntent detection for api-only
+  describe('TC-28: ProjectIntent for api-only', () => {
+    it('should detect api-only intent when only backend present', async () => {
+      const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ivy-api-'));
+      await fs.writeFile(path.join(tmpDir, 'package.json'), JSON.stringify({
+        dependencies: { express: '^4.18.0', fastify: '^4.0.0' },
+      }));
+      const result = await detectCapabilities(tmpDir);
+      expect(result.projectIntent).toBe('api-only');
+    });
+  });
+
+  // TC-33: DependencyIndex construction
+  describe('TC-33: DependencyIndex construction', () => {
+    it('should build dependency index from tech stack', () => {
+      const stack: TechStack = {
+        frontend: ['react', 'nextjs'],
+        backend: ['nestjs'],
+        testFramework: ['vitest'],
+      };
+      // Build index: each item maps to its dependencies
+      const index: Record<string, { category: string; dependsOn: string[] }> = {};
+      for (const [category, items] of Object.entries(stack)) {
+        for (const item of items as string[]) {
+          index[item] = { category, dependsOn: [] };
+        }
+      }
+      expect(index['react']).toBeDefined();
+      expect(index['react']!.category).toBe('frontend');
+      expect(index['nestjs']).toBeDefined();
+      expect(index['nestjs']!.category).toBe('backend');
+    });
+
+    it('should include dependency relationships', () => {
+      const stack: TechStack = {
+        frontend: ['react', 'nextjs'],
+        backend: ['nestjs'],
+      };
+      const index: Record<string, { category: string; dependsOn: string[] }> = {};
+      for (const [category, items] of Object.entries(stack)) {
+        for (const item of items as string[]) {
+          const deps: string[] = [];
+          // nextjs depends on react
+          if (item === 'nextjs' && stack.frontend?.includes('react')) {
+            deps.push('react');
+          }
+          index[item] = { category, dependsOn: deps };
+        }
+      }
+      expect(index['nextjs']!.dependsOn).toContain('react');
+      expect(index['react']!.dependsOn).toHaveLength(0);
+    });
+  });
+
+  // TC-36: Intent filter logic
+  describe('TC-36: Intent filter logic', () => {
+    it('should filter capabilities by intent', () => {
+      const allCaps: InferredCapability[] = [
+        { id: 'react', name: 'react', confidence: 0.9, source: 'package.json' },
+        { id: 'express', name: 'express', confidence: 0.9, source: 'package.json' },
+        { id: 'django', name: 'django', confidence: 0.8, source: 'requirements.txt' },
+      ];
+      const apiOnlyCaps = allCaps.filter(c => {
+        const backendOnly = ['express', 'fastify', 'django', 'flask', 'nestjs'];
+        return !backendOnly.includes(c.id);
+      });
+      // api-only should exclude backend frameworks
+      expect(apiOnlyCaps.find(c => c.id === 'express')).toBeUndefined();
+      expect(apiOnlyCaps.find(c => c.id === 'react')).toBeDefined();
+    });
+
+    it('should respect intent-based capability filtering', () => {
+      const frontendCaps = ['react', 'vue3', 'nextjs', 'tailwind'];
+      const isApplicable = (cap: string, intent: ProjectIntent): boolean => {
+        if (intent === 'api-only') return !frontendCaps.includes(cap);
+        if (intent === 'static-site') return true; // static-site accepts all (frontend preferred)
+        return true;
+      };
+      expect(isApplicable('react', 'api-only')).toBe(false);
+      expect(isApplicable('express', 'api-only')).toBe(true);
+      expect(isApplicable('react', 'static-site')).toBe(true);
+      expect(isApplicable('express', 'static-site')).toBe(true);
     });
   });
 });

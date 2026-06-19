@@ -12,6 +12,8 @@ import { logger } from '../utils/logger.js';
 import { detectCapabilities } from './capability-detector.js';
 import { generateRules, validateRules } from './rule-generator.js';
 import { generateProfile } from './verify-profile.js';
+import { recordGapDetected } from './feedback-collector.js';
+import { IvyPhase } from './phase-machine.js';
 
 // ─── 3D Health Types ───
 
@@ -138,13 +140,24 @@ export async function assessHealth(projectPath: string): Promise<CapabilityHealt
   for (const expected of expectedCapabilities) {
     if (!actualCapabilities.includes(expected)) {
       const type = expected.startsWith('e2e-') || expected.endsWith('-rules') ? 'rule' : 'skill';
-      gaps.push({
+      const gap: CapabilityGap = {
         type,
         expectedItem: expected,
         severity: type === 'rule' ? 'high' : 'medium',
         actionability: type === 'rule' ? 'auto_fixable' : 'suggestion_only',
         description: `Expected ${type} not deployed: ${expected}`,
-      });
+      };
+      gaps.push(gap);
+
+      // 记录 gap 信号（v0.16）
+      await recordGapDetected(
+        projectPath,
+        type === 'rule' ? 'capability_gap' : 'capability_gap',
+        gap.severity,
+        { phase: IvyPhase.DESIGN },
+        expected,
+        gap.description
+      );
     }
   }
 
@@ -213,4 +226,89 @@ export async function assessHealth(projectPath: string): Promise<CapabilityHealt
   }
 
   return { coverage, drift, risk, suggestions };
+}
+
+// ─── Health Recommendations (v0.16 Sprint 16.3) ───
+
+/**
+ * 健康检查推荐动作.
+ */
+export interface HealthRecommendation {
+  gap: CapabilityGap;
+  recommendedAction: string;
+  actionabilityLabel: string;
+}
+
+/**
+ * 生成健康检查推荐动作列表.
+ * 所有推荐为只读 — 不自动执行.
+ */
+export async function generateHealthRecommendations(
+  projectPath: string,
+): Promise<HealthRecommendation[]> {
+  const report = await assessHealth(projectPath);
+  const recommendations: HealthRecommendation[] = [];
+
+  for (const gap of report.coverage.gaps) {
+    let recommendedAction: string;
+    let actionabilityLabel: string;
+
+    switch (gap.type) {
+      case 'rule':
+        recommendedAction = "Run: `ivy rules generate`";
+        actionabilityLabel = gap.actionability === 'auto_fixable' ? '[auto_fixable]' : '[info]';
+        break;
+      case 'skill':
+        recommendedAction = `Install: ` + (gap.expectedItem.includes('review') ? '`ivy skill install code-reviewer`' : '`ivy skill install <skill-name>`');
+        actionabilityLabel = '[info]';
+        break;
+      case 'verification':
+        recommendedAction = "Configure: `ivy capability profile --setup`";
+        actionabilityLabel = '[info-manual]';
+        break;
+      default:
+        recommendedAction = "Review gap details";
+        actionabilityLabel = '[info]';
+    }
+
+    recommendations.push({
+      gap,
+      recommendedAction,
+      actionabilityLabel,
+    });
+  }
+
+  return recommendations;
+}
+
+/**
+ * 格式化健康检查输出（含推荐动作）.
+ */
+export function formatHealthReportWithRecommendations(
+  report: CapabilityHealthReport,
+  recommendations: HealthRecommendation[],
+): string {
+  const lines: string[] = [];
+
+  lines.push('\nCapability Health (with recommendations)');
+  lines.push('═══════════════════════════════════════════════════════════════\n');
+
+  // Gaps summary
+  lines.push(`  Gaps: ${report.coverage.gaps.length} (${recommendations.filter(r => r.gap.actionability === 'auto_fixable').length} auto_fixable, ${recommendations.filter(r => r.gap.actionability === 'suggestion_only').length} info, ${recommendations.filter(r => r.gap.actionability === 'manual_required').length} manual)`);
+
+  // Recommendations
+  if (recommendations.length > 0) {
+    lines.push('\n  ── Recommendations ──────────────────────────────────────\n');
+
+    for (const rec of recommendations) {
+      const icon = rec.gap.severity === 'high' ? '✗' : rec.gap.severity === 'medium' ? '⚠' : '•';
+      lines.push(`  ${icon}   Missing ${rec.gap.type}: ${rec.gap.expectedItem}`);
+      lines.push(`      → ${rec.recommendedAction}  ${rec.actionabilityLabel}`);
+      lines.push('');
+    }
+  } else {
+    lines.push('\n  ✓ No gaps detected — all capabilities deployed.\n');
+  }
+
+  return lines.join('\n');
 }

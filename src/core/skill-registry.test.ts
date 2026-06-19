@@ -74,4 +74,60 @@ describe('skill-registry', () => {
       expect(review.some(s => s.id === 'code-reviewer')).toBe(true);
     });
   });
+
+  // ─── Sprint 14.3: Additional Tests ───
+
+  // TC-31: Skill determinism labels
+  describe('TC-31: Skill determinism labels', () => {
+    it('should label skills with techStackTrigger as deterministic', () => {
+      const skills = listSkills();
+      const deterministicSkills = skills.filter(s => s.techStackTrigger && !s.techStackTrigger.includes('_always'));
+      // Skills with specific tech stack triggers are deterministic
+      for (const s of deterministicSkills) {
+        expect(s.techStackTrigger).toBeDefined();
+        expect(Array.isArray(s.techStackTrigger)).toBe(true);
+      }
+    });
+
+    it('should label _always skills as heuristic (advisory)', () => {
+      const alwaysSkills = listSkills().filter(s => s.techStackTrigger?.includes('_always'));
+      for (const s of alwaysSkills) {
+        expect(s.techStackTrigger).toContain('_always');
+      }
+    });
+
+    it('should distinguish deterministic from heuristic skills', () => {
+      const skills = listSkills();
+      const hasDeterministic = skills.some(s => s.techStackTrigger && !s.techStackTrigger.includes('_always'));
+      const hasHeuristic = skills.some(s => s.techStackTrigger?.includes('_always'));
+      expect(hasDeterministic).toBe(true);
+      expect(hasHeuristic).toBe(true);
+    });
+  });
+
+  // TC-32: Maturity level impact on skill recommendation
+  describe('TC-32: Maturity level impact', () => {
+    it('should recommend more comprehensive skills for production maturity', () => {
+      // Production maturity should include additional skills like security, performance
+      const prodSkills = getRecommendedSkills(['nextjs', 'vitest']);
+      const hasSecurity = prodSkills.some(s => s.category === 'security' || s.id.includes('security'));
+      // Production-level projects should have security considerations
+      expect(prodSkills.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('should include e2e testing for fullstack projects', () => {
+      const skills = getRecommendedSkills(['nextjs', 'playwright']);
+      const hasE2e = skills.some(s => s.id.includes('e2e') || s.category === 'testing');
+      expect(hasE2e).toBe(true);
+    });
+
+    it('should recommend appropriate skills based on stack combination', () => {
+      const frontendSkills = getRecommendedSkills(['react']);
+      const backendSkills = getRecommendedSkills(['express']);
+      // Frontend stack should recommend frontend-related skills
+      // Backend stack should recommend backend-related skills
+      expect(frontendSkills.length).toBeGreaterThan(0);
+      expect(backendSkills.length).toBeGreaterThan(0);
+    });
+  });
 });

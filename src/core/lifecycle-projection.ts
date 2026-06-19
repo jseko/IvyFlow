@@ -23,6 +23,7 @@ import path from 'path';
 
 import { fileExists, readFile, writeFile, ensureDir } from '../utils/fs.js';
 import { type IvyPhase, parsePhase, canTransition, listPhases } from './phase-machine.js';
+import { recordVerifyResult } from './feedback-collector.js';
 
 // ─── Types ───
 
@@ -432,6 +433,11 @@ export async function runFullGuardChecks(
     } catch {
       // Profile validation unavailable
     }
+
+    // 记录 verify 结果信号（v0.16）
+    const allPassed = standard.every(r => r.passed) && capability.every(r => r.passed !== false);
+    const gapCount = capability.filter(r => !r.passed).length;
+    await recordVerifyResult(cwd, allPassed ? 'pass' : 'blocked', gapCount);
   }
 
   return { standard, capability };

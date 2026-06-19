@@ -64,6 +64,10 @@ export async function appendFile(filePath: string, content: string): Promise<voi
   await writeFile(filePath, content, { flag: 'a' });
 }
 
+export async function unlink(filePath: string): Promise<void> {
+  await fs.unlink(filePath);
+}
+
 export async function readDir(dirPath: string): Promise<string[]> {
   try {
     return await fs.readdir(dirPath);

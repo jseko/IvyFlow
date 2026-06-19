@@ -13,6 +13,7 @@ import { runSuggest } from '../commands/suggest.js';
 import { runReview, type ReviewOptions } from '../commands/review.js';
 import { runCheck, type CheckOptions } from '../commands/check.js';
 import { runExplain, type ExplainOptions } from '../commands/explain.js';
+import { runRulesGen, type RulesGenOptions } from '../commands/rules-gen.js';
 import { runRules, type RulesOptions } from '../commands/rules.js';
 import { runArchive } from '../commands/archive.js';
 import { runVerify } from '../commands/verify.js';
@@ -24,8 +25,9 @@ import { runExport } from '../commands/export.js';
 import { runState, type StateOptions } from '../commands/state.js';
 import { runWorkflow, type WorkflowOptions } from '../commands/workflow.js';
 import { runCapability, type CapabilityOptions } from '../commands/capability.js';
-import { runRulesGen, type RulesGenOptions } from '../commands/rules-gen.js';
 import { runCapabilityVerify } from '../commands/capability-verify.js';
+import { runFeedback } from '../commands/feedback.js';
+import { runRulesAudit } from '../commands/rules-audit.js';
 import { runExplore } from '../commands/explore.js';
 import {
   runKnowledgeLink,
@@ -560,9 +562,10 @@ capabilityCmd
   .command('health')
   .description('Show capability health assessment (3D: coverage, drift, risk)')
   .option('--gaps-only', 'Show gaps only', false)
+  .option('--recommendations', 'Show recommendations for gaps (v0.16)', false)
   .option('--format <fmt>', 'Output format: text (default) or json')
-  .action(async (opts: { gapsOnly?: boolean; format?: string }) => {
-    const exitCode = await runCapability({ subcommand: 'health', gapsOnly: opts.gapsOnly, format: opts.format as 'text' | 'json' | undefined, cwd: process.cwd() });
+  .action(async (opts: { gapsOnly?: boolean; recommendations?: boolean; format?: string }) => {
+    const exitCode = await runCapability({ subcommand: 'health', gapsOnly: opts.gapsOnly, recommendations: opts.recommendations, format: opts.format as 'text' | 'json' | undefined, cwd: process.cwd() });
     process.exit(exitCode);
   });
 
@@ -572,6 +575,14 @@ capabilityCmd
   .option('--format <fmt>', 'Output format: text (default) or json')
   .action(async (opts: { format?: string }) => {
     const exitCode = await runCapability({ subcommand: 'profile', format: opts.format as 'text' | 'json' | undefined, cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+capabilityCmd
+  .command('verify')
+  .description('Capability-lifecycle integration check (advisory)')
+  .action(async () => {
+    const exitCode = await runCapabilityVerify({ cwd: process.cwd() });
     process.exit(exitCode);
   });
 
@@ -604,6 +615,22 @@ rulesCmd
   .option('--format <fmt>', 'Output format: text (default) or json')
   .action(async (opts: { format?: string }) => {
     const exitCode = await runRulesGen({ subcommand: 'validate', format: opts.format as 'text' | 'json' | undefined, cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+rulesCmd
+  .command('audit')
+  .description('v0.16: Rule usage insights (read-only)')
+  .argument('[rule-id]', 'Specific rule ID to inspect')
+  .option('--format <fmt>', 'Output format: text (default) or json')
+  .option('--days <n>', 'Analysis window in days (default: 30)', '30')
+  .action(async (ruleId?: string, opts: { format?: string; days?: string } = {}) => {
+    const exitCode = await runRulesAudit({
+      ruleId,
+      format: opts.format as 'text' | 'json' | undefined,
+      days: opts.days ? parseInt(opts.days, 10) : 30,
+      cwd: process.cwd(),
+    });
     process.exit(exitCode);
   });
 
@@ -650,6 +677,40 @@ knowledge
   .option('--index <n>', 'Link index to remove', parseInt)
   .action(async (recordId: string, opts: { index?: number }) => {
     const exitCode = await runKnowledgeUnlink({ recordId, linkIndex: opts.index });
+    process.exit(exitCode);
+  });
+
+// v0.16: feedback — runtime signal statistics and insights.
+program
+  .command('feedback')
+  .description('v0.16: Runtime signal statistics and rule usage insights')
+  .argument('[stats|history|cleanup]', 'Subcommand (default: stats)')
+  .option('--format <fmt>', 'Output format: text (default) or json')
+  .option('--days <n>', 'Analysis window in days (default: 30)', '30')
+  .action(async (subcommand?: string, opts: { format?: string; days?: string } = {}) => {
+    const exitCode = await runFeedback({
+      subcommand: subcommand as 'stats' | 'history' | 'cleanup' | undefined,
+      format: opts.format as 'text' | 'json' | undefined,
+      days: opts.days ? parseInt(opts.days, 10) : 30,
+      cwd: process.cwd(),
+    });
+    process.exit(exitCode);
+  });
+
+// v0.16: rules audit — rule usage insights.
+rulesCmd
+  .command('audit')
+  .description('v0.16: Rule usage insights (read-only)')
+  .argument('[rule-id]', 'Specific rule ID to inspect')
+  .option('--format <fmt>', 'Output format: text (default) or json')
+  .option('--days <n>', 'Analysis window in days (default: 30)', '30')
+  .action(async (ruleId?: string, opts: { format?: string; days?: string } = {}) => {
+    const exitCode = await runRulesAudit({
+      ruleId,
+      format: opts.format as 'text' | 'json' | undefined,
+      days: opts.days ? parseInt(opts.days, 10) : 30,
+      cwd: process.cwd(),
+    });
     process.exit(exitCode);
   });
 

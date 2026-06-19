@@ -5,6 +5,42 @@ All notable changes to `ivyflow-cli` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.14.0] — 2026-06-19
+
+**Capability Infrastructure — v0.14 "Awareness".** v0.14 introduces a capability-aware infrastructure layer that detects project tech stack, generates context-appropriate rules, recommends skills, and validates verify profiles. The release implements a three-stage compiler model (detect → compile → emit) with strict isolation between stages.
+
+### Added
+
+- **Capability Detection** (`ivy capability detect [--refresh] [--format json]`) — 4-stage pipeline: scan sources → infer capabilities → reconcile conflicts → emit results. Writes detection to `.ivy/capability.yaml`. Supports package.json, go.mod, Cargo.toml, pom.xml, requirements.txt.
+- **Capability Listing** (`ivy capability list [--recommended]`) — List detected capabilities or recommended skills based on tech stack.
+- **Capability Health** (`ivy capability health [--gaps-only] [--format json]`) — Diagnostic assessment across 3 dimensions: coverage (rule/skill/verify gaps), drift (tech stack changes), risk (stale rules, conflicts). No scores or percentages — diagnostic only.
+- **Verify Profile** (`ivy capability profile [--format json]`) — Generate verify profiles based on detected tech stack with maturity-based gate filtering.
+- **Capability Verify** (`ivy capability verify [--gaps-only]`) — Capability-lifecycle integration check (advisory-only, never blocking).
+- **Rule Generator** (`ivy rules generate|analyze|validate [--format json]`) — Generate rules from tech stack with tiering (core/context/optional), analyze coverage/conflicts, validate tech stack applicability.
+- **Three-Stage Compiler Model** — Strict isolation: detect (no writes) → compile (pure function, no I/O) → emit (write only).
+- **Rule Tiering** — core (always deployed), context (stack-bound), optional (recommended-only).
+- **Skill Determinism** — deterministic (stack-bound) vs heuristic (advisory-only).
+- **Export API** — Added `capability` and `verify-profile` dimensions to `ivy export`.
+- **3 new CLI commands**: `ivy capability` (with detect/list/health/profile/verify subcommands), `ivy rules` (with generate/analyze/validate subcommands).
+
+### Assets
+
+- `assets/capability/rule-mapping.yaml` — Rule definitions with tier annotations
+- `assets/capability/skill-mapping.yaml` — Skill definitions with install modes
+- `assets/capability/verify-mapping.yaml` — Verify profile templates by maturity
+
+### Technical
+
+- 7 new source files: `capability-model.ts`, `capability-detector.ts`, `capability-health.ts`, `rule-generator.ts`, `skill-registry.ts`, `verify-profile.ts`, `capability-verify.ts`.
+- 4 new test files: `capability-detector.test.ts`, `rule-generator.test.ts`, `skill-registry.test.ts`, `verify-profile.test.ts`, `capability-health.test.ts`, `capability-integration.test.ts`.
+- Enhanced: `export-api.ts` (capability and verify-profile dimensions), `cli/index.ts` (capability/rules command registration), `commands/capability.ts` (health/profile/verify dispatch).
+- All existing tests continue to pass with no regressions.
+
+### Coverage
+
+- **722 passing tests** across 68 test files (69 new tests for v0.14 capability infrastructure).
+- No new external dependencies added.
+
 ## [0.13.0] — 2026-06-19
 
 **Governed Execution — v0.13 "Control" builds lifecycle checkpoint management, decision protocols, preset workflows, workflow evidence, and execution isolation on top of the v0.12 "Trust" foundation.** This release transforms IvyFlow from a workflow enforcer into a governed execution layer with transition guards, evidence chains, and safe parallel worktree isolation.

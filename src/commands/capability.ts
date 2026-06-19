@@ -13,6 +13,9 @@
 
 import { logger } from '../utils/logger.js';
 import { detectCapabilities, buildTechStack } from '../core/capability-detector.js';
+import { fileExists, writeFile, ensureDir } from '../utils/fs.js';
+import { unlink } from 'fs/promises';
+import path from 'path';
 
 export interface CapabilityOptions {
   subcommand?: 'detect' | 'list' | 'health' | 'profile';
@@ -20,6 +23,7 @@ export interface CapabilityOptions {
   recommended?: boolean;
   format?: string;
   gapsOnly?: boolean;
+  recommendations?: boolean;
   cwd?: string;
 }
 
@@ -32,7 +36,7 @@ export async function runCapability(opts: CapabilityOptions = {}): Promise<numbe
     case 'list':
       return await runList(cwd, !!opts.recommended);
     case 'health':
-      return await runHealth(cwd, !!opts.gapsOnly, opts.format);
+      return await runHealth(cwd, !!opts.gapsOnly, !!opts.recommendations, opts.format);
     case 'profile':
       return await runProfile(cwd, opts.format);
     default:
@@ -42,8 +46,23 @@ export async function runCapability(opts: CapabilityOptions = {}): Promise<numbe
 
 // ─── Detect ───
 
-async function runDetect(cwd: string, _refresh: boolean, format?: string): Promise<number> {
+async function runDetect(cwd: string, refresh: boolean, format?: string): Promise<number> {
+  // --refresh: delete existing .ivy/capability.yaml before re-detecting
+  if (refresh) {
+    const capPath = path.join(cwd, '.ivy', 'capability.yaml');
+    if (await fileExists(capPath).catch(() => false)) {
+      await unlink(capPath);
+    }
+  }
+
   const result = await detectCapabilities(cwd);
+
+  // Write detection results to .ivy/capability.yaml
+  const ivyDir = path.join(cwd, '.ivy');
+  await ensureDir(ivyDir);
+  const capPath = path.join(ivyDir, 'capability.yaml');
+  const yaml = serializeCapabilityYaml(result);
+  await writeFile(capPath, yaml);
 
   if (format === 'json') {
     console.log(JSON.stringify(result, null, 2));
@@ -78,6 +97,27 @@ async function runDetect(cwd: string, _refresh: boolean, format?: string): Promi
   logger.info(`  Confidence: ${result.confidence}`);
 
   return 0;
+}
+
+function serializeCapabilityYaml(result: Awaited<ReturnType<typeof detectCapabilities>>): string {
+  const lines: string[] = [];
+  lines.push(`techStack:`);
+  for (const [category, items] of Object.entries(result.techStack)) {
+    if (items && items.length > 0) {
+      lines.push(`  ${category}:`);
+      for (const item of items) {
+        lines.push(`    - ${item}`);
+      }
+    }
+  }
+  lines.push(`projectIntent: ${result.projectIntent}`);
+  lines.push(`confidence: ${result.confidence}`);
+  lines.push(`timestamp: ${result.timestamp}`);
+  lines.push(`sources:`);
+  for (const src of result.sources) {
+    lines.push(`  - ${src}`);
+  }
+  return lines.join('\n') + '\n';
 }
 
 // ─── List ───
@@ -132,65 +172,75 @@ async function runList(cwd: string, recommended: boolean): Promise<number> {
 
 // ─── Health ───
 
-async function runHealth(cwd: string, gapsOnly: boolean, format?: string): Promise<number> {
-  const { assessHealth } = await import('../core/capability-health.js');
+async function runHealth(cwd: string, gapsOnly: boolean, recommendations: boolean, format?: string): Promise<number> {
+  const { assessHealth, generateHealthRecommendations, formatHealthReportWithRecommendations } = await import('../core/capability-health.js');
   const report = await assessHealth(cwd);
 
   if (format === 'json') {
-    console.log(JSON.stringify(report, null, 2));
+    if (recommendations) {
+      const recs = await generateHealthRecommendations(cwd);
+      console.log(JSON.stringify({ report, recommendations: recs }, null, 2));
+    } else {
+      console.log(JSON.stringify(report, null, 2));
+    }
     return 0;
   }
 
-  logger.header('IvyFlow Capability Health');
-  logger.divider();
-
-  // Coverage
-  logger.info('  ── Coverage ────────────────────────────────────────────');
-  logger.info(`  Coverage: ${report.coverage.ratio.toFixed(2)} (${report.coverage.actual}/${report.coverage.expected})`);
-  if (report.coverage.gaps.length > 0) {
-    for (const gap of report.coverage.gaps) {
-      const icon = gap.severity === 'high' ? '✗' : '⚠';
-      logger.info(`  ${icon} [${gap.severity}] ${gap.expectedItem} (${gap.type})`);
-      logger.info(`    → ${gap.description} [${gap.actionability}]`);
-    }
+  if (recommendations) {
+    const recs = await generateHealthRecommendations(cwd);
+    logger.info(formatHealthReportWithRecommendations(report, recs));
   } else {
-    logger.info('  No gaps detected ✓');
-  }
+    logger.header('IvyFlow Capability Health');
+    logger.divider();
 
-  // Drift
-  logger.info('');
-  logger.info('  ── Drift ──────────────────────────────────────────────');
-  logger.info(`  Rate: ${report.drift.rate.toFixed(2)}`);
-  if (report.drift.changes.length > 0) {
-    for (const change of report.drift.changes) {
-      logger.info(`    ${change.type === 'added' ? '+' : '-'} ${change.item}`);
+    // Coverage
+    logger.info('  ── Coverage ────────────────────────────────────────────');
+    logger.info(`  Coverage: ${report.coverage.ratio.toFixed(2)} (${report.coverage.actual}/${report.coverage.expected})`);
+    if (report.coverage.gaps.length > 0) {
+      for (const gap of report.coverage.gaps) {
+        const icon = gap.severity === 'high' ? '✗' : '⚠';
+        logger.info(`  ${icon} [${gap.severity}] ${gap.expectedItem} (${gap.type})`);
+        logger.info(`    → ${gap.description} [${gap.actionability}]`);
+      }
+    } else {
+      logger.info('  No gaps detected ✓');
     }
-  } else {
-    logger.info('  No changes ✓');
-  }
 
-  // Risk
-  logger.info('');
-  logger.info('  ── Risk ───────────────────────────────────────────────');
-  if (report.risk.flags.length > 0) {
-    for (const flag of report.risk.flags) {
-      logger.info(`  ⚠ [${flag.type}] ${flag.description}`);
-    }
-  } else {
-    logger.info('  No risk flags ✓');
-  }
-
-  // Suggestions
-  if (report.suggestions.length > 0) {
+    // Drift
     logger.info('');
-    logger.info('  Suggestions:');
-    for (const s of report.suggestions) {
-      logger.info(`    → ${s}`);
+    logger.info('  ── Drift ──────────────────────────────────────────────');
+    logger.info(`  Rate: ${report.drift.rate.toFixed(2)}`);
+    if (report.drift.changes.length > 0) {
+      for (const change of report.drift.changes) {
+        logger.info(`    ${change.type === 'added' ? '+' : '-'} ${change.item}`);
+      }
+    } else {
+      logger.info('  No changes ✓');
     }
-  }
 
-  logger.info('');
-  logger.info('  Note: Health is dimensional (coverage + drift + risk), not scored.');
+    // Risk
+    logger.info('');
+    logger.info('  ── Risk ───────────────────────────────────────────────');
+    if (report.risk.flags.length > 0) {
+      for (const flag of report.risk.flags) {
+        logger.info(`  ⚠ [${flag.type}] ${flag.description}`);
+      }
+    } else {
+      logger.info('  No risk flags ✓');
+    }
+
+    // Suggestions
+    if (report.suggestions.length > 0) {
+      logger.info('');
+      logger.info('  Suggestions:');
+      for (const s of report.suggestions) {
+        logger.info(`    → ${s}`);
+      }
+    }
+
+    logger.info('');
+    logger.info('  Note: Health is dimensional (coverage + drift + risk), not scored.');
+  }
 
   return 0;
 }

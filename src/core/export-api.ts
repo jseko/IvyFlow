@@ -16,13 +16,15 @@ import { readYaml } from '../utils/yaml.js';
 import { MemoryStore } from './memory-arch.js';
 import { readState } from './lifecycle-projection.js';
 import type { ExportPayload, ExportChange, ExportMetric } from './types.js';
+import { detectCapabilities } from './capability-detector.js';
+import { generateProfile } from './verify-profile.js';
 
 // ─── Export Engine ───
 
 export interface ExportOptions {
   cwd: string;
   projects?: string[];
-  dimension?: 'changes' | 'metrics' | 'knowledge' | 'workflow-evidence';
+  dimension?: 'changes' | 'metrics' | 'knowledge' | 'workflow-evidence' | 'capability' | 'verify-profile';
 }
 
 export async function buildExportPayload(opts: ExportOptions): Promise<ExportPayload> {
@@ -82,6 +84,42 @@ export async function buildExportPayload(opts: ExportOptions): Promise<ExportPay
       if (evidence.length > 0) {
         if (!allWorkflowEvidence) allWorkflowEvidence = [];
         allWorkflowEvidence.push(...evidence);
+      }
+    }
+
+    // Collect capability data
+    if (!opts.dimension || opts.dimension === 'capability') {
+      const capData = await collectCapability(projectPath);
+      if (capData) {
+        // Store as knowledge entry
+        allKnowledge.push({
+          id: `capability-${path.basename(projectPath)}`,
+          type: 'capability',
+          title: `Capability Detection: ${path.basename(projectPath)}`,
+          timestamp: capData.timestamp,
+          changeName: path.basename(projectPath),
+          source: 'capability-detection',
+          content: JSON.stringify(capData),
+          tags: ['capability', 'tech-stack'],
+        });
+      }
+    }
+
+    // Collect verify profile
+    if (!opts.dimension || opts.dimension === 'verify-profile') {
+      const profileData = await collectVerifyProfile(projectPath);
+      if (profileData) {
+        // Store as knowledge entry
+        allKnowledge.push({
+          id: `verify-profile-${path.basename(projectPath)}`,
+          type: 'verify-profile',
+          title: `Verify Profile: ${path.basename(projectPath)}`,
+          timestamp: new Date().toISOString(),
+          changeName: path.basename(projectPath),
+          source: 'verify-profile-generation',
+          content: JSON.stringify(profileData),
+          tags: ['verify-profile', 'verification'],
+        });
       }
     }
   }
@@ -221,4 +259,58 @@ async function collectWorkflowEvidence(projectPath: string): Promise<NonNullable
     // No state file — no evidence to export
   }
   return evidence;
+}
+
+/**
+ * Collect capability detection data from project.
+ */
+async function collectCapability(cwd: string): Promise<{
+  techStack: { [key: string]: string[] | undefined };
+  projectIntent: string;
+  confidence: number;
+  timestamp: string;
+  sources: string[];
+} | null> {
+  try {
+    const result = await detectCapabilities(cwd);
+    // Convert TechStack to plain object with string index
+    const techStack: { [key: string]: string[] | undefined } = {};
+    for (const [category, items] of Object.entries(result.techStack)) {
+      if (items && items.length > 0) {
+        techStack[category] = items;
+      }
+    }
+    return {
+      techStack,
+      projectIntent: result.projectIntent,
+      confidence: result.confidence,
+      timestamp: result.timestamp,
+      sources: result.sources,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Collect verify profile for the project.
+ */
+async function collectVerifyProfile(cwd: string): Promise<{
+  maturity: string;
+  profile: Awaited<ReturnType<typeof generateProfile>>;
+  techStack: string[];
+} | null> {
+  try {
+    const { detectCapabilities } = await import('./capability-detector.js');
+    const detection = await detectCapabilities(cwd);
+    const techStacks = Object.values(detection.techStack).flat().filter(Boolean) as string[];
+    const profile = generateProfile('development', techStacks);
+    return {
+      maturity: 'development',
+      profile,
+      techStack: techStacks,
+    };
+  } catch {
+    return null;
+  }
 }

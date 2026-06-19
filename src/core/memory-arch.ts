@@ -148,7 +148,7 @@ export class MemoryStore {
   async renderMemoryOverview(): Promise<MemoryOverview> {
     const all = await this.query({});
     const byType: Record<MemoryRecordType, number> = {
-      decision: 0, constraint: 0, risk: 0, fact: 0, evidence: 0,
+      decision: 0, constraint: 0, risk: 0, fact: 0, evidence: 0, capability: 0, 'verify-profile': 0,
     };
 
     for (const r of all) {

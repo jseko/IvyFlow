@@ -8,6 +8,8 @@ IvyFlow (`ivyflow-cli`) is a CLI that distributes Skills, Rules, and Git hooks t
 
 It is **not** an LLM runtime, **not** a SaaS. It is a thin local enforcer that ships alongside any AI coding tool.
 
+**Current state: v0.14.0 shipped.** 10 CLI commands, 16 platforms, 722 tests, 94.2% coverage.
+
 ---
 
 ## Why use it
@@ -202,6 +204,41 @@ ivy update --check                 # return exit code 0 (latest) or 1 (update av
 - **`ivy analytics --bias`** — query inference bias log for calibration transparency.
 - **§9 evolution constraints** (CI-enforced): SKILL.md must stay 4 blocks each ≤ 50 lines; manifest schema is validated at build time; `render/` budget is policy-bound.
 - **Backwards compatible**: v0.1/v0.2/v0.3/v0.4/v0.5/v0.6/v0.7 `.ivy/project.yaml` is read transparently.
+
+## v0.14 — Capability Infrastructure
+
+**"Awareness" — The system now detects what your project needs.**
+
+v0.14 introduces a capability-aware infrastructure layer that detects project tech stack, generates context-appropriate rules, recommends skills, and validates verify profiles.
+
+### New CLI Commands
+
+- `ivy capability detect [--refresh] [--format json]` — detect project tech stack (package.json, go.mod, Cargo.toml, pom.xml, requirements.txt)
+- `ivy capability list [--recommended]` — list detected capabilities or recommended skills
+- `ivy capability health [--gaps-only] [--format json]` — diagnostic health assessment (coverage, drift, risk — no scores)
+- `ivy capability profile [--format json]` — verify profile based on detected tech stack
+- `ivy capability verify [--gaps-only]` — capability-lifecycle integration check (advisory)
+- `ivy rules generate [--format json]` — generate rules from tech stack with tiering (core/context/optional)
+- `ivy rules analyze [--format json]` — analyze rules (coverage, conflicts)
+- `ivy rules validate [--format json]` — validate rules against tech stack
+
+### Key Features
+
+- **Three-stage compiler**: detect → compile → emit with strict isolation
+- **Rule tiering**: core (always), context (stack-bound), optional (recommended)
+- **Skill determinism**: deterministic (stack-bound) vs heuristic (advisory)
+- **Health is diagnostic**: no scores, percentages, or weighted averages — only presence checks + gap detection + risk flags
+- **Capability guards are advisory**: warn-level only, never block transitions
+
+### Assets
+
+- `assets/capability/rule-mapping.yaml` — Rule definitions with tier annotations
+- `assets/capability/skill-mapping.yaml` — Skill definitions with install modes
+- `assets/capability/verify-mapping.yaml` — Verify profile templates by maturity
+
+### Backwards compatible
+
+- v0.1/v0.2/v0.3/v0.4/v0.5/v0.6/v0.7/v0.8/v0.9/v0.10/v0.11/v0.12/v0.13 `.ivy/project.yaml` is read transparently.
 
 ## Known limitations
 

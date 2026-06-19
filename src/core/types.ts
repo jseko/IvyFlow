@@ -162,7 +162,7 @@ export interface PreToolUseGuardConfig {
 
 // ─── v0.10: Memory Architecture ───
 
-export type MemoryRecordType = 'decision' | 'constraint' | 'risk' | 'fact' | 'evidence';
+export type MemoryRecordType = 'decision' | 'constraint' | 'risk' | 'fact' | 'evidence' | 'capability' | 'verify-profile';
 
 export interface MemoryRecord {
   id: string;
