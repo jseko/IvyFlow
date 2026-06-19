@@ -201,4 +201,69 @@ describe('lifecycle-projection', () => {
       expect(isBackwardTransition('archive' as LifecycleCheckpoint, 'verify' as LifecycleCheckpoint)).toBe(true);
     });
   });
+
+  // TC-18: Verify integration — guard checks include capability checks on build→verify
+  describe('verify integration with capability checks (TC-18)', () => {
+    it('should add capability checks for build→verify transition', async () => {
+      const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ivy-lc-cap-verify-'));
+      const changeDir = path.join(tmpDir, 'openspec', 'changes', 'cap-test');
+      await fs.mkdir(changeDir, { recursive: true });
+      await fs.writeFile(path.join(changeDir, 'proposal.md'), '# Proposal');
+      await fs.writeFile(path.join(changeDir, 'design.md'), '# Design');
+      await fs.writeFile(path.join(changeDir, 'tasks.md'), '# Tasks');
+
+      const results = await runGuardChecks(tmpDir, 'build' as LifecycleCheckpoint, 'verify' as LifecycleCheckpoint, 'cap-test');
+
+      // Standard checks still pass
+      expect(results.some((r) => r.check === 'proposal.md exists' && r.passed)).toBe(true);
+      expect(results.some((r) => r.check === 'design.md exists' && r.passed)).toBe(true);
+      expect(results.some((r) => r.check === 'tasks.md exists' && r.passed)).toBe(true);
+
+      // Capability checks are present (may be advisory-only)
+      const capChecks = results.filter((r) => r.check.startsWith('Verify profile') || r.check.startsWith('Rules deployed') || r.check.startsWith('Capability gap'));
+      expect(capChecks.length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should mark capability checks as warning severity (non-blocking)', async () => {
+      const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ivy-lc-cap-warn-'));
+      const changeDir = path.join(tmpDir, 'openspec', 'changes', 'cap-warn');
+      await fs.mkdir(changeDir, { recursive: true });
+      await fs.writeFile(path.join(changeDir, 'proposal.md'), '# Proposal');
+      await fs.writeFile(path.join(changeDir, 'design.md'), '# Design');
+      await fs.writeFile(path.join(changeDir, 'tasks.md'), '# Tasks');
+
+      const results = await runGuardChecks(tmpDir, 'build' as LifecycleCheckpoint, 'verify' as LifecycleCheckpoint, 'cap-warn');
+
+      // Capability-related checks should be warning severity
+      for (const r of results) {
+        if (r.check.startsWith('Verify profile') || r.check.startsWith('Rules deployed') || r.check.startsWith('Capability gap')) {
+          expect(r.severity).toBe('warning');
+        }
+      }
+    });
+  });
+
+  // TC-19: Capability gaps do not block transitions
+  describe('capability gaps non-blocking (TC-19)', () => {
+    it('should allow build→verify transition even without capability artifacts', async () => {
+      const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ivy-lc-cap-nonblock-'));
+      const changeDir = path.join(tmpDir, 'openspec', 'changes', 'cap-nonblock');
+      await fs.mkdir(changeDir, { recursive: true });
+      await fs.writeFile(path.join(changeDir, 'proposal.md'), '# Proposal');
+      await fs.writeFile(path.join(changeDir, 'design.md'), '# Design');
+      await fs.writeFile(path.join(changeDir, 'tasks.md'), '# Tasks');
+
+      // This should not throw — capability gaps are warnings, not errors
+      const results = await runGuardChecks(tmpDir, 'build' as LifecycleCheckpoint, 'verify' as LifecycleCheckpoint, 'cap-nonblock');
+
+      // Standard artifact checks pass
+      const stdChecks = results.filter((r) => !r.check.startsWith('Verify') && !r.check.startsWith('Rules') && !r.check.startsWith('Capability'));
+      expect(stdChecks.every((r) => r.passed)).toBe(true);
+
+      // Transition itself should work
+      const state = makeTestState({ checkpoint: 'build' as LifecycleCheckpoint });
+      const result = applyTransition(state, IvyPhase.VERIFY as LifecycleCheckpoint, 'Build complete');
+      expect(result.checkpoint).toBe('verify');
+    });
+  });
 });

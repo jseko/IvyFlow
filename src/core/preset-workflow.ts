@@ -21,6 +21,9 @@ export interface PresetConfig {
   maxTasks: number | null;
   maxFiles: number | null;
   upgradeThreshold: number | null;  // file count threshold → auto-upgrade prompt
+  skipCapabilityDetection: boolean;  // v0.14: skip tech stack detection
+  skipRuleGeneration: boolean;       // v0.14: skip rule generation
+  capabilityCheckLevel: 'full' | 'basic' | 'none';  // v0.14: verify-phase capability check depth
 }
 
 export interface PresetUpgradeCondition {
@@ -48,6 +51,9 @@ export const BUILTIN_PRESETS: Record<WorkflowPreset, PresetConfig> = {
     maxTasks: null,
     maxFiles: null,
     upgradeThreshold: null,
+    skipCapabilityDetection: false,
+    skipRuleGeneration: false,
+    capabilityCheckLevel: 'full',
   },
   hotfix: {
     label: 'Bug 修复',
@@ -56,6 +62,9 @@ export const BUILTIN_PRESETS: Record<WorkflowPreset, PresetConfig> = {
     maxTasks: 3,
     maxFiles: 3,
     upgradeThreshold: 3,
+    skipCapabilityDetection: true,
+    skipRuleGeneration: true,
+    capabilityCheckLevel: 'basic',
   },
   tweak: {
     label: '小型调整',
@@ -64,6 +73,9 @@ export const BUILTIN_PRESETS: Record<WorkflowPreset, PresetConfig> = {
     maxTasks: 5,
     maxFiles: 5,
     upgradeThreshold: 5,
+    skipCapabilityDetection: false,
+    skipRuleGeneration: true,
+    capabilityCheckLevel: 'basic',
   },
 };
 
@@ -104,11 +116,17 @@ export async function readPresetConfig(
       max_tasks: 'maxTasks',
       max_files: 'maxFiles',
       upgrade_threshold: 'upgradeThreshold',
+      skip_capability_detection: 'skipCapabilityDetection',
+      skip_rule_generation: 'skipRuleGeneration',
+      capability_check_level: 'capabilityCheckLevel',
       skipBrainstorming: 'skipBrainstorming',
       skipOutlineDesign: 'skipOutlineDesign',
       maxTasks: 'maxTasks',
       maxFiles: 'maxFiles',
       upgradeThreshold: 'upgradeThreshold',
+      skipCapabilityDetection: 'skipCapabilityDetection',
+      skipRuleGeneration: 'skipRuleGeneration',
+      capabilityCheckLevel: 'capabilityCheckLevel',
     };
 
     const mapped: Partial<PresetConfig> = {};
