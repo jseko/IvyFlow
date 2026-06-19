@@ -23,6 +23,7 @@ import { runTrace } from '../commands/trace.js';
 import { runExport } from '../commands/export.js';
 import { runState, type StateOptions } from '../commands/state.js';
 import { runWorkflow, type WorkflowOptions } from '../commands/workflow.js';
+import { runCapability, type CapabilityOptions } from '../commands/capability.js';
 import { runExplore } from '../commands/explore.js';
 import {
   runKnowledgeLink,
@@ -526,6 +527,30 @@ program
   .description('v0.13: Read-only exploration mode')
   .action(async () => {
     const exitCode = await runExplore({ cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+// v0.15: capability — capability detection and listing.
+const capabilityCmd = program
+  .command('capability')
+  .description('v0.15: Capability detection, listing, health, and profile');
+
+capabilityCmd
+  .command('detect')
+  .description('Detect project tech stack and capabilities')
+  .option('--refresh', 'Force re-detection', false)
+  .option('--format <fmt>', 'Output format: text (default) or json')
+  .action(async (opts: { refresh?: boolean; format?: string }) => {
+    const exitCode = await runCapability({ subcommand: 'detect', refresh: opts.refresh, format: opts.format, cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+capabilityCmd
+  .command('list')
+  .description('List detected capabilities')
+  .option('--recommended', 'Show recommended skills', false)
+  .action(async (opts: { recommended?: boolean }) => {
+    const exitCode = await runCapability({ subcommand: 'list', recommended: opts.recommended, cwd: process.cwd() });
     process.exit(exitCode);
   });
 
