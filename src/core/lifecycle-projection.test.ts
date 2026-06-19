@@ -238,6 +238,12 @@ describe('lifecycle-projection', () => {
         await fs.mkdir(path.join(changeDir, 'specs'), { recursive: true });
         await fs.writeFile(path.join(changeDir, 'tasks.md'), '# Tasks');
 
+        // Create .ivy directory with verify.yaml and rules.yaml so capability checks pass
+        const ivyDir = path.join(tmpDir, '.ivy');
+        await fs.mkdir(ivyDir, { recursive: true });
+        await fs.writeFile(path.join(ivyDir, 'verify.yaml'), 'compile: true\nunitTest: true\nintegrationTest: true\ne2e: true\nlint: true\ncoverage: 80\n');
+        await fs.writeFile(path.join(ivyDir, 'rules.yaml'), 'rules:\n  - id: test-rule\n    tier: context\n    tech_stack_trigger: []\n');
+
         const { standard, capability } = await runFullGuardChecks(
           tmpDir,
           'build' as LifecycleCheckpoint,
@@ -246,7 +252,7 @@ describe('lifecycle-projection', () => {
           'full' as GuardPreset
         );
 
-        // Standard checks pass (artifacts exist)
+        // Standard checks pass (artifacts exist + capability checks pass)
         expect(standard.every(r => r.passed)).toBe(true);
         // Capability guards present
         expect(capability).toBeDefined();
