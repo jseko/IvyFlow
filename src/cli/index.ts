@@ -24,6 +24,7 @@ import { runExport } from '../commands/export.js';
 import { runState, type StateOptions } from '../commands/state.js';
 import { runWorkflow, type WorkflowOptions } from '../commands/workflow.js';
 import { runExplore } from '../commands/explore.js';
+import { runCapability, type CapabilityOptions } from '../commands/capability.js';
 import {
   runKnowledgeLink,
   runKnowledgeLinks,
@@ -526,6 +527,41 @@ program
   .description('v0.13: Read-only exploration mode')
   .action(async () => {
     const exitCode = await runExplore({ cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+// v0.14: capability — profile and recommendation commands
+const capabilityCmd = program
+  .command('capability')
+  .description('v0.14: Verification profile and skill recommendations');
+
+capabilityCmd
+  .command('profile')
+  .description('Show verification profile based on tech stack')
+  .option('--maturity <level>', 'Maturity level: prototype | development | production', 'development')
+  .option('--format <type>', 'Output format: text | json', 'text')
+  .action(async (opts: { maturity?: string; format?: string }) => {
+    const exitCode = await runCapability({
+      command: 'profile',
+      maturity: opts.maturity,
+      format: opts.format as 'text' | 'json',
+      cwd: process.cwd(),
+    });
+    process.exit(exitCode);
+  });
+
+capabilityCmd
+  .command('list')
+  .description('List active capabilities')
+  .option('--recommended', 'Show recommended skills instead of capabilities', false)
+  .option('--format <type>', 'Output format: text | json', 'text')
+  .action(async (opts: { recommended?: boolean; format?: string }) => {
+    const exitCode = await runCapability({
+      command: 'list',
+      recommended: opts.recommended,
+      format: opts.format as 'text' | 'json',
+      cwd: process.cwd(),
+    });
     process.exit(exitCode);
   });
 

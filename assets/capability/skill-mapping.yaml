@@ -1,0 +1,49 @@
+# IvyFlow v0.14 Skill Mapping
+
+# Deterministic: tech-stack-bound skills
+deterministic:
+  playwright:
+    - id: playwright-e2e
+      category: testing
+      installMode: auto
+  nextjs:
+    - id: frontend-patterns
+      category: design
+      installMode: recommend
+  react:
+    - id: frontend-patterns
+      category: design
+      installMode: recommend
+  nestjs:
+    - id: dev-process
+      category: design
+      installMode: auto
+  vue3:
+    - id: frontend-patterns
+      category: design
+      installMode: recommend
+  springboot:
+    - id: dev-process
+      category: design
+      installMode: auto
+  go:
+    - id: dev-process
+      category: design
+      installMode: auto
+  python:
+    - id: dev-process
+      category: design
+      installMode: auto
+
+# Heuristic: context-driven skills (always advisory)
+heuristic:
+  _always:
+    - id: code-reviewer
+      category: review
+      installMode: recommend
+    - id: security-review
+      category: security
+      installMode: manual
+    - id: professional-proofreader
+      category: documentation
+      installMode: recommend
