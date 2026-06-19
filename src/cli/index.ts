@@ -25,6 +25,7 @@ import { runState, type StateOptions } from '../commands/state.js';
 import { runWorkflow, type WorkflowOptions } from '../commands/workflow.js';
 import { runCapability, type CapabilityOptions } from '../commands/capability.js';
 import { runRulesGen, type RulesGenOptions } from '../commands/rules-gen.js';
+import { runCapabilityVerify } from '../commands/capability-verify.js';
 import { runExplore } from '../commands/explore.js';
 import {
   runKnowledgeLink,
