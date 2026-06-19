@@ -21,9 +21,8 @@
 
 import path from 'path';
 
-import { ensureDir, fileExists, readFile, writeFile } from '../utils/fs.js';
+import { fileExists, readFile, writeFile, ensureDir } from '../utils/fs.js';
 import { type IvyPhase, parsePhase, canTransition, listPhases } from './phase-machine.js';
-import { runCapabilityHealthCheck } from './capability-health.js';
 
 // ─── Types ───
 
@@ -243,7 +242,7 @@ export async function runGuardChecks(
     });
   }
 
-  // build → verify: same as design → build + capability integration checks
+  // build → verify: same as design → build
   if (from === 'build' && to === 'verify') {
     results.push({
       check: 'proposal.md exists',
@@ -257,30 +256,6 @@ export async function runGuardChecks(
       check: 'tasks.md exists',
       passed: await fileExists(path.join(changeDir, 'tasks.md')),
     });
-
-    // Capability integration checks (advisory-only, non-blocking)
-    const health = await runCapabilityHealthCheck(cwd).catch(() => null);
-    if (health) {
-      results.push({
-        check: 'Verify profile aligned',
-        passed: health.verifyProfileAligned,
-        message: health.verifyProfileAligned ? undefined : 'Run `ivy capability profile` to configure',
-        severity: 'warning',
-      });
-      results.push({
-        check: 'Rules deployed and active',
-        passed: health.rulesActive,
-        message: health.rulesActive ? undefined : 'Run `ivy rules generate` to deploy',
-        severity: 'warning',
-      });
-      for (const gap of health.gaps) {
-        results.push({
-          check: `Capability gap: ${gap}`,
-          passed: false,
-          severity: 'warning',
-        });
-      }
-    }
   }
 
   return results;
