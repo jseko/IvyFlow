@@ -24,6 +24,7 @@ import { runExport } from '../commands/export.js';
 import { runState, type StateOptions } from '../commands/state.js';
 import { runWorkflow, type WorkflowOptions } from '../commands/workflow.js';
 import { runExplore } from '../commands/explore.js';
+import { runCapability, type CapabilityOptions } from '../commands/capability.js';
 import {
   runKnowledgeLink,
   runKnowledgeLinks,
@@ -526,6 +527,39 @@ program
   .description('v0.13: Read-only exploration mode')
   .action(async () => {
     const exitCode = await runExplore({ cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+// v0.14: capability — detect project capabilities
+const capabilityCmd = program
+  .command('capability')
+  .description('v0.14: Capability detection and listing');
+
+capabilityCmd
+  .command('detect')
+  .description('Detect project tech stack and capabilities')
+  .option('--refresh', 'Force re-detection (skip cache)', false)
+  .option('--format <type>', 'Output format: text | json', 'text')
+  .action(async (opts: { refresh?: boolean; format?: string }) => {
+    const exitCode = await runCapability({
+      command: 'detect',
+      refresh: opts.refresh,
+      format: opts.format as 'text' | 'json',
+      cwd: process.cwd(),
+    });
+    process.exit(exitCode);
+  });
+
+capabilityCmd
+  .command('list')
+  .description('List active capabilities')
+  .option('--format <type>', 'Output format: text | json', 'text')
+  .action(async (opts: { format?: string }) => {
+    const exitCode = await runCapability({
+      command: 'list',
+      format: opts.format as 'text' | 'json',
+      cwd: process.cwd(),
+    });
     process.exit(exitCode);
   });
 
