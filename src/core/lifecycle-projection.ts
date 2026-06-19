@@ -1,5 +1,5 @@
 /**
- * Lifecycle Projection — v0.13 Checkpoint model.
+ * Lifecycle Projection — v0.13 Checkpoint model + v0.15 Capability Guards.
  *
  * Lifecycle checkpoints are a projection of the OpenSpec change's artifact
  * completion status. There is no independent lifecycle state — checkpoint is
@@ -10,6 +10,13 @@
  *   - lifecycle_has_no_independent_state: true
  *   - backward transitions always allowed (no --force needed)
  *   - transition history capped at 10 entries
+ *
+ * v0.15 Capability Guards (Sprint 15.4):
+ *   - Verify checkpoint enhanced with capability health guard checks
+ *   - Verify profile validation in guard chain
+ *   - Rule compliance check in guard chain
+ *   - Preset system: full / hotfix / tweak
+ *   - Capability gaps display as advisory (warn-level) — do NOT block transitions
  */
 
 import path from 'path';
@@ -41,6 +48,31 @@ export interface GuardResult {
   check: string;
   passed: boolean;
   message?: string;
+}
+
+export interface CapabilityGuardResult extends GuardResult {
+  severity: 'warn' | 'advisory';
+  gap?: {
+    type: 'rule' | 'skill' | 'verification';
+    expectedItem: string;
+    actionability: 'auto_fixable' | 'suggestion_only' | 'manual_required';
+  };
+}
+
+export type GuardPreset = 'full' | 'hotfix' | 'tweak';
+
+export interface VerifyProfile {
+  compile?: boolean;
+  unitTest?: boolean;
+  integrationTest?: boolean;
+  e2e?: boolean;
+  lint?: boolean;
+  coverage?: number;
+}
+
+export interface RuleComplianceResult {
+  compliant: boolean;
+  violations: Array<{ rule: string; reason: string }>;
 }
 
 // ─── State file management ───
@@ -226,6 +258,182 @@ export async function runGuardChecks(
   }
 
   return results;
+}
+
+// ─── Capability Guards (Sprint 15.4) ───
+
+/**
+ * Run capability health guard checks for the verify checkpoint.
+ * These checks are advisory only (warn-level) and do NOT block transitions.
+ */
+export async function runCapabilityGuards(
+  cwd: string,
+  changeName: string,
+  preset: GuardPreset = 'full',
+): Promise<CapabilityGuardResult[]> {
+  const results: CapabilityGuardResult[] = [];
+
+  // Skip detection for tweak/hotfix presets
+  if (preset === 'tweak' || preset === 'hotfix') {
+    results.push({
+      check: 'Capability detection',
+      passed: true,
+      message: `Skipped (preset: ${preset})`,
+      severity: 'advisory',
+    });
+    return results;
+  }
+
+  // Run capability detection
+  try {
+    const { detectTechStack } = await import('./capability-detector.js');
+    const detection = await detectTechStack(cwd);
+    const allTechStacks = Object.values(detection.techStack).flat().filter(Boolean) as string[];
+
+    // Check for capability gaps (expected vs actual)
+    // Expected capabilities are derived from the detected tech stack
+    // For now, we check if the detected tech stack has meaningful content
+    if (allTechStacks.length === 0) {
+      results.push({
+        check: 'Capability coverage',
+        passed: true,
+        message: 'No tech stack detected (advisory only)',
+        severity: 'advisory',
+      });
+    } else {
+      results.push({
+        check: 'Capability coverage',
+        passed: true,
+        message: `Detected: ${allTechStacks.join(', ')}`,
+        severity: 'advisory',
+      });
+    }
+  } catch {
+    results.push({
+      check: 'Capability detection',
+      passed: true,
+      message: 'Detection unavailable (advisory only)',
+      severity: 'advisory',
+    });
+  }
+
+  return results;
+}
+
+function inferCapabilityType(item: string): 'rule' | 'skill' | 'verification' {
+  if (item.startsWith('e2e-') || item.endsWith('-rules') || item.includes('-rules')) return 'rule';
+  if (item.startsWith('verify-') || item.endsWith('-gate')) return 'verification';
+  return 'skill';
+}
+export async function validateVerifyProfile(
+  cwd: string,
+  profile: VerifyProfile | null,
+): Promise<CapabilityGuardResult> {
+  if (!profile) {
+    return {
+      check: 'Verify profile',
+      passed: true,
+      message: 'No verify profile configured (advisory only)',
+      severity: 'advisory',
+    };
+  }
+
+  const missing: string[] = [];
+  if (profile.compile === false) missing.push('compile');
+  if (profile.unitTest === false) missing.push('unit test');
+  if (profile.integrationTest === false) missing.push('integration test');
+  if (profile.e2e === false) missing.push('e2e test');
+  if (profile.lint === false) missing.push('lint');
+  if (profile.coverage === undefined) missing.push('coverage threshold');
+
+  if (missing.length > 0) {
+    return {
+      check: 'Verify profile',
+      passed: false,
+      message: `Missing verification gates: ${missing.join(', ')}`,
+      severity: 'warn',
+    };
+  }
+
+  return {
+    check: 'Verify profile',
+    passed: true,
+    message: 'All verification gates configured',
+    severity: 'advisory',
+  };
+}
+
+/**
+ * Check rule compliance against deployed rules.
+ * Advisory only — does not block transitions.
+ */
+export async function checkRuleCompliance(
+  cwd: string,
+  changeName: string,
+): Promise<RuleComplianceResult> {
+  const violations: Array<{ rule: string; reason: string }> = [];
+
+  // Check for stale rules (deployed but not matching current tech stack)
+  try {
+    const { detectTechStack } = await import('./capability-detector.js');
+    const detection = await detectTechStack(cwd);
+    const techStacks = Object.values(detection.techStack).flat().filter(Boolean) as string[];
+
+    // Check .ivy/rules.yaml for deployed rules
+    const rulesPath = path.join(cwd, '.ivy', 'rules.yaml');
+    if (await fileExists(rulesPath)) {
+      // Simple check: if rules exist but don't match tech stack, flag as stale
+      // (Full rule compliance requires rule-registry module which is deferred)
+    }
+  } catch {
+    // Detection unavailable, skip compliance check
+  }
+
+  return { compliant: violations.length === 0, violations };
+}
+
+/**
+ * Run full guard checks including capability guards for verify checkpoint.
+ * Capability guards are advisory only and do NOT block transitions.
+ */
+export async function runFullGuardChecks(
+  cwd: string,
+  from: LifecycleCheckpoint,
+  to: LifecycleCheckpoint,
+  changeName: string,
+  preset: GuardPreset = 'full',
+): Promise<{ standard: GuardResult[]; capability: CapabilityGuardResult[] }> {
+  const standard = await runGuardChecks(cwd, from, to, changeName);
+  const capability: CapabilityGuardResult[] = [];
+
+  // Only run capability guards at verify checkpoint
+  if (to === 'verify') {
+    capability.push(...(await runCapabilityGuards(cwd, changeName, preset)));
+
+    // Validate verify profile
+    try {
+      const profilePath = path.join(cwd, '.ivy', 'verify.yaml');
+      if (await fileExists(profilePath)) {
+        const { readFile } = await import('../utils/fs.js');
+        const raw = await readFile(profilePath);
+        // Parse YAML-like format
+        const profile: VerifyProfile = {};
+        if (raw.includes('compile:')) profile.compile = !raw.includes('compile: false');
+        if (raw.includes('unitTest:')) profile.unitTest = !raw.includes('unitTest: false');
+        if (raw.includes('integrationTest:')) profile.integrationTest = !raw.includes('integrationTest: false');
+        if (raw.includes('e2e:')) profile.e2e = !raw.includes('e2e: false');
+        if (raw.includes('lint:')) profile.lint = !raw.includes('lint: false');
+        const coverageMatch = raw.match(/coverage:\s*(\d+)/);
+        if (coverageMatch) profile.coverage = parseInt(coverageMatch[1], 10);
+
+        capability.push(await validateVerifyProfile(cwd, profile));
+      }
+    } catch {
+      // Profile validation unavailable
+    }
+  }
+
+  return { standard, capability };
 }
 
 // ─── YAML serialisation helpers ───

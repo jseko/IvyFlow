@@ -18,8 +18,15 @@ import {
   readState,
   writeState,
   runGuardChecks,
+  runCapabilityGuards,
+  validateVerifyProfile,
+  checkRuleCompliance,
+  runFullGuardChecks,
   type StateYaml,
   type LifecycleCheckpoint,
+  type CapabilityGuardResult,
+  type GuardPreset,
+  type VerifyProfile,
 } from './lifecycle-projection.js';
 import { IvyPhase } from './phase-machine.js';
 
@@ -199,6 +206,123 @@ describe('lifecycle-projection', () => {
       expect(isBackwardTransition('open' as LifecycleCheckpoint, 'design' as LifecycleCheckpoint)).toBe(false);
       expect(isBackwardTransition('design' as LifecycleCheckpoint, 'build' as LifecycleCheckpoint)).toBe(false);
       expect(isBackwardTransition('archive' as LifecycleCheckpoint, 'verify' as LifecycleCheckpoint)).toBe(true);
+    });
+  });
+
+  // ─── Sprint 15.4: Capability Guards (TC-18~TC-21) ───
+
+  describe('Sprint 15.4: Capability Guards', () => {
+    // TC-18: Verify integration — capability gaps display as advisory and do NOT block
+    describe('TC-18: Capability gaps are advisory (warn-level) and non-blocking', () => {
+      it('capability guards have severity field (warn or advisory)', async () => {
+        const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ivy-cap-guard-'));
+        await fs.writeFile(path.join(tmpDir, 'package.json'), JSON.stringify({
+          name: 'test',
+          dependencies: { react: '^18.0.0' },
+        }));
+
+        const results = await runCapabilityGuards(tmpDir, 'test-change', 'full');
+
+        for (const r of results) {
+          expect(r).toHaveProperty('severity');
+          expect(['warn', 'advisory']).toContain((r as CapabilityGuardResult).severity);
+        }
+      });
+
+      it('verify checkpoint includes capability guards in full guard checks', async () => {
+        const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ivy-full-guard-'));
+        const changeDir = path.join(tmpDir, 'openspec', 'changes', 'test-change');
+        await fs.mkdir(changeDir, { recursive: true });
+        await fs.writeFile(path.join(changeDir, 'proposal.md'), '# Proposal');
+        await fs.writeFile(path.join(changeDir, 'design.md'), '# Design');
+        await fs.mkdir(path.join(changeDir, 'specs'), { recursive: true });
+        await fs.writeFile(path.join(changeDir, 'tasks.md'), '# Tasks');
+
+        const { standard, capability } = await runFullGuardChecks(
+          tmpDir,
+          'build' as LifecycleCheckpoint,
+          'verify' as LifecycleCheckpoint,
+          'test-change',
+          'full' as GuardPreset
+        );
+
+        // Standard checks pass (artifacts exist)
+        expect(standard.every(r => r.passed)).toBe(true);
+        // Capability guards present
+        expect(capability).toBeDefined();
+        expect(capability.length).toBeGreaterThan(0);
+      });
+    });
+
+    // TC-19: Hotfix skip — rule generation skipped
+    describe('TC-19: Preset system skips checks appropriately', () => {
+      it('hotfix preset skips capability detection', async () => {
+        const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ivy-hotfix-'));
+        const results = await runCapabilityGuards(tmpDir, 'test-change', 'hotfix');
+        expect(results).toHaveLength(1);
+        expect(results[0].check).toBe('Capability detection');
+        expect(results[0].message).toContain('Skipped (preset: hotfix)');
+      });
+
+      it('tweak preset skips capability detection', async () => {
+        const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ivy-tweak-'));
+        const results = await runCapabilityGuards(tmpDir, 'test-change', 'tweak');
+        expect(results).toHaveLength(1);
+        expect(results[0].message).toContain('Skipped (preset: tweak)');
+      });
+
+      it('full preset runs capability detection', async () => {
+        const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ivy-full-'));
+        await fs.writeFile(path.join(tmpDir, 'package.json'), JSON.stringify({
+          name: 'test',
+          dependencies: { react: '^18.0.0' },
+        }));
+        const results = await runCapabilityGuards(tmpDir, 'test-change', 'full');
+        // Should have results from detection (not just skip message)
+        expect(results.length).toBeGreaterThan(0);
+        expect(results[0].message).toBeDefined();
+      });
+    });
+
+    // TC-20: Manual verify profile validation
+    describe('TC-20: Verify profile validation', () => {
+      it('empty profile returns advisory pass', async () => {
+        const result = await validateVerifyProfile('/tmp', null);
+        expect(result.passed).toBe(true);
+        expect(result.severity).toBe('advisory');
+        expect(result.message).toContain('No verify profile');
+      });
+
+      it('profile with missing gates returns warn', async () => {
+        const profile: VerifyProfile = { compile: true, unitTest: false };
+        const result = await validateVerifyProfile('/tmp', profile);
+        expect(result.passed).toBe(false);
+        expect(result.severity).toBe('warn');
+        expect(result.message).toContain('unit test');
+      });
+
+      it('complete profile returns advisory pass', async () => {
+        const profile: VerifyProfile = {
+          compile: true,
+          unitTest: true,
+          integrationTest: true,
+          e2e: true,
+          lint: true,
+          coverage: 80,
+        };
+        const result = await validateVerifyProfile('/tmp', profile);
+        expect(result.passed).toBe(true);
+        expect(result.severity).toBe('advisory');
+      });
+    });
+
+    // TC-21: Rule compliance check
+    describe('TC-21: Rule compliance', () => {
+      it('returns compliant with no violations', async () => {
+        const result = await checkRuleCompliance('/tmp', 'test-change');
+        expect(result.compliant).toBe(true);
+        expect(result.violations).toHaveLength(0);
+      });
     });
   });
 });

@@ -92,7 +92,7 @@ async function runDetect(cwd: string, opts: CapabilityOptions): Promise<number> 
 async function runList(cwd: string, opts: CapabilityOptions): Promise<number> {
   if (opts.recommended) {
     const detection = await detectTechStack(cwd);
-    const recs = await getRecommendedSkills(detection.techStack, detection.projectIntent as string);
+    const recs = await getRecommendedSkills(detection.techStack, detection.projectIntent);
     logger.info('\nRecommended Skills (based on detected tech stack):\n  ID                    │ Category      │ Determinism  │ Install   │ Reason\n  ──────────────────────┼───────────────┼──────────────┼───────────┼───────');
     for (const r of recs) logger.info(`  ${r.id.padEnd(22)}│ ${r.category.padEnd(13)}│ ${r.determinism.padEnd(12)}│ ${r.installMode.padEnd(9)}│ ${r.reason}`);
     return 0;
@@ -114,7 +114,7 @@ async function runList(cwd: string, opts: CapabilityOptions): Promise<number> {
 async function runProfile(cwd: string, opts: CapabilityOptions): Promise<number> {
   const detection = await detectTechStack(cwd);
   const maturity = (opts.maturity as MaturityLevel) ?? 'development';
-  const profile = await generateVerifyProfile(detection.techStack, maturity, detection.projectIntent as string);
+  const profile = await generateVerifyProfile(detection.techStack, maturity, detection.projectIntent);
   await writeVerifyProfile(cwd, profile);
   if (opts.format === 'json') { console.log(JSON.stringify(profile, null, 2)); return 0; }
   logger.info(`\nIvyFlow Verification Profile\n═══════════════════════════════════════════════════════\n`);
