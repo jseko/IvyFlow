@@ -25,6 +25,7 @@ import { runState, type StateOptions } from '../commands/state.js';
 import { runWorkflow, type WorkflowOptions } from '../commands/workflow.js';
 import { runExplore } from '../commands/explore.js';
 import { runCapability, type CapabilityOptions } from '../commands/capability.js';
+import { runCapabilityVerify } from '../commands/capability-verify.js';
 import { runRulesGen } from '../commands/rules-gen.js';
 import {
   runKnowledgeLink,
@@ -577,6 +578,15 @@ capabilityCmd
       format: opts.format as 'text' | 'json',
       cwd: process.cwd(),
     });
+    process.exit(exitCode);
+  });
+
+// v0.14: capability verify — Lifecycle Integration check
+capabilityCmd
+  .command('verify')
+  .description('Verify capability-lifecycle integration (advisory only)')
+  .action(async () => {
+    const exitCode = await runCapabilityVerify({ cwd: process.cwd() });
     process.exit(exitCode);
   });
 

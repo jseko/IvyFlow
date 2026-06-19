@@ -110,6 +110,9 @@ describe('preset-workflow', () => {
       expect(config.maxTasks).toBeNull();
       expect(config.maxFiles).toBeNull();
       expect(config.upgradeThreshold).toBeNull();
+      expect(config.skipCapabilityDetection).toBe(false);
+      expect(config.skipRuleGeneration).toBe(false);
+      expect(config.capabilityCheckLevel).toBe('full');
     });
 
     it('should have correct hotfix preset config', () => {
@@ -119,6 +122,9 @@ describe('preset-workflow', () => {
       expect(config.maxTasks).toBe(3);
       expect(config.maxFiles).toBe(3);
       expect(config.upgradeThreshold).toBe(3);
+      expect(config.skipCapabilityDetection).toBe(true);
+      expect(config.skipRuleGeneration).toBe(true);
+      expect(config.capabilityCheckLevel).toBe('basic');
     });
 
     it('should have correct tweak preset config', () => {
@@ -128,6 +134,9 @@ describe('preset-workflow', () => {
       expect(config.maxTasks).toBe(5);
       expect(config.maxFiles).toBe(5);
       expect(config.upgradeThreshold).toBe(5);
+      expect(config.skipCapabilityDetection).toBe(false);
+      expect(config.skipRuleGeneration).toBe(true);
+      expect(config.capabilityCheckLevel).toBe('basic');
     });
   });
 
