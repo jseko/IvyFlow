@@ -25,6 +25,7 @@ import { runState, type StateOptions } from '../commands/state.js';
 import { runWorkflow, type WorkflowOptions } from '../commands/workflow.js';
 import { runExplore } from '../commands/explore.js';
 import { runCapability, type CapabilityOptions } from '../commands/capability.js';
+import { runRulesGen } from '../commands/rules-gen.js';
 import {
   runKnowledgeLink,
   runKnowledgeLinks,
@@ -560,6 +561,54 @@ capabilityCmd
       format: opts.format as 'text' | 'json',
       cwd: process.cwd(),
     });
+    process.exit(exitCode);
+  });
+
+// v0.14: capability profile
+capabilityCmd
+  .command('profile')
+  .description('Show verification profile based on tech stack')
+  .option('--maturity <level>', 'Maturity level: prototype | development | production', 'development')
+  .option('--format <type>', 'Output format: text | json', 'text')
+  .action(async (opts: { maturity?: string; format?: string }) => {
+    const exitCode = await runCapability({
+      command: 'profile',
+      maturity: opts.maturity,
+      format: opts.format as 'text' | 'json',
+      cwd: process.cwd(),
+    });
+    process.exit(exitCode);
+  });
+
+// v0.14: rules generate|analyze|validate — Rule Generator commands
+const rulesGenCmd = program
+  .command('rules')
+  .description('v0.14: Rule generation and analysis commands');
+
+rulesGenCmd
+  .command('generate')
+  .description('Generate rules from detected tech stack')
+  .option('--format <type>', 'Output format: text | json', 'text')
+  .action(async (opts: { format?: string }) => {
+    const exitCode = await runRulesGen({ subcommand: 'generate', format: opts.format as 'text' | 'json' });
+    process.exit(exitCode);
+  });
+
+rulesGenCmd
+  .command('analyze')
+  .description('Analyze rules for coverage and conflicts')
+  .option('--format <type>', 'Output format: text | json', 'text')
+  .action(async (opts: { format?: string }) => {
+    const exitCode = await runRulesGen({ subcommand: 'analyze', format: opts.format as 'text' | 'json' });
+    process.exit(exitCode);
+  });
+
+rulesGenCmd
+  .command('validate')
+  .description('Validate rules against current tech stack')
+  .option('--format <type>', 'Output format: text | json', 'text')
+  .action(async (opts: { format?: string }) => {
+    const exitCode = await runRulesGen({ subcommand: 'validate', format: opts.format as 'text' | 'json' });
     process.exit(exitCode);
   });
 
