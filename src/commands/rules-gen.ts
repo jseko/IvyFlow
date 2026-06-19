@@ -26,7 +26,7 @@ export interface RulesGenOptions {
 async function tryDetect(cwd: string): Promise<{ techStack: TechStack; projectIntent: ProjectIntent } | null> {
   try {
     const mod = await import('../core/capability-detector.js');
-    const result = await mod.detectTechStack(cwd);
+    const result = await mod.detectCapabilities(cwd);
     return { techStack: result.techStack, projectIntent: result.projectIntent };
   } catch {
     return null;
@@ -78,10 +78,11 @@ async function runGenerate(cwd: string, techStack: TechStack, projectIntent: Pro
   logger.info(`  Detected Tech: ${techList.join(', ') || '(none)'}`);
   logger.info(`  Project Intent: ${projectIntent}\n`);
 
-  const byTier = { core: 0, context: 0, optional: 0 };
+  const byTier: Record<string, number> = { core: 0, context: 0, optional: 0 };
   for (const r of profile.rules) {
-    byTier[r.tier] = (byTier[r.tier] ?? 0) + 1;
-    logger.info(`  ${r.tier === 'core' ? '●' : r.tier === 'context' ? '○' : '⋆'} ${r.id.padEnd(30)} (${r.severity}, ${r.tier})`);
+    const tier = r.tier ?? 'context';
+    byTier[tier] = (byTier[tier] ?? 0) + 1;
+    logger.info(`  ${tier === 'core' ? '●' : tier === 'context' ? '○' : '⋆'} ${r.id.padEnd(30)} (${r.severity}, ${tier})`);
   }
 
   logger.info(`\n  ${profile.rules.length} rules generated (${byTier.core} core + ${byTier.context} context + ${byTier.optional} optional)\n`);

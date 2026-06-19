@@ -24,6 +24,7 @@ import { runExport } from '../commands/export.js';
 import { runState, type StateOptions } from '../commands/state.js';
 import { runWorkflow, type WorkflowOptions } from '../commands/workflow.js';
 import { runCapability, type CapabilityOptions } from '../commands/capability.js';
+import { runRulesGen, type RulesGenOptions } from '../commands/rules-gen.js';
 import { runExplore } from '../commands/explore.js';
 import {
   runKnowledgeLink,
@@ -551,6 +552,57 @@ capabilityCmd
   .option('--recommended', 'Show recommended skills', false)
   .action(async (opts: { recommended?: boolean }) => {
     const exitCode = await runCapability({ subcommand: 'list', recommended: opts.recommended, cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+capabilityCmd
+  .command('health')
+  .description('Show capability health assessment (3D: coverage, drift, risk)')
+  .option('--gaps-only', 'Show gaps only', false)
+  .option('--format <fmt>', 'Output format: text (default) or json')
+  .action(async (opts: { gapsOnly?: boolean; format?: string }) => {
+    const exitCode = await runCapability({ subcommand: 'health', gapsOnly: opts.gapsOnly, format: opts.format as 'text' | 'json' | undefined, cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+capabilityCmd
+  .command('profile')
+  .description('Show verification profile based on detected tech stack')
+  .option('--format <fmt>', 'Output format: text (default) or json')
+  .action(async (opts: { format?: string }) => {
+    const exitCode = await runCapability({ subcommand: 'profile', format: opts.format as 'text' | 'json' | undefined, cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+// v0.15: rules — rule generation, analysis, and validation.
+const rulesCmd = program
+  .command('rules')
+  .description('v0.15: Generate, analyze, and validate rules from tech stack');
+
+rulesCmd
+  .command('generate')
+  .description('Generate rules from detected tech stack')
+  .option('--format <fmt>', 'Output format: text (default) or json')
+  .action(async (opts: { format?: string }) => {
+    const exitCode = await runRulesGen({ subcommand: 'generate', format: opts.format as 'text' | 'json' | undefined, cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+rulesCmd
+  .command('analyze')
+  .description('Analyze generated rules (count, coverage, conflicts)')
+  .option('--format <fmt>', 'Output format: text (default) or json')
+  .action(async (opts: { format?: string }) => {
+    const exitCode = await runRulesGen({ subcommand: 'analyze', format: opts.format as 'text' | 'json' | undefined, cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+rulesCmd
+  .command('validate')
+  .description('Validate rules against current tech stack')
+  .option('--format <fmt>', 'Output format: text (default) or json')
+  .action(async (opts: { format?: string }) => {
+    const exitCode = await runRulesGen({ subcommand: 'validate', format: opts.format as 'text' | 'json' | undefined, cwd: process.cwd() });
     process.exit(exitCode);
   });
 

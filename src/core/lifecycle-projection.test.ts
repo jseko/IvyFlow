@@ -214,7 +214,7 @@ describe('lifecycle-projection', () => {
   describe('Sprint 15.4: Capability Guards', () => {
     // TC-18: Verify integration — capability gaps display as advisory and do NOT block
     describe('TC-18: Capability gaps are advisory (warn-level) and non-blocking', () => {
-      it('capability guards have severity field (warn or advisory)', async () => {
+      it('capability guards have severity field (warning or advisory)', async () => {
         const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ivy-cap-guard-'));
         await fs.writeFile(path.join(tmpDir, 'package.json'), JSON.stringify({
           name: 'test',
@@ -225,7 +225,7 @@ describe('lifecycle-projection', () => {
 
         for (const r of results) {
           expect(r).toHaveProperty('severity');
-          expect(['warn', 'advisory']).toContain((r as CapabilityGuardResult).severity);
+          expect(['warning', 'advisory']).toContain((r as CapabilityGuardResult).severity);
         }
       });
 
@@ -299,11 +299,11 @@ describe('lifecycle-projection', () => {
         expect(result.message).toContain('No verify profile');
       });
 
-      it('profile with missing gates returns warn', async () => {
+      it('profile with missing gates returns warning', async () => {
         const profile: VerifyProfile = { compile: true, unitTest: false };
         const result = await validateVerifyProfile('/tmp', profile);
         expect(result.passed).toBe(false);
-        expect(result.severity).toBe('warn');
+        expect(result.severity).toBe('warning');
         expect(result.message).toContain('unit test');
       });
 

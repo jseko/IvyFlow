@@ -80,3 +80,33 @@ export interface DetectionResult {
   candidates: InferredCapability[];
   unresolved: UnresolvedItem[];
 }
+
+// ─── Rule Types (for rule-generator) ───
+
+export type RuleSeverity = 'low' | 'medium' | 'high' | 'critical';
+export type RuleTier = 'core' | 'context' | 'optional';
+export type RuleType = 'constraint' | 'behavior' | 'architecture';
+
+export interface RuleDefinition {
+  id: string;
+  name?: string;
+  type?: RuleType;
+  scope?: 'file' | 'module' | 'project';
+  severity: RuleSeverity;
+  tier: RuleTier;
+  techStackTrigger: string[];
+  content?: string;
+  contextTriggers?: Array<{ context: string; mode: 'include' | 'exclude' }>;
+  source?: string[];
+}
+
+export interface RuleProfile {
+  rules: RuleDefinition[];
+  source: 'generated' | 'manual' | 'mixed';
+  generatedAt: string;
+  unresolved?: Array<{ ruleId: string; reason: string; confidence: number }>;
+}
+
+// ─── Capability Dependency Index ───
+
+export type CapabilityDependencyIndex = Record<string, string[]>;

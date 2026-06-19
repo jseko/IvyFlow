@@ -48,11 +48,11 @@ export interface GuardResult {
   check: string;
   passed: boolean;
   message?: string;
-  severity?: 'error' | 'warning';
+  severity?: 'error' | 'warning' | 'advisory';
 }
 
 export interface CapabilityGuardResult extends GuardResult {
-  severity: 'warn' | 'advisory';
+  severity: 'warning' | 'advisory';
   gap?: {
     type: 'rule' | 'skill' | 'verification';
     expectedItem: string;
@@ -287,8 +287,8 @@ export async function runCapabilityGuards(
 
   // Run capability detection
   try {
-    const { detectTechStack } = await import('./capability-detector.js');
-    const detection = await detectTechStack(cwd);
+    const { detectCapabilities } = await import('./capability-detector.js');
+    const detection = await detectCapabilities(cwd);
     const allTechStacks = Object.values(detection.techStack).flat().filter(Boolean) as string[];
 
     // Check for capability gaps (expected vs actual)
@@ -352,7 +352,7 @@ export async function validateVerifyProfile(
       check: 'Verify profile',
       passed: false,
       message: `Missing verification gates: ${missing.join(', ')}`,
-      severity: 'warn',
+      severity: 'warning',
     };
   }
 
@@ -376,8 +376,8 @@ export async function checkRuleCompliance(
 
   // Check for stale rules (deployed but not matching current tech stack)
   try {
-    const { detectTechStack } = await import('./capability-detector.js');
-    const detection = await detectTechStack(cwd);
+    const { detectCapabilities } = await import('./capability-detector.js');
+    const detection = await detectCapabilities(cwd);
     const techStacks = Object.values(detection.techStack).flat().filter(Boolean) as string[];
 
     // Check .ivy/rules.yaml for deployed rules

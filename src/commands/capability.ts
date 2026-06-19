@@ -31,6 +31,10 @@ export async function runCapability(opts: CapabilityOptions = {}): Promise<numbe
       return await runDetect(cwd, !!opts.refresh, opts.format);
     case 'list':
       return await runList(cwd, !!opts.recommended);
+    case 'health':
+      return await runHealth(cwd, !!opts.gapsOnly, opts.format);
+    case 'profile':
+      return await runProfile(cwd, opts.format);
     default:
       return showHelp();
   }
@@ -122,6 +126,103 @@ async function runList(cwd: string, recommended: boolean): Promise<number> {
   for (const t of allTech) {
     logger.info(`  ${t.id.padEnd(21)} │ ${t.category.padEnd(13)} │ package │ active`);
   }
+
+  return 0;
+}
+
+// ─── Health ───
+
+async function runHealth(cwd: string, gapsOnly: boolean, format?: string): Promise<number> {
+  const { assessHealth } = await import('../core/capability-health.js');
+  const report = await assessHealth(cwd);
+
+  if (format === 'json') {
+    console.log(JSON.stringify(report, null, 2));
+    return 0;
+  }
+
+  logger.header('IvyFlow Capability Health');
+  logger.divider();
+
+  // Coverage
+  logger.info('  ── Coverage ────────────────────────────────────────────');
+  logger.info(`  Coverage: ${report.coverage.ratio.toFixed(2)} (${report.coverage.actual}/${report.coverage.expected})`);
+  if (report.coverage.gaps.length > 0) {
+    for (const gap of report.coverage.gaps) {
+      const icon = gap.severity === 'high' ? '✗' : '⚠';
+      logger.info(`  ${icon} [${gap.severity}] ${gap.expectedItem} (${gap.type})`);
+      logger.info(`    → ${gap.description} [${gap.actionability}]`);
+    }
+  } else {
+    logger.info('  No gaps detected ✓');
+  }
+
+  // Drift
+  logger.info('');
+  logger.info('  ── Drift ──────────────────────────────────────────────');
+  logger.info(`  Rate: ${report.drift.rate.toFixed(2)}`);
+  if (report.drift.changes.length > 0) {
+    for (const change of report.drift.changes) {
+      logger.info(`    ${change.type === 'added' ? '+' : '-'} ${change.item}`);
+    }
+  } else {
+    logger.info('  No changes ✓');
+  }
+
+  // Risk
+  logger.info('');
+  logger.info('  ── Risk ───────────────────────────────────────────────');
+  if (report.risk.flags.length > 0) {
+    for (const flag of report.risk.flags) {
+      logger.info(`  ⚠ [${flag.type}] ${flag.description}`);
+    }
+  } else {
+    logger.info('  No risk flags ✓');
+  }
+
+  // Suggestions
+  if (report.suggestions.length > 0) {
+    logger.info('');
+    logger.info('  Suggestions:');
+    for (const s of report.suggestions) {
+      logger.info(`    → ${s}`);
+    }
+  }
+
+  logger.info('');
+  logger.info('  Note: Health is dimensional (coverage + drift + risk), not scored.');
+
+  return 0;
+}
+
+// ─── Profile ───
+
+async function runProfile(cwd: string, format?: string): Promise<number> {
+  const { detectCapabilities } = await import('../core/capability-detector.js');
+  const { generateProfile } = await import('../core/verify-profile.js');
+
+  const detection = await detectCapabilities(cwd);
+  const techStacks = Object.values(detection.techStack).flat().filter(Boolean) as string[];
+  const profile = generateProfile('development', techStacks);
+
+  if (format === 'json') {
+    console.log(JSON.stringify(profile, null, 2));
+    return 0;
+  }
+
+  logger.header('IvyFlow Verification Profile');
+  logger.divider();
+  logger.info(`  Generated from: ${techStacks.join(', ') || '(none)'}`);
+  logger.info(`  Maturity:       development`);
+  logger.info('');
+  logger.info('  Gate              │ Requirement');
+  logger.info('  ──────────────────┼──────────────');
+  logger.info(`  compile           │ ${profile.compile}`);
+  logger.info(`  unitTest          │ ${profile.unitTest}`);
+  logger.info(`  integrationTest   │ ${profile.integrationTest}`);
+  logger.info(`  e2e               │ ${profile.e2e}`);
+  logger.info(`  lint              │ ${profile.lint}`);
+  logger.info(`  coverage          │ ${profile.coverage}`);
 
   return 0;
 }
