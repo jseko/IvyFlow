@@ -1,0 +1,203 @@
+# IvyFlow v0.14 Rule Mapping
+
+# Core tier: always deployed, tech-stack independent
+_core:
+  - id: no-debug-log
+    severity: medium
+    tier: core
+    type: constraint
+    scope: file
+    content: "No console.log in production code."
+  - id: no-sensitive-env
+    severity: critical
+    tier: core
+    type: constraint
+    scope: file
+    content: "Never commit .env files or secrets."
+  - id: consistent-imports
+    severity: low
+    tier: core
+    type: behavior
+    scope: module
+    content: "Use consistent import style across the project."
+
+# Language-specific rules
+typescript:
+  - id: ts-type-safety
+    severity: high
+    tier: context
+    type: constraint
+    scope: file
+    content: "Always use strict TypeScript types. Avoid `any`."
+  - id: ts-no-any
+    severity: medium
+    tier: context
+    type: constraint
+    scope: file
+    content: "Do not use `any` type. Use `unknown` or proper types."
+  - id: ts-strict-null
+    severity: medium
+    tier: context
+    type: behavior
+    scope: file
+    content: "Enable strictNullChecks. Handle null/undefined explicitly."
+
+react:
+  - id: react-hooks-rules
+    severity: high
+    tier: context
+    type: behavior
+    scope: file
+    content: "Follow Rules of Hooks. All hooks called from top-level."
+  - id: react-no-direct-dom
+    severity: medium
+    tier: context
+    type: constraint
+    scope: file
+    content: "Use React APIs instead of direct DOM manipulation."
+  - id: react-memo-pattern
+    severity: low
+    tier: optional
+    type: behavior
+    scope: module
+    content: "Use React.memo for expensive components."
+
+vue3:
+  - id: vue-composition-api
+    severity: high
+    tier: context
+    type: behavior
+    scope: file
+    content: "Use Composition API over Options API for new components."
+  - id: vue-sfc-style
+    severity: medium
+    tier: context
+    type: behavior
+    scope: file
+    content: "Use `<script setup>` syntax for SFC components."
+  - id: vue-type-check
+    severity: medium
+    tier: optional
+    type: behavior
+    scope: file
+    content: "Use TypeScript with Vue SFC for type safety."
+
+java:
+  - id: java-dependency-injection
+    severity: high
+    tier: context
+    type: architecture
+    scope: module
+    content: "Use constructor injection, not field injection."
+  - id: java-module-boundary
+    severity: high
+    tier: context
+    type: architecture
+    scope: module
+    content: "Respect package boundaries. No circular dependencies."
+  - id: java-test-naming
+    severity: low
+    tier: optional
+    type: behavior
+    scope: file
+    content: "Follow GivenWhenThen pattern in test method names."
+
+springboot:
+  - id: spring-rest-pattern
+    severity: high
+    tier: context
+    type: architecture
+    scope: module
+    content: "Use REST controllers with consistent response format."
+  - id: spring-service-layer
+    severity: medium
+    tier: context
+    type: architecture
+    scope: module
+    content: "Keep business logic in service layer, not controllers."
+  - id: spring-config-external
+    severity: medium
+    tier: context
+    type: behavior
+    scope: project
+    content: "Externalize configuration via application.yml/properties."
+
+go:
+  - id: go-error-handling
+    severity: high
+    tier: context
+    type: behavior
+    scope: file
+    content: "Always handle errors. Never use `_` to discard errors."
+  - id: go-convention
+    severity: medium
+    tier: context
+    type: behavior
+    scope: file
+    content: "Follow Go conventions. Use `gofmt`."
+  - id: go-module-boundary
+    severity: medium
+    tier: context
+    type: architecture
+    scope: module
+    content: "Respect Go module boundaries. Minimize package coupling."
+
+python:
+  - id: python-type-hints
+    severity: medium
+    tier: context
+    type: behavior
+    scope: file
+    content: "Use type hints for all function signatures."
+  - id: python-no-global
+    severity: medium
+    tier: context
+    type: constraint
+    scope: file
+    content: "Avoid global mutable state."
+  - id: python-docstring
+    severity: low
+    tier: optional
+    type: behavior
+    scope: file
+    content: "Add docstrings to public modules, classes, and functions."
+
+playwright:
+  - id: e2e-playwright
+    severity: high
+    tier: context
+    type: behavior
+    scope: file
+    content: "Use Playwright best practices. Use page object model."
+  - id: e2e-test-isolation
+    severity: high
+    tier: context
+    type: behavior
+    scope: file
+    content: "Each test should be isolated. No shared state between tests."
+  - id: e2e-playwright-patterns
+    severity: medium
+    tier: optional
+    type: behavior
+    scope: module
+    content: "Use data-testid selectors. Avoid CSS-based selectors."
+
+nextjs:
+  - id: next-app-router
+    severity: high
+    tier: context
+    type: behavior
+    scope: module
+    content: "Use App Router over Pages Router for new projects."
+  - id: next-ssr-optimization
+    severity: medium
+    tier: context
+    type: behavior
+    scope: file
+    content: "Use 'use client' boundary intentionally. Minimize client components."
+  - id: next-image-optimization
+    severity: low
+    tier: optional
+    type: behavior
+    scope: file
+    content: "Use next/image for optimized image loading."

@@ -14,6 +14,7 @@ import { runReview, type ReviewOptions } from '../commands/review.js';
 import { runCheck, type CheckOptions } from '../commands/check.js';
 import { runExplain, type ExplainOptions } from '../commands/explain.js';
 import { runRules, type RulesOptions } from '../commands/rules.js';
+import { runRulesGen } from '../commands/rules-gen.js';
 import { runArchive } from '../commands/archive.js';
 import { runVerify } from '../commands/verify.js';
 import { runFingerprint } from '../commands/fingerprint.js';
@@ -526,6 +527,38 @@ program
   .description('v0.13: Read-only exploration mode')
   .action(async () => {
     const exitCode = await runExplore({ cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+// v0.14: rules generate|analyze|validate — Rule Generator commands
+const rulesGenCmd = program
+  .command('rules')
+  .description('v0.14: Rule generation and analysis commands');
+
+rulesGenCmd
+  .command('generate')
+  .description('Generate rules from detected tech stack')
+  .option('--format <type>', 'Output format: text | json', 'text')
+  .action(async (opts: { format?: string }) => {
+    const exitCode = await runRulesGen({ subcommand: 'generate', format: opts.format as 'text' | 'json' });
+    process.exit(exitCode);
+  });
+
+rulesGenCmd
+  .command('analyze')
+  .description('Analyze rules for coverage and conflicts')
+  .option('--format <type>', 'Output format: text | json', 'text')
+  .action(async (opts: { format?: string }) => {
+    const exitCode = await runRulesGen({ subcommand: 'analyze', format: opts.format as 'text' | 'json' });
+    process.exit(exitCode);
+  });
+
+rulesGenCmd
+  .command('validate')
+  .description('Validate rules against current tech stack')
+  .option('--format <type>', 'Output format: text | json', 'text')
+  .action(async (opts: { format?: string }) => {
+    const exitCode = await runRulesGen({ subcommand: 'validate', format: opts.format as 'text' | 'json' });
     process.exit(exitCode);
   });
 
