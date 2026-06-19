@@ -25,6 +25,7 @@ import { runState, type StateOptions } from '../commands/state.js';
 import { runWorkflow, type WorkflowOptions } from '../commands/workflow.js';
 import { runExplore } from '../commands/explore.js';
 import { runCapability, type CapabilityOptions } from '../commands/capability.js';
+import { runCapabilityHealth } from '../commands/capability-health.js';
 import { runRulesGen } from '../commands/rules-gen.js';
 import {
   runKnowledgeLink,
@@ -576,6 +577,21 @@ capabilityCmd
       maturity: opts.maturity,
       format: opts.format as 'text' | 'json',
       cwd: process.cwd(),
+    });
+    process.exit(exitCode);
+  });
+
+// v0.14: capability health — Capability Health diagnostic
+capabilityCmd
+  .command('health')
+  .description('Assess capability health (diagnostic, no scores)')
+  .option('--gaps-only', 'Show gaps only')
+  .option('--format <type>', 'Output format: text | json', 'text')
+  .action(async (opts: { gapsOnly?: boolean; format?: string }) => {
+    const exitCode = await runCapabilityHealth({
+      cwd: process.cwd(),
+      gapsOnly: opts.gapsOnly,
+      format: opts.format as 'text' | 'json',
     });
     process.exit(exitCode);
   });
