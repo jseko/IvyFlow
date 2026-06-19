@@ -1,55 +1,77 @@
+/**
+ * Tests for skill-registry.ts — skill catalog and recommendation engine.
+ *
+ * v0.15: Sprint 15.3 — Skill Registry & Profile.
+ * Covers: TC-16, TC-17.
+ */
+
 import { describe, it, expect } from 'vitest';
-import { indexSkills, getRecommendedSkills, listAvailableSkills } from './skill-registry.js';
+import {
+  BUILTIN_SKILLS,
+  listSkills,
+  getRecommendedSkills,
+  getAutoInstallSkills,
+  getSkillsByCategory,
+} from './skill-registry.js';
 
 describe('skill-registry', () => {
-  describe('indexSkills', () => {
-    it('loads built-in skills from mapping file', async () => {
-      const skills = await indexSkills();
-      expect(skills.length).toBeGreaterThan(0);
+  // TC-16: Skill recommendation list
+  describe('TC-16: Skill recommendation', () => {
+    it('should recommend _always skills for any tech stack', () => {
+      const skills = getRecommendedSkills(['nonexistent']);
+      const ids = skills.map(s => s.id);
+      expect(ids).toContain('code-reviewer');
+      expect(ids).toContain('security-review');
     });
 
-    it('TC-31: classifies deterministic skills correctly', async () => {
-      const skills = await indexSkills();
-      const detSkills = skills.filter((s) => s.determinism === 'deterministic');
-      expect(detSkills.length).toBeGreaterThan(0);
-      for (const s of detSkills) {
-        expect(s.techStackTrigger.length).toBeGreaterThan(0);
-      }
+    it('should recommend playwright-e2e for playwright tech stack', () => {
+      const skills = getRecommendedSkills(['playwright']);
+      const ids = skills.map(s => s.id);
+      expect(ids).toContain('playwright-e2e');
     });
 
-    it('TC-31: classifies heuristic skills correctly', async () => {
-      const skills = await indexSkills();
-      const heuSkills = skills.filter((s) => s.determinism === 'heuristic');
-      expect(heuSkills.length).toBeGreaterThan(0);
-      for (const s of heuSkills) {
-        expect(s.techStackTrigger).toEqual([]);
-      }
-    });
-  });
-
-  describe('getRecommendedSkills', () => {
-    it('TC-16: recommends skills based on tech stack', async () => {
-      const ts = { frontend: ['react'], testFramework: ['playwright'] };
-      const recs = await getRecommendedSkills(ts);
-      const detRecs = recs.filter((r) => r.determinism === 'deterministic');
-      expect(detRecs.length).toBeGreaterThan(0);
+    it('should recommend frontend-patterns for nextjs', () => {
+      const skills = getRecommendedSkills(['nextjs']);
+      const ids = skills.map(s => s.id);
+      expect(ids).toContain('frontend-patterns');
     });
 
-    it('includes heuristic skills as advisory', async () => {
-      const ts = {};
-      const recs = await getRecommendedSkills(ts);
-      const heuRecs = recs.filter((r) => r.determinism === 'heuristic');
-      expect(heuRecs.length).toBeGreaterThan(0);
-      for (const r of heuRecs) {
-        expect(r.determinism).toBe('heuristic');
-      }
+    it('should not recommend playwright-e2e when playwright not detected', () => {
+      const skills = getRecommendedSkills(['react']);
+      const ids = skills.map(s => s.id);
+      expect(ids).not.toContain('playwright-e2e');
     });
   });
 
-  describe('mythAvailableSkills', () => {
-    it('TC-17: returns empty for missing mapping file', async () => {
-      const skills = await indexSkills('/tmp/nonexistent-mapping.yaml');
-      expect(skills).toEqual([]);
+  // TC-17: Missing tech stack
+  describe('TC-17: Missing tech stack', () => {
+    it('should return only _always skills for unknown tech stack', () => {
+      const skills = getRecommendedSkills(['unknown-framework']);
+      expect(skills.length).toBe(2);
+      expect(skills.every(s => s.techStackTrigger.includes('_always'))).toBe(true);
+    });
+
+    it('should return empty auto-install for unknown stack', () => {
+      const auto = getAutoInstallSkills(['unknown']);
+      expect(auto).toHaveLength(0);
+    });
+  });
+
+  // Install modes
+  describe('install modes', () => {
+    it('should have 4 built-in skills', () => {
+      expect(BUILTIN_SKILLS).toHaveLength(4);
+    });
+
+    it('should return auto-install only skills with mode=auto', () => {
+      const auto = getAutoInstallSkills(['playwright']);
+      expect(auto.every(s => s.installMode === 'auto')).toBe(true);
+      expect(auto.some(s => s.id === 'playwright-e2e')).toBe(true);
+    });
+
+    it('should filter by category', () => {
+      const review = getSkillsByCategory('review');
+      expect(review.some(s => s.id === 'code-reviewer')).toBe(true);
     });
   });
 });

@@ -1,129 +1,145 @@
 /**
- * `ivy capability` — Capability Infrastructure commands (v0.14).
+ * `ivy capability` — Capability Detection, Listing, Health, and Profile.
  *
- * Subcommands:
- *   ivy capability detect [--refresh] [--format json]
- *   ivy capability list [--recommended]
- *   ivy capability profile [--maturity <level>]
+ * v0.15: Capability Infrastructure.
+ *
+ * Commands:
+ *   ivy capability detect          — detect project tech stack
+ *   ivy capability list            — list detected capabilities
+ *   ivy capability health          — capability health assessment (Sprint 15.5)
+ *   ivy capability profile         — verify profile (Sprint 15.3)
+ *   ivy capability list --recommended — list recommended skills (Sprint 15.3)
  */
 
-import path from 'path';
-import { readYaml, writeYaml } from '../utils/yaml.js';
 import { logger } from '../utils/logger.js';
-import { fileExists } from '../utils/fs.js';
-import {
-  detectTechStack,
-  restackDetection,
-} from '../core/capability-detector.js';
-import { getRecommendedSkills } from '../core/skill-registry.js';
-import { generateVerifyProfile, writeVerifyProfile } from '../core/verify-profile.js';
-import type { MaturityLevel } from '../core/capability-model.js';
+import { detectCapabilities, buildTechStack } from '../core/capability-detector.js';
 
 export interface CapabilityOptions {
-  cwd?: string;
-  command?: 'detect' | 'list' | 'profile';
+  subcommand?: 'detect' | 'list' | 'health' | 'profile';
   refresh?: boolean;
   recommended?: boolean;
-  format?: 'text' | 'json';
-  maturity?: string;
+  format?: string;
+  gapsOnly?: boolean;
+  cwd?: string;
 }
 
 export async function runCapability(opts: CapabilityOptions = {}): Promise<number> {
   const cwd = opts.cwd ?? process.cwd();
-  const cmd = opts.command ?? 'detect';
 
-  try {
-    switch (cmd) {
-      case 'detect': return await runDetect(cwd, opts);
-      case 'list': return await runList(cwd, opts);
-      case 'profile': return await runProfile(cwd, opts);
-      default:
-        logger.error(`Unknown capability command: ${cmd}`);
-        return 1;
-    }
-  } catch (err) {
-    logger.error(`Capability command failed: ${(err as Error).message}`);
-    return 1;
+  switch (opts.subcommand) {
+    case 'detect':
+      return await runDetect(cwd, !!opts.refresh, opts.format);
+    case 'list':
+      return await runList(cwd, !!opts.recommended);
+    default:
+      return showHelp();
   }
 }
 
-async function runDetect(cwd: string, opts: CapabilityOptions): Promise<number> {
-  const force = opts.refresh ?? false;
-  const cachedPath = path.join(cwd, '.ivy', 'capability.yaml');
+// ─── Detect ───
 
-  if (!force && await fileExists(cachedPath)) {
-    const cached = await readYaml<Record<string, unknown>>(cachedPath).catch(() => null);
-    if (cached) {
-      if (opts.format === 'json') {
-        console.log(JSON.stringify(cached, null, 2));
-        return 0;
-      }
-      logger.info('\nIvyFlow Capability Detection (cached)\n═══════════════════════════════════════════════════════\n');
-      logger.info(`  Detection Sources: ${(cached.sources as string[] ?? []).join(', ') || '—'}`);
-      logger.info(`  Confidence: ${String(cached.confidence)}`);
-      logger.info(`  Project Intent: ${String(cached.project_intent)}`);
-      logger.info('  (Run with --refresh to force re-detection)\n');
-      return 0;
-    }
-  }
+async function runDetect(cwd: string, _refresh: boolean, format?: string): Promise<number> {
+  const result = await detectCapabilities(cwd);
 
-  const result = await detectTechStack(cwd);
-  await restackDetection(cwd);
-
-  if (opts.format === 'json') {
-    console.log(JSON.stringify({ techStack: result.techStack, projectIntent: result.projectIntent, sources: result.sources, confidence: result.confidence, timestamp: result.timestamp }, null, 2));
+  if (format === 'json') {
+    console.log(JSON.stringify(result, null, 2));
     return 0;
   }
+
+  logger.header('IvyFlow Capability Detection');
+  logger.divider();
+
+  const sourceList = result.sources.length > 0 ? result.sources.join(', ') : 'none';
+  logger.info(`  Detection Sources: ${sourceList}`);
 
   const ts = result.techStack;
-  logger.info('\nIvyFlow Capability Detection\n═══════════════════════════════════════════════════════\n');
-  logger.info(`  Detection Sources: ${result.sources.join(', ')}\n`);
-  if (ts.frontend) logger.info(`  Frontend:  ${ts.frontend.map((f) => `✓ ${f}`).join('\n             ')}`);
-  if (ts.backend) logger.info(`  Backend:   ${ts.backend.map((b) => `✓ ${b}`).join('\n             ')}`);
-  if (ts.testFramework) logger.info(`  Testing:   ${ts.testFramework.map((t) => `✓ ${t}`).join('\n             ')}`);
-  if (ts.language) logger.info(`  Language:  ${ts.language.join(', ')}`);
-  if (ts.buildTool) logger.info(`  Build:     ${ts.buildTool.join(', ')}`);
-  if (ts.database) logger.info(`  Database:  ${ts.database.join(', ')}`);
-  logger.info(`\n  Project Intent: ${result.projectIntent}`);
-  logger.info(`  Confidence: ${result.confidence.toFixed(2)}\n`);
+  if (ts.frontend?.length) logger.info(`\n  Frontend:\n${ts.frontend.map(t => `    ✓ ${t}`).join('\n')}`);
+  if (ts.backend?.length) logger.info(`\n  Backend:\n${ts.backend.map(t => `    ✓ ${t}`).join('\n')}`);
+  if (ts.testFramework?.length) logger.info(`\n  Testing:\n${ts.testFramework.map(t => `    ✓ ${t}`).join('\n')}`);
+  if (ts.language?.length) logger.info(`\n  Language:\n${ts.language.map(t => `    ✓ ${t}`).join('\n')}`);
+  if (ts.buildTool?.length) logger.info(`\n  Build:\n${ts.buildTool.map(t => `    ✓ ${t}`).join('\n')}`);
+
+  if (result.candidates.length === 0) {
+    logger.info('\n  No capabilities detected.');
+  }
+
+  if (result.unresolved.length > 0) {
+    logger.info('\n  ⚠ Unresolved:');
+    for (const u of result.unresolved) {
+      logger.info(`    ${u.itemId} (confidence: ${u.confidence}) — ${u.reason}`);
+    }
+  }
+
+  logger.info(`\n  Intent: ${result.projectIntent}`);
+  logger.info(`  Confidence: ${result.confidence}`);
+
   return 0;
 }
 
-async function runList(cwd: string, opts: CapabilityOptions): Promise<number> {
-  if (opts.recommended) {
-    const detection = await detectTechStack(cwd);
-    const recs = await getRecommendedSkills(detection.techStack, detection.projectIntent);
-    logger.info('\nRecommended Skills (based on detected tech stack):\n  ID                    │ Category      │ Determinism  │ Install   │ Reason\n  ──────────────────────┼───────────────┼──────────────┼───────────┼───────');
-    for (const r of recs) logger.info(`  ${r.id.padEnd(22)}│ ${r.category.padEnd(13)}│ ${r.determinism.padEnd(12)}│ ${r.installMode.padEnd(9)}│ ${r.reason}`);
+// ─── List ───
+
+async function runList(cwd: string, recommended: boolean): Promise<number> {
+  const result = await detectCapabilities(cwd);
+
+  if (recommended) {
+    logger.header('Recommended Skills');
+    logger.divider();
+
+    try {
+      const { getRecommendedSkills, listSkills } = await import('../core/skill-registry.js');
+      const allTechStacks = Object.values(result.techStack).flat().filter(Boolean) as string[];
+      const skills = recommended ? getRecommendedSkills(allTechStacks) : listSkills();
+      if (skills.length === 0) {
+        logger.info('  No skills to recommend.');
+        return 0;
+      }
+      logger.info('  ID                    │ Category      │ Install   │ Reason');
+      logger.info('  ──────────────────────┼───────────────┼───────────┼───────────────');
+      for (const s of skills) {
+        const reason = s.techStackTrigger.includes('_always') ? 'General purpose' : `Detected ${s.techStackTrigger.join(', ')}`;
+        logger.info(`  ${s.id.padEnd(21)} │ ${s.category.padEnd(13)} │ ${s.installMode.padEnd(9)} │ ${reason}`);
+      }
+    } catch {
+      logger.info('  Skill registry not available.');
+    }
     return 0;
   }
 
-  const result = await detectTechStack(cwd);
-  const caps: Array<{ id: string; category: string; source: string; status: string }> = [];
-  for (const lang of result.techStack.language ?? []) caps.push({ id: lang, category: 'language', source: 'config', status: 'active' });
-  for (const fe of result.techStack.frontend ?? []) caps.push({ id: fe, category: 'tech', source: 'config', status: 'active' });
-  for (const be of result.techStack.backend ?? []) caps.push({ id: be, category: 'tech', source: 'config', status: 'active' });
-  for (const tf of result.techStack.testFramework ?? []) caps.push({ id: tf, category: 'testing', source: 'config', status: 'active' });
+  logger.header('Active Capabilities');
+  logger.divider();
 
-  if (opts.format === 'json') { console.log(JSON.stringify(caps, null, 2)); return 0; }
-  logger.info('\nActive Capabilities:\n  ID                    │ Category    │ Source  │ Status\n  ──────────────────────┼─────────────┼─────────┼────────');
-  for (const cap of caps) logger.info(`  ${cap.id.padEnd(22)}│ ${cap.category.padEnd(11)}│ ${cap.source.padEnd(7)}│ ${cap.status}`);
+  const ts = result.techStack;
+  const allTech = Object.entries(ts).flatMap(([cat, items]) =>
+    (items as string[]).map(item => ({ id: item, category: cat }))
+  );
+
+  logger.info('  ID                    │ Category      │ Source  │ Status');
+  logger.info('  ──────────────────────┼───────────────┼─────────┼────────');
+
+  if (allTech.length === 0) {
+    logger.info('  (no capabilities detected)');
+  }
+  for (const t of allTech) {
+    logger.info(`  ${t.id.padEnd(21)} │ ${t.category.padEnd(13)} │ package │ active`);
+  }
+
   return 0;
 }
 
-async function runProfile(cwd: string, opts: CapabilityOptions): Promise<number> {
-  const detection = await detectTechStack(cwd);
-  const maturity = (opts.maturity as MaturityLevel) ?? 'development';
-  const profile = await generateVerifyProfile(detection.techStack, maturity, detection.projectIntent);
-  await writeVerifyProfile(cwd, profile);
-  if (opts.format === 'json') { console.log(JSON.stringify(profile, null, 2)); return 0; }
-  logger.info(`\nIvyFlow Verification Profile\n═══════════════════════════════════════════════════════\n`);
-  const techList = [...(detection.techStack.language ?? []), ...(detection.techStack.frontend ?? []), ...(detection.techStack.backend ?? []), ...(detection.techStack.testFramework ?? [])];
-  logger.info(`  Generated from: ${techList.join(' + ') || '(none)'}`);
-  logger.info(`  Maturity:       ${profile.maturity}\n`);
-  for (const g of ['compile', 'unitTest', 'lint', 'e2e', 'integrationTest', 'coverage'] as const) {
-    const val = profile[g];
-    logger.info(`  ${g.padEnd(18)} │ ${val.toString().padEnd(9)} │ ${val === 'required' ? '✓' : val === 'optional' ? '○' : '—'}`);
-  }
+// ─── Help ───
+
+function showHelp(): number {
+  logger.header('IvyFlow Capability Commands');
+  logger.divider();
+  logger.info('  detect          Detect project tech stack and capabilities');
+  logger.info('  list            List detected capabilities');
+  logger.info('  list --recommended  List recommended skills');
+  logger.info('  health          Show capability health assessment (Sprint 15.5)');
+  logger.info('  profile         Show verify profile (Sprint 15.3)');
+  logger.info('');
+  logger.info('  Options:');
+  logger.info('    --format json     JSON output');
+  logger.info('    --refresh         Force re-detection');
+  logger.info('    --gaps-only       Health gaps only');
   return 0;
 }

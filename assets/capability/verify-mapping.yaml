@@ -1,58 +1,36 @@
-# IvyFlow v0.14 Verify Profile Mapping
-
-# Default profiles by maturity level
-default:
-  prototype:
-    compile: required
-    unitTest: optional
-    lint: optional
-    coverage: none
-    integrationTest: none
-    e2e: none
-
-  development:
-    compile: required
-    unitTest: required
-    lint: required
-    coverage: optional
-    integrationTest: optional
-    e2e: none
-
-  production:
-    compile: required
-    unitTest: required
-    lint: required
-    coverage: required
-    integrationTest: required
-    e2e: required
-
-# Tech-stack-specific overrides
-tech_stack_overrides:
-  - stack: ["nextjs", "playwright"]
-    overrides:
-      e2e: required
-      integrationTest: required
-
-  - stack: ["react", "playwright"]
-    overrides:
-      e2e: required
-
-  - stack: ["nestjs", "playwright"]
-    overrides:
-      integrationTest: required
-      e2e: required
-
-  - stack: ["springboot", "junit"]
-    overrides:
-      integrationTest: required
+verify_mapping:
+  default:
+    prototype:
+      compile: required
+      unitTest: optional
+      lint: optional
+      coverage: none
+      integrationTest: none
+      e2e: none
+    development:
+      compile: required
       unitTest: required
-
-  - stack: ["go"]
-    overrides:
       lint: required
+      coverage: optional
       integrationTest: optional
-
-  - stack: ["python"]
-    overrides:
+      e2e: none
+    production:
+      compile: required
+      unitTest: required
+      lint: required
+      coverage: required
+      integrationTest: required
+      e2e: required
+  overrides:
+    - match: ["nextjs", "playwright"]
+      e2e: required
+    - match: ["springboot", "junit"]
+      compile: required
+      unitTest: required
+      integrationTest: required
+      e2e: optional
+    - match: ["go"]
+      compile: required
+      unitTest: required
       lint: required
       integrationTest: optional
