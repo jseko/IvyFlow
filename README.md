@@ -92,9 +92,18 @@ ivy archive --change <name> --adr              # generate detailed ADR entries (
 ivy archive --change <name> --no-extract       # skip knowledge extraction
 ivy archive --change <name> --force            # archive from any phase
 ivy archive --change <name> --action discard   # post-archive action (keep-state, discard, push-pr)
+ivy archive --change <name> --action discard   # post-archive action (keep-state, discard, push-pr)
 ivy verify --change <name>                    # quality gates: compile, test, task check, coverage (v0.9)
 ivy verify --change <name> --gate compile      # run specific gate only
 ivy verify --change <name> --skip coverage     # skip specific gate
+ivy verify --change <name> --gate evidence     # v0.12: evidence coverage gate
+ivy verify --change <name> --min-evidence 75   # v0.12: custom evidence threshold
+ivy audit evidence --change <name>             # v0.12: evidence coverage audit
+ivy audit evidence --change <name> --json      # v0.12: audit as JSON
+ivy audit evidence --change <name> --pipe      # v0.12: pipe-friendly JSON output
+ivy trace <id>                                 # v0.12: trace knowledge links
+ivy trace <id> --direction backward            # v0.12: backward trace
+ivy trace <id> --impact                        # v0.12 (Experimental): impact estimation
 ivy fingerprint                               # confidence-scored tech stack detection (v0.9)
 ivy fingerprint --refresh                     # re-scan from scratch
 ivy fingerprint --json                        # JSON output
@@ -113,6 +122,18 @@ ivy uninstall --force              # skip confirmation (for CI)
 ivy update                         # check npm for newer version, print upgrade command
 ivy update --check                 # return exit code 0 (latest) or 1 (update available)
 ```
+
+## What is in v0.12
+
+- **27 commands**: All v0.11 commands plus `ivy audit evidence` and `ivy trace`.
+- **Evidence Coverage Audit** (`ivy audit evidence`) — Analyze Memory records for orphaned decisions, missing evidence links, and coverage gaps. Report-only (no auto-fix). Text and JSON output. Pipe-friendly.
+- **Traceability** (`ivy trace <id>`) — Follow knowledge links forward (evidence→decision→constraint) and backward. Max depth 5. Supports `--direction backward` and `--impact` (Experimental) flags.
+- **Memory Health** (`ivy doctor --memory`) — Score memory quality across 6 equally-weighted dimensions (Coverage, Freshness, Link Density, Orphan Rate, Decision-Evidence Ratio, Completeness). Report-first (no KPI enforcement). JSON output available.
+- **Evidence Gate** (`ivy verify --gate evidence`) — New quality gate that checks evidence coverage before archive. Configurable threshold via `--min-evidence <pct>` (default 50%). Skippable via `--skip evidence`. Not auto-enabled.
+- **Org Insights GA** — Organization Insights graduates from Beta when ≥5 projects OR ≥50 changes (whichever threshold is met first). Trend arrows (↑/↓/→) for bottleneck phase durations.
+- **612+ passing tests** across 59 test files.
+- **5 phases**: `open → design → build → verify → archive` (unchanged).
+- **16 platforms** (no change from v0.11).
 
 ## What is in v0.11
 
@@ -204,7 +225,7 @@ npm run check-manifest
 npm run check-skill-blocks
 ```
 
-Coverage thresholds: 80% global lines / branches / functions / statements; the phase machine is held to 100%. Current coverage: **88.5%** lines (517 tests across 49 files).
+Coverage thresholds: 80% global lines / branches / functions / statements; the phase machine is held to 100%. Current coverage: **88.5%** lines (612 tests across 59 files).
 
 ## License
 

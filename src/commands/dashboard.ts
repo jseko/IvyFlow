@@ -514,7 +514,8 @@ async function renderOrgDashboard(
   const push = (s: string) => lines.push(s);
 
   push(borderTop(boxWidth));
-  push(center('IvyFlow Organization Insights — Beta', boxWidth));
+  const title = result.dataLimited ? 'IvyFlow Organization Insights — Beta' : 'IvyFlow Organization Insights';
+  push(center(title, boxWidth));
   push(borderMid(boxWidth));
   push('');
   push(row(`  Projects:  ${result.totalProjects} (readable: ${result.readableProjects}, failed: ${result.failedProjects.length})  |  Total Changes:  ${result.totalChanges}`, boxWidth));
@@ -541,7 +542,8 @@ async function renderOrgDashboard(
     for (const pp of dist.perProject) {
       const barLen = Math.max(1, Math.round((pp.value / (dist.p95 || 1)) * 20));
       const bar = '█'.repeat(Math.min(barLen, 20)) + '░'.repeat(Math.max(0, 20 - Math.min(barLen, 20)));
-      push(row(`  ${path.basename(pp.projectPath).padEnd(16)} ${bar}  ${formatMetric(metric, pp.value)} (${pp.changeCount} changes)`, boxWidth));
+      const trend = pp.trend ? (pp.trend === 'up' ? ' ↑' : pp.trend === 'down' ? ' ↓' : ' →') : '';
+      push(row(`  ${path.basename(pp.projectPath).padEnd(16)} ${bar}  ${formatMetric(metric, pp.value)} (${pp.changeCount} changes)${trend}`, boxWidth));
     }
     push(row(`  ${'─'.repeat(35)}`, boxWidth));
     push(row(`  P50: ${formatMetric(metric, dist.p50)}  |  P80: ${formatMetric(metric, dist.p80)}  |  P95: ${formatMetric(metric, dist.p95)}`, boxWidth));
@@ -549,7 +551,10 @@ async function renderOrgDashboard(
   }
 
   push(borderMid(boxWidth));
-  push(row('Organization Insights v0.11 | Beta | Metrics / Distribution / Outlier only', boxWidth));
+  const versionLabel = result.dataLimited
+    ? 'Organization Insights v0.11 | Beta | Metrics / Distribution / Outlier only'
+    : 'Organization Insights v0.12 | GA | Metrics / Distribution / Outlier only';
+  push(row(versionLabel, boxWidth));
   push(row('⚠ 不输出 Recommendation / Insight / Conclusion。判断权交给用户。', boxWidth));
   push(borderBottom(boxWidth));
 

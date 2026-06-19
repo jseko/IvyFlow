@@ -35,9 +35,10 @@ export interface OrgInsightsResult {
       projectPath: string;
       changeCount: number;
       value: number;
+      trend?: 'up' | 'down' | 'stable';
     }>;
   }>;
-  /** true if < 5 projects or < 50 total changes */
+  /** true when BOTH < 5 projects AND < 50 total changes */
   dataLimited: boolean;
   totalChanges: number;
 }
@@ -73,7 +74,8 @@ export async function computeOrgInsights(query: OrgInsightsQuery): Promise<OrgIn
   }
 
   const totalChanges = projectData.reduce((s, d) => s + d.changeCount, 0);
-  const dataLimited = projectPaths.length < 5 || totalChanges < 50;
+  // v0.12 GA: dataLimited when BOTH < 5 projects AND < 50 changes (not OR)
+  const dataLimited = projectPaths.length < 5 && totalChanges < 50;
 
   const aggregates: OrgInsightsResult['aggregates'] = {};
 
@@ -112,6 +114,7 @@ export async function computeOrgInsights(query: OrgInsightsQuery): Promise<OrgIn
             projectPath: d.projectPath,
             changeCount: d.changeCount,
             value: identifyBottleneck(d),
+            trend: computeBottleneckTrend(d),
           })),
         );
         break;
@@ -246,6 +249,41 @@ function identifyBottleneck(data: ProjectData): number {
     if (avg > maxAvg) maxAvg = avg;
   }
   return maxAvg;
+}
+
+/**
+ * v0.12: Compute bottleneck trend by comparing first-half vs second-half
+ * phase durations within the same project. Returns 'up' (increasing),
+ * 'down' (decreasing), or 'stable' (within 10%).
+ */
+function computeBottleneckTrend(data: ProjectData): 'up' | 'down' | 'stable' {
+  // Find the bottleneck phase (phase with max avg duration)
+  let bottleneckPhase = '';
+  let maxAvg = 0;
+  for (const [phase, durations] of Object.entries(data.phaseDurations)) {
+    if (durations.length === 0) continue;
+    const avg = durations.reduce((s, d) => s + d, 0) / durations.length;
+    if (avg > maxAvg) { maxAvg = avg; bottleneckPhase = phase; }
+  }
+
+  if (!bottleneckPhase) return 'stable';
+
+  const durations = data.phaseDurations[bottleneckPhase];
+  if (durations.length < 4) return 'stable'; // too few data points
+
+  const half = Math.floor(durations.length / 2);
+  const firstHalf = durations.slice(0, half);
+  const secondHalf = durations.slice(half);
+
+  const firstAvg = firstHalf.reduce((s, d) => s + d, 0) / firstHalf.length;
+  const secondAvg = secondHalf.reduce((s, d) => s + d, 0) / secondHalf.length;
+
+  if (firstAvg === 0) return 'stable';
+  const ratio = (secondAvg - firstAvg) / firstAvg;
+
+  if (ratio > 0.1) return 'up';
+  if (ratio < -0.1) return 'down';
+  return 'stable';
 }
 
 function calcDaysSince(ts: string): number {

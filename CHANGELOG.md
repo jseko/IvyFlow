@@ -5,6 +5,38 @@ All notable changes to `ivyflow-cli` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.12.0] — 2026-06-19
+
+**Agent Experience — Evidence & Traceability.** v0.12 introduces evidence coverage audits, bidirectional knowledge tracing, memory health scoring, an evidence quality gate, and graduates Organization Insights from Beta.
+
+### Added
+
+- **Evidence Coverage Audit** (`src/core/evidence-audit.ts`) — `auditEvidence()` analyzes `.ivy/memory/<change>/` records for orphaned decisions (no outgoing `evidences` link), orphaned evidence (no incoming links from decisions), and computes coverage percentage. Report-only, no auto-fix. Text and JSON output. Pipe-friendly.
+- **`ivy audit evidence`** — `ivy audit evidence --change <name> [--json] [--pipe]` CLI command. Scans Memory YAML records for orphaned decisions, missing evidence links, and coverage gaps.
+- **Traceability** (`src/core/trace-report.ts`) — `traceRecords()` follows knowledge links forward (via outgoing links) and backward (by scanning all records for incoming links). Max depth = 5 with `"max depth reached"` annotation. Uses `typeFromId()` to resolve ID prefixes (adr→decision, con→constraint, ris→risk, fac→fact, evi→evidence).
+- **`ivy trace <id>`** — `ivy trace <id> [--direction backward] [--impact] [--json]` CLI command. Traces knowledge links through the memory graph with impact estimation (Experimental).
+- **Memory Health** (`src/core/memory-health.ts`) — `computeMemoryHealth()` scores memory quality across 6 equally-weighted dimensions (Coverage, Freshness, Link Density, Orphan Rate, Decision-Evidence Ratio, Completeness) at 16.67% each. Composite score = average of all 6.
+- **`ivy doctor --memory`** — `ivy doctor --memory [--json]` CLI flag. Runs memory health scoring and outputs formatted report with per-dimension scores and composite.
+- **Evidence Gate** (`ivy verify --gate evidence`) — New quality gate that checks evidence coverage before archive. Configurable threshold via `--min-evidence <pct>` (default 50%). Skippable via `--skip evidence`. Not auto-enabled — must be explicitly requested.
+- **Org Insights GA** (`src/core/organization-insights.ts`) — Beta indicator removed when ≥5 projects OR ≥50 changes (AND logic on `dataLimited`). Trend arrows (↑/↓/→) for bottleneck phase durations via `computeBottleneckTrend()` with 10% threshold.
+- **Dashboard trend arrows** — `ivy dashboard --org` now displays trend arrows (↑/↓/→) in per-project bottleneck phase display. Beta label conditionally shown based on GA threshold.
+
+### Changed
+
+- `src/core/organization-insights.ts`: `dataLimited` changed from `||` (OR) to `&&` (AND) — `dataLimited` = projectPaths.length < 5 && totalChanges < 50. Added `computeBottleneckTrend()` with first-half vs second-half comparison, 10% threshold. Added `trend` field to per-project type.
+- `src/commands/dashboard.ts`: Conditional Beta label in header and footer for `--org` view. Trend arrow display (↑/↓/→) per project.
+- `src/commands/doctor.ts`: Early return for `--memory` flag before ecosystem check. New `runMemoryHealth()` function.
+- `src/commands/verify.ts`: Evidence gate logic added — `runEvidenceGate()` calls `auditEvidence()`, skips if no memory dir or no decisions, fails if coverage < threshold. Only runs when `--gate evidence`.
+- `src/cli/index.ts`: New `audit` and `trace` commands registered. `doctor` extended with `--memory`, `--json`. `verify` extended with `--gate evidence`, `--min-evidence`.
+- `package.json`: version bumped from `0.11.0` to `0.12.0`.
+
+### Coverage
+
+- 612+ passing tests across 59 test files (3 new test files: evidence-audit.test.ts, trace-report.test.ts, memory-health.test.ts).
+- New modules: evidence-audit.ts (110 lines), trace-report.ts (195 lines), memory-health.ts (155 lines).
+- All v0.11 tests preserved and updated for v0.12 compatibility.
+- No new external dependencies added.
+
 ## [0.11.0] — 2026-06-18
 
 **Connection — Org Insights · Knowledge Linking · Ecosystem · Knowledge Sync.** v0.11 connects IvyFlow's isolated data stores: cross-project organization insights, knowledge record linking, ecosystem capability detection, and managed reference synchronization.

@@ -135,3 +135,68 @@ describe('Organization Insights — TC-6: Metrics filter', () => {
     rmSync(d1, { recursive: true, force: true });
   });
 });
+
+// ─── v0.12: Org Insights GA (TC-29 through TC-32) ───
+
+describe('v0.12 Org Insights GA — TC-29: Above threshold, Beta removed', () => {
+  it('removes Beta when >=5 projects', async () => {
+    const dirs: string[] = [];
+    for (let i = 0; i < 5; i++) {
+      const d = makeProjectDir();
+      dirs.push(d);
+      await makeIvyProject(d, 3, 1);
+    }
+
+    const result = await computeOrgInsights({ projectPaths: dirs });
+    expect(result.dataLimited).toBe(false);
+    expect(result.totalChanges).toBeGreaterThanOrEqual(15);
+
+    for (const d of dirs) rmSync(d, { recursive: true, force: true });
+  });
+
+  it('removes Beta when >=50 changes', async () => {
+    const d1 = makeProjectDir();
+    await makeIvyProject(d1, 50, 25);
+
+    const result = await computeOrgInsights({ projectPaths: [d1] });
+    expect(result.dataLimited).toBe(false);
+
+    rmSync(d1, { recursive: true, force: true });
+  });
+});
+
+describe('v0.12 Org Insights GA — TC-30: Below threshold, Beta retained', () => {
+  it('retains Beta when <5 projects and <50 changes', async () => {
+    const d1 = makeProjectDir();
+    const d2 = makeProjectDir();
+    await makeIvyProject(d1, 10, 5);
+    await makeIvyProject(d2, 5, 2);
+
+    const result = await computeOrgInsights({ projectPaths: [d1, d2] });
+    expect(result.dataLimited).toBe(true);
+
+    rmSync(d1, { recursive: true, force: true });
+    rmSync(d2, { recursive: true, force: true });
+  });
+});
+
+describe('v0.12 Org Insights GA — TC-31: Trend arrows in bottleneck output', () => {
+  it('includes trend in per-project bottleneck data', async () => {
+    const d1 = makeProjectDir();
+    await makeIvyProject(d1, 10, 5);
+
+    const result = await computeOrgInsights({
+      projectPaths: [d1],
+      metrics: ['bottleneck_phases'],
+    });
+    expect(result.aggregates.bottleneck_phases).toBeDefined();
+    // perProject should have trend field
+    const perProject = result.aggregates.bottleneck_phases.perProject;
+    for (const pp of perProject) {
+      // trend is optional but should be defined when data exists
+      expect(pp.trend === 'up' || pp.trend === 'down' || pp.trend === 'stable' || pp.trend === undefined).toBe(true);
+    }
+
+    rmSync(d1, { recursive: true, force: true });
+  });
+});

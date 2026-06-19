@@ -25,6 +25,7 @@ import { computePlatformHealth, renderPlatformHealth } from '../core/platform-he
 import type { InstallScope } from '../core/types.js';
 import { detectCapabilities, type CapabilityDetection } from '../core/ecosystem.js';
 import { syncReferencesForProject } from '../core/knowledge-sync.js';
+import { computeMemoryHealth, formatHealthText, formatHealthJson } from '../core/memory-health.js';
 
 export interface DoctorOptions {
   cwd?: string;
@@ -33,6 +34,8 @@ export interface DoctorOptions {
   environment?: boolean;
   ecosystem?: boolean;
   syncKb?: boolean;
+  memory?: boolean;
+  json?: boolean;
 }
 
 interface CheckResult {
@@ -170,6 +173,11 @@ async function fixForPlatform(
 
 export async function runDoctor(opts: DoctorOptions = {}): Promise<number> {
   const cwd = opts.cwd ?? process.cwd();
+
+  // v0.12: --memory — memory health assessment.
+  if (opts.memory) {
+    return runMemoryHealth(cwd, opts.json);
+  }
 
   // v0.11: --ecosystem — capability detection (read-only).
   if (opts.ecosystem) {
@@ -410,6 +418,28 @@ async function runEnvironmentCheck(cwd: string): Promise<number> {
   if (allOk) logger.success('All environment checks passed');
   else logger.error('Some environment checks failed');
   return allOk ? 0 : 1;
+}
+
+// ─── v0.12: Memory Health ───
+
+/**
+ * `ivy doctor --memory`: Assess memory health across 6 dimensions.
+ */
+async function runMemoryHealth(cwd: string, json?: boolean): Promise<number> {
+  logger.info('');
+  logger.info('Memory Health Assessment (v0.12)');
+  logger.info('═'.repeat(60));
+
+  const result = await computeMemoryHealth(cwd);
+
+  if (json) {
+    logger.info(formatHealthJson(result));
+  } else {
+    logger.info(formatHealthText(result));
+  }
+
+  logger.info('');
+  return 0;
 }
 
 // ─── v0.11: Ecosystem Check ───

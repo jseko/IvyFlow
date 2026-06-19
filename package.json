@@ -1,6 +1,6 @@
 {
   "name": "ivyflow-cli",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "description": "A Workflow Enforcer for AI Coding Agents — distributes Skills, Rules, and Hooks across 7 platforms to enforce a structured 9-step development workflow",
   "keywords": [
     "ivyflow",

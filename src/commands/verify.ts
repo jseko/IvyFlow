@@ -16,6 +16,7 @@ import { logger } from '../utils/logger.js';
 import type { EvidenceRecord, EvidenceReport } from '../core/types.js';
 import { MemoryStore } from '../core/memory-arch.js';
 import { createAutoLink } from '../core/knowledge-linking.js';
+import { auditEvidence } from '../core/evidence-audit.js';
 
 // ─── Types ───
 
@@ -24,6 +25,7 @@ export interface VerifyOptions {
   change?: string;
   gate?: string;
   skip?: string;
+  minEvidence?: number;
 }
 
 interface ProjectYaml {
@@ -104,6 +106,15 @@ export async function runVerify(opts: VerifyOptions = {}): Promise<number> {
       durationMs: result.durationMs,
     });
     logGateResult(results[results.length - 1]);
+  }
+
+  // ── Evidence Gate (v0.12) — only runs when explicitly enabled via --gate evidence
+  if (opts.gate === 'evidence' && shouldRun('evidence', opts.gate, true, skipGate)) {
+    logger.info('  Gate: evidence...');
+    const minEvidence = opts.minEvidence ?? 50;
+    const result = await runEvidenceGate(cwd, changeName, minEvidence);
+    results.push(result);
+    logGateResult(result);
   }
 
   // ── Summary ──
@@ -258,6 +269,48 @@ function checkCoverage(output: string | undefined, minPct: number): boolean {
   const match = output.match(/(\d+(?:\.\d+)?)%/);
   if (!match) return false;
   return parseFloat(match[1]) >= minPct;
+}
+
+// ─── v0.12: Evidence Gate ───
+
+async function runEvidenceGate(cwd: string, changeName: string, minEvidence: number): Promise<EvidenceRecord> {
+  const start = Date.now();
+  const ivyDir = path.join(cwd, '.ivy');
+  const memoryDir = path.join(ivyDir, 'memory');
+
+  // Skip if no memory directory
+  if (!(await fileExists(memoryDir))) {
+    return { gate: 'evidence', passed: false, skipped: true, output: 'no memory directory', durationMs: Date.now() - start };
+  }
+
+  try {
+    const audit = await auditEvidence(ivyDir, changeName);
+
+    // Skip if no decisions
+    if (audit.totalDecisions === 0) {
+      return { gate: 'evidence', passed: false, skipped: true, output: 'no decisions to check', durationMs: Date.now() - start };
+    }
+
+    const passed = audit.coverage >= minEvidence;
+    const output = `evidence coverage: ${audit.coverage}% (${audit.decisionsWithEvidence}/${audit.totalDecisions} decisions with evidence)`;
+
+    return {
+      gate: 'evidence',
+      passed,
+      skipped: false,
+      output,
+      durationMs: Date.now() - start,
+    };
+  } catch (err) {
+    return {
+      gate: 'evidence',
+      passed: false,
+      skipped: false,
+      output: 'evidence check failed',
+      durationMs: Date.now() - start,
+      error: (err as Error).message,
+    };
+  }
 }
 
 /**

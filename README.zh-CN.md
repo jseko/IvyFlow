@@ -61,6 +61,7 @@ ivy doctor --platforms             # 平台认证报告（v0.8）
 ivy doctor --environment           # 工具存在性检查：Node.js、Git、Java、包管理器（v0.9）
 ivy doctor --ecosystem             # 能力检测：code_intelligence、documentation_lookup、spec_driven（v0.11）
 ivy doctor --sync-kb               # 同步托管引用到 CLAUDE.md/CURSOR.md/WINDSURF.md（v0.11）
+ivy doctor --memory                # v0.12：记忆健康评分（6 维度）
 ivy analytics                      # 采纳率指标，含数据源透明度
 ivy analytics --confidence         # 详细指标级置信度披露
 ivy analytics --period 90d --json  # 90 天窗口的 JSON 输出
@@ -97,6 +98,14 @@ ivy archive --change <name> --action discard   # 归档后动作（keep-state, d
 ivy verify --change <name>                    # 质量门禁：编译、测试、任务检查、覆盖率（v0.9）
 ivy verify --change <name> --gate compile      # 仅运行指定门禁
 ivy verify --change <name> --skip coverage     # 跳过指定门禁
+ivy verify --change <name> --gate evidence     # v0.12：证据覆盖率门禁
+ivy verify --change <name> --min-evidence 75   # v0.12：自定义证据阈值
+ivy audit evidence --change <name>             # v0.12：证据覆盖率审计
+ivy audit evidence --change <name> --json      # v0.12：JSON 审计输出
+ivy audit evidence --change <name> --pipe      # v0.12：管道友好 JSON 输出
+ivy trace <id>                                 # v0.12：追溯知识链接
+ivy trace <id> --direction backward            # v0.12：反向追溯
+ivy trace <id> --impact                        # v0.12（实验性）：影响评估
 ivy fingerprint                               # 置信度评分的技术栈检测（v0.9）
 ivy fingerprint --refresh                     # 重新扫描
 ivy fingerprint --json                        # JSON 输出
@@ -109,12 +118,26 @@ ivy knowledge link --source <id> --target <id> --relation <type> --desc <txt>   
 ivy knowledge links <record-id>              # 查看记录的知识链接（v0.11）
 ivy knowledge traverse <record-id> --to <type>  # 遍历知识图谱（v0.11）
 ivy knowledge unlink <record-id> --index <n>  # 删除知识链接（v0.11）
+ivy audit evidence --change <name>             # v0.12：证据覆盖率审计
+ivy trace <id>                                 # v0.12：追溯知识链接
 ivy uninstall                      # 安全移除 IvyFlow 文件（需确认）
 ivy uninstall --dry-run            # 预览将要删除的内容
 ivy uninstall --force              # 跳过确认（CI 用）
 ivy update                         # 检查 npm 是否有新版本，打印升级命令
 ivy update --check                 # 返回退出码 0（最新）或 1（有更新）
 ```
+
+## v0.12 范围
+
+- **27 个命令**：所有 v0.11 命令 + `ivy audit evidence` 和 `ivy trace`.
+- **证据覆盖率审计**（`ivy audit evidence`）— 分析 Memory 记录中的孤立决策、缺失证据链接和覆盖率空白。仅报告（不自动修复）。文本和 JSON 输出，管道友好。
+- **追溯性**（`ivy trace <id>`）— 沿知识链接正向（evidence→decision→constraint）和反向追踪。最大深度 5。支持 `--direction backward` 和 `--impact`（实验性）标志。
+- **记忆健康**（`ivy doctor --memory`）— 6 个等权重维度（覆盖率、新鲜度、链接密度、孤立率、决策-证据比、完整性）的记忆质量评分。仅报告（无 KPI 强制）。支持 JSON 输出。
+- **证据门禁**（`ivy verify --gate evidence`）— 新的质量门禁，在归档前检查证据覆盖率。可通过 `--min-evidence <pct>` 配置阈值（默认 50%）。可通过 `--skip evidence` 跳过。非自动启用。
+- **组织洞察 GA** — 组织洞察从 Beta 毕业（≥5 个项目 OR ≥50 变更）。瓶颈阶段时长趋势箭头（↑/↓/→）。
+- **612+ 个通过测试**，覆盖 59 个测试文件。
+- **5 个阶段**：`open → design → build → verify → archive`（不变）。
+- **16 个平台**（与 v0.11 一致）。
 
 ## v0.11 范围
 
@@ -204,7 +227,7 @@ npm run check-manifest
 npm run check-skill-blocks
 ```
 
-覆盖率阈值：全局 80%（行 / 分支 / 函数 / 语句），phase machine 强制 100%。当前实测：**88.5%** 行覆盖率（517 个测试，49 个测试文件）。
+覆盖率阈值：全局 80%（行 / 分支 / 函数 / 语句），phase machine 强制 100%。当前实测：**88.5%** 行覆盖率（612 个测试，59 个测试文件）。
 
 ## License
 

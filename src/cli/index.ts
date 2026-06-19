@@ -18,6 +18,8 @@ import { runArchive } from '../commands/archive.js';
 import { runVerify } from '../commands/verify.js';
 import { runFingerprint } from '../commands/fingerprint.js';
 import { runRelease } from '../commands/release.js';
+import { runAudit } from '../commands/audit.js';
+import { runTrace } from '../commands/trace.js';
 import { runExport } from '../commands/export.js';
 import {
   runKnowledgeLink,
@@ -76,6 +78,7 @@ program
 // v0.2: doctor — strict local invariant health check (§9.4).
 // v0.8: --platforms — platform certification report.
 // v0.11: --ecosystem — capability detection, --sync-kb — knowledge sync.
+// v0.12: --memory — memory health assessment.
 program
   .command('doctor')
   .description('Local invariant health check (§9.4: no telemetry / network / state inference)')
@@ -83,8 +86,10 @@ program
   .option('--platforms', 'Show platform health certification report', false)
   .option('--ecosystem', 'v0.11: Show ecosystem capability detection', false)
   .option('--sync-kb', 'v0.11: Sync knowledge base reference markers', false)
-  .action(async (opts: { fix?: boolean; platforms?: boolean; ecosystem?: boolean; syncKb?: boolean }) => {
-    const exitCode = await runDoctor({ fix: opts.fix, platforms: opts.platforms, ecosystem: opts.ecosystem, syncKb: opts.syncKb });
+  .option('--memory', 'v0.12: Assess memory health across 6 dimensions', false)
+  .option('--json', 'v0.12: Output as JSON', false)
+  .action(async (opts: { fix?: boolean; platforms?: boolean; ecosystem?: boolean; syncKb?: boolean; memory?: boolean; json?: boolean }) => {
+    const exitCode = await runDoctor({ fix: opts.fix, platforms: opts.platforms, ecosystem: opts.ecosystem, syncKb: opts.syncKb, memory: opts.memory, json: opts.json });
     process.exit(exitCode);
   });
 
@@ -311,17 +316,54 @@ program
   });
 
 // v0.9: verify — quality gates with evidence output.
+// v0.12: --gate evidence, --min-evidence.
 program
   .command('verify')
   .description('Run quality gates and produce evidence report')
   .option('--change <name>', 'Change to verify')
-  .option('--gate <gate>', 'Specific gate: compile, test, tasks, coverage')
+  .option('--gate <gate>', 'Specific gate: compile, test, tasks, coverage, evidence')
   .option('--skip <gate>', 'Gate to skip')
-  .action(async (opts: { change?: string; gate?: string; skip?: string }) => {
+  .option('--min-evidence <pct>', 'v0.12: Minimum evidence coverage percentage (default: 50)', parseInt)
+  .action(async (opts: { change?: string; gate?: string; skip?: string; minEvidence?: number }) => {
     const exitCode = await runVerify({
       change: opts.change,
       gate: opts.gate,
       skip: opts.skip,
+      minEvidence: opts.minEvidence,
+    });
+    process.exit(exitCode);
+  });
+
+// v0.12: audit — evidence coverage audit.
+program
+  .command('audit')
+  .description('v0.12: Evidence coverage audit for memory records')
+  .option('--change <name>', 'Change to audit')
+  .option('--json', 'Output as JSON', false)
+  .option('--pipe', 'Output JSON to stdout (pipe-friendly)', false)
+  .action(async (opts: { change?: string; json?: boolean; pipe?: boolean }) => {
+    const exitCode = await runAudit({
+      change: opts.change,
+      json: opts.json,
+      pipe: opts.pipe,
+    });
+    process.exit(exitCode);
+  });
+
+// v0.12: trace — follow knowledge links.
+program
+  .command('trace')
+  .description('v0.12: Trace knowledge links forward or backward through memory records')
+  .argument('<id>', 'Record ID to trace from')
+  .option('--direction <dir>', 'Trace direction: forward (default) or backward', 'forward')
+  .option('--impact', 'v0.12 (Experimental): Estimate impact on related records', false)
+  .option('--json', 'Output as JSON', false)
+  .action(async (id: string, opts: { direction?: string; impact?: boolean; json?: boolean }) => {
+    const exitCode = await runTrace({
+      id,
+      direction: opts.direction as 'forward' | 'backward' | undefined,
+      impact: opts.impact,
+      json: opts.json,
     });
     process.exit(exitCode);
   });

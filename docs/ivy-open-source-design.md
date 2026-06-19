@@ -1,6 +1,6 @@
 # IvyFlow 开源工具详细设计文档
 
-> 版本：v1.0 | 日期：2026-06-16 | 状态：Draft
+> 版本：v1.0 | 日期：2026-06-19 | 状态：Draft
 
 ---
 
@@ -1542,7 +1542,9 @@ ivy v0.3.0
 v0.1.0  (M2 末)  — 2 platforms, CLI skeleton, ivy init/status/uninstall
 v0.2.0  (M4 末)  — 5 platforms, skill split, tech-stack recommendations
 v0.3.0  (M6 末)  — triple defense, adoption v0.1, security rules
-v1.0.0  (M8 末)  — 8 platforms, adoption v1.0, full docs, production-ready
+v0.11.0 (M8)     — Org Insights (Beta), Knowledge Linking, Ecosystem, Knowledge Sync
+v0.12.0 (M8+)    — Evidence & Traceability: Evidence Audit, Traceability, Memory Health, Evidence Gate, Org Insights GA
+v1.0.0  (M9+)    — 16 platforms, adoption v1.0, full docs, production-ready
 v1.1.0  (M10)    — 15+ platforms, CI/CD integration
 v1.2.0  (M12)    — abstraction layer, community contributions
 ```
@@ -1580,7 +1582,7 @@ v1.2.0  (M12)    — abstraction layer, community contributions
 | **脚本工具** | 7 个 bash 脚本（env/guard/state/handoff/archive/validate/hook-guard） | 1 个（hook-guard.sh，Phase 3+ 扩展） |
 | **CLI 命令** | 5 个（init/status/doctor/update/uninstall） | 7 个（init/status/doctor/analytics/dashboard/update/uninstall） |
 | **代码智能** | CodeGraph 集成 | GitNexus 集成（可选安装） |
-| **当前版本** | v0.3.8（已发布） | v0.0.0（设计阶段） |
+| **当前版本** | v0.3.8（已发布） | v0.12.0（已发布） |
 
 ---
 
@@ -1733,7 +1735,7 @@ v1.2.0  (M12)    — abstraction layer, community contributions
 
 | 子项 | Comet | IvyFlow |
 |------|-------|---------|
-| 当前版本 | v0.3.8 | 设计阶段 |
+| 当前版本 | v0.3.8 | v0.12.0 |
 | npm 发布 | ✅ 已发布 | ❌ 未发布 |
 | 源码行数 | ~4,000 行 | 0 行 |
 | 社区用户 | 少量（新项目） | 无 |
