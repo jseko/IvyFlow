@@ -24,6 +24,7 @@ import { runExport } from '../commands/export.js';
 import { runState, type StateOptions } from '../commands/state.js';
 import { runWorkflow, type WorkflowOptions } from '../commands/workflow.js';
 import { runCapability, type CapabilityOptions } from '../commands/capability.js';
+import { runRulesGen, type RulesGenOptions } from '../commands/rules-gen.js';
 import { runExplore } from '../commands/explore.js';
 import {
   runKnowledgeLink,
@@ -277,23 +278,53 @@ program
     process.exit(exitCode);
   });
 
-// v0.7: rules — rule governance (list/info/override/remove, §9.14).
-program
+// v0.7 + v0.15: rules — rule governance + rule generation (Sprint 15.2).
+const rulesCmd = program
   .command('rules')
-  .description('List and manage Advisor rules (overrides stored in Derived Cache)')
-  .option('--list', 'List all active rules with config versions', false)
+  .description('List/manage Advisor rules, or generate/analyze/validate rules from tech stack');
+
+rulesCmd
+  .command('list', { isDefault: true })
+  .description('List all active rules with config versions (v0.7 governance)')
   .option('--info <name>', 'Show detailed info for a specific rule')
   .option('--override <rule.param=value>', 'Override a rule parameter (e.g., stuck_detection.build=25)')
   .option('--remove <rule.param>', 'Remove a user override (e.g., stuck_detection.build)')
   .option('--json', 'Output as JSON', false)
-  .action(async (opts: { list?: boolean; info?: string; override?: string; remove?: string; json?: boolean }) => {
+  .action(async (opts: { info?: string; override?: string; remove?: string; json?: boolean }) => {
     const exitCode = await runRules({
-      list: opts.list,
+      list: true,
       info: opts.info,
       override: opts.override,
       remove: opts.remove,
       json: opts.json,
     });
+    process.exit(exitCode);
+  });
+
+rulesCmd
+  .command('generate')
+  .description('Generate rules from detected tech stack (Sprint 15.2)')
+  .option('--format <fmt>', 'Output format: text (default) or json')
+  .action(async (opts: { format?: string }) => {
+    const exitCode = await runRulesGen({ subcommand: 'generate', format: opts.format, cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+rulesCmd
+  .command('analyze')
+  .description('Analyze generated rules (count, coverage, conflicts)')
+  .option('--format <fmt>', 'Output format: text (default) or json')
+  .action(async (opts: { format?: string }) => {
+    const exitCode = await runRulesGen({ subcommand: 'analyze', format: opts.format, cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+rulesCmd
+  .command('validate')
+  .description('Validate rules against current tech stack')
+  .option('--format <fmt>', 'Output format: text (default) or json')
+  .action(async (opts: { format?: string }) => {
+    const exitCode = await runRulesGen({ subcommand: 'validate', format: opts.format, cwd: process.cwd() });
     process.exit(exitCode);
   });
 

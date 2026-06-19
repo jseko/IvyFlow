@@ -1,0 +1,57 @@
+rule_mapping:
+  _core:
+    - id: no-debug-log
+      severity: medium
+      tier: core
+    - id: no-sensitive-env
+      severity: critical
+      tier: core
+
+  react:
+    - id: react-hooks-rules
+      severity: high
+      tier: context
+    - id: react-no-direct-dom
+      severity: medium
+      tier: context
+    - id: react-nextjs-ssr
+      severity: medium
+      tier: context
+      contextTriggers:
+        - context: ssr
+          mode: include
+    - id: react-vite-spa
+      severity: medium
+      tier: context
+      contextTriggers:
+        - context: spa
+          mode: include
+
+  nextjs:
+    - id: react-nextjs-ssr
+      severity: medium
+      tier: context
+      contextTriggers:
+        - context: ssr
+          mode: include
+
+  springboot:
+    - id: java-dependency-injection
+      severity: high
+      tier: context
+    - id: java-module-boundary
+      severity: high
+      tier: context
+
+  go:
+    - id: go-error-handling
+      severity: high
+      tier: context
+    - id: go-convention
+      severity: medium
+      tier: context
+
+  playwright:
+    - id: e2e-playwright
+      severity: high
+      tier: optional
