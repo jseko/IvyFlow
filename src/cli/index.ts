@@ -21,6 +21,9 @@ import { runRelease } from '../commands/release.js';
 import { runAudit } from '../commands/audit.js';
 import { runTrace } from '../commands/trace.js';
 import { runExport } from '../commands/export.js';
+import { runState, type StateOptions } from '../commands/state.js';
+import { runWorkflow, type WorkflowOptions } from '../commands/workflow.js';
+import { runExplore } from '../commands/explore.js';
 import {
   runKnowledgeLink,
   runKnowledgeLinks,
@@ -402,13 +405,127 @@ program
   .description('Export project data to standard JSON format (read-only)')
   .option('--pipe', 'Output JSON to stdout (pipe-friendly)', false)
   .option('--project <paths...>', 'Include additional project paths')
-  .option('--dimension <dim>', 'Export specific dimension: changes, metrics, knowledge')
+  .option('--dimension <dim>', 'Export specific dimension: changes, metrics, knowledge, workflow-evidence')
   .action(async (opts: { pipe?: boolean; project?: string[]; dimension?: string }) => {
     const exitCode = await runExport({
       pipe: opts.pipe,
       project: opts.project,
-      dimension: opts.dimension as 'changes' | 'metrics' | 'knowledge' | undefined,
+      dimension: opts.dimension as 'changes' | 'metrics' | 'knowledge' | 'workflow-evidence' | undefined,
     });
+    process.exit(exitCode);
+  });
+
+// v0.13: state — lifecycle checkpoint management.
+const stateCmd = program
+  .command('state')
+  .description('v0.13: Lifecycle checkpoint view, set, and recover');
+
+stateCmd
+  .command('set')
+  .argument('<checkpoint>', 'Target checkpoint: open, design, build, verify, archive')
+  .description('Transition to a new lifecycle checkpoint')
+  .option('--change <name>', 'Change to operate on')
+  .option('--rationale <text>', 'Transition rationale (recorded in Workflow Evidence)')
+  .option('--refs <ids>', 'Comma-separated v0.12 EvidenceRecord IDs')
+  .action(async (checkpoint: string, opts: { change?: string; rationale?: string; refs?: string }) => {
+    const exitCode = await runState({
+      command: 'set',
+      checkpoint,
+      change: opts.change,
+      rationale: opts.rationale,
+      refs: opts.refs,
+      cwd: process.cwd(),
+    });
+    process.exit(exitCode);
+  });
+
+stateCmd
+  .command('recover')
+  .description('Restore checkpoint from .ivy/state.yaml after restart')
+  .option('--change <name>', 'Change to recover')
+  .action(async (opts: { change?: string }) => {
+    const exitCode = await runState({ command: 'recover', change: opts.change, cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+stateCmd
+  .command('show', { isDefault: true })
+  .description('Show current lifecycle state')
+  .option('--change <name>', 'Filter to a specific change')
+  .option('--pending', 'Show pending decision points')
+  .action(async (opts: { change?: string; pending?: boolean }) => {
+    const exitCode = await runState({ change: opts.change, pending: !!opts.pending, cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+// v0.13: workflow — preset, evidence, archive management.
+const workflowCmd = program
+  .command('workflow')
+  .description('v0.13: Workflow preset, evidence, and archive commands');
+
+workflowCmd
+  .command('start')
+  .description('Start a workflow (create state + optional isolate)')
+  .argument('[change]', 'Change name to start')
+  .option('--isolate', 'Create isolated git worktree', false)
+  .action(async (change: string | undefined, opts: { isolate?: boolean }) => {
+    const exitCode = await runWorkflow({ subcommand: 'start', change, isolate: opts.isolate, cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+workflowCmd
+  .command('status')
+  .description('Show current workflow state')
+  .option('--change <name>', 'Change to inspect')
+  .action(async (opts: { change?: string }) => {
+    const exitCode = await runWorkflow({ subcommand: 'status', change: opts.change, cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+workflowCmd
+  .command('preset')
+  .description('List available workflow presets or auto-detect')
+  .option('--detect', 'Auto-detect preset for current change', false)
+  .option('--change <name>', 'Change to inspect')
+  .action(async (opts: { detect?: boolean; change?: string }) => {
+    const exitCode = await runWorkflow({ subcommand: 'preset', detect: opts.detect, change: opts.change, cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+workflowCmd
+  .command('evidence')
+  .description('Display transition evidence')
+  .option('--change <name>', 'Change to inspect')
+  .option('--check-archive', 'Check archive readiness', false)
+  .action(async (opts: { change?: string; checkArchive?: boolean }) => {
+    const exitCode = await runWorkflow({ subcommand: 'evidence', change: opts.change, checkArchive: opts.checkArchive, cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+workflowCmd
+  .command('archive')
+  .description('Archive a completed change')
+  .argument('[change]', 'Change name to archive')
+  .option('--clean', 'Clean up worktrees on archive', false)
+  .action(async (change: string | undefined, opts: { clean?: boolean }) => {
+    const exitCode = await runWorkflow({ subcommand: 'archive', change, clean: opts.clean, cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+workflowCmd
+  .command('show', { isDefault: true })
+  .description('Show workflow commands help')
+  .action(async () => {
+    const exitCode = await runWorkflow({ cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+// v0.13: explore — read-only exploration mode.
+program
+  .command('explore')
+  .description('v0.13: Read-only exploration mode')
+  .action(async () => {
+    const exitCode = await runExplore({ cwd: process.cwd() });
     process.exit(exitCode);
   });
 

@@ -34,4 +34,10 @@ export const logger = {
   dim(msg: string): void {
     console.log(paint('gray', msg));
   },
+  header(msg: string): void {
+    console.log(`\n${paint('blue', msg)}`);
+  },
+  divider(): void {
+    console.log(paint('gray', '─'.repeat(60)));
+  },
 };

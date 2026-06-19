@@ -123,6 +123,20 @@ ivy update                         # check npm for newer version, print upgrade 
 ivy update --check                 # return exit code 0 (latest) or 1 (update available)
 ```
 
+## What is in v0.13
+
+- **Governed Execution** — v0.13 theme "Control" builds on v0.12 "Trust" with 5 new capabilities:
+  - **Lifecycle Projection** (`ivy state`, `ivy state set`, `ivy state recover`) — Checkpoint model bound to Change, not independent state. Prevents dual-state-source drift. Backward transitions always allowed.
+  - **Decision Protocol** (`ivy state --pending`) — 4 core decision points (DP-1 requirements, DP-3 design, DP-4 implementation, DP-8 archive) plus 3 event hooks. Configurable via `workflow.decision_protocol` in project.yaml.
+  - **Preset Workflows** (`ivy workflow preset [--detect]`) — 3 built-in presets (full/hotfix/tweak) with auto-detection and upgrade prompts when file thresholds are exceeded.
+  - **Workflow Evidence** (`ivy workflow evidence [--check-archive]`, `ivy workflow archive`) — Transition rationale + refs stored in transitionHistory. Archive readiness check enforces complete evidence chains. JSON export via `ivy export --dimension workflow-evidence`.
+  - **Execution Isolation** (`ivy workflow archive --clean`) — Git worktree provider for parallel agent execution. Graceful fallback to `provider: none`. Docker/DevContainer interfaces reserved for v0.14+.
+- **Explore Mode** (`ivy explore`) — Read-only mode with allowed/forbidden action banner.
+- **2 new commands**: `ivy state`, `ivy workflow`, `ivy explore` (29 total commands).
+- **673+ passing tests** across 64 test files.
+- **5 phases**: `open → design → build → verify → archive` (unchanged).
+- **16 platforms** (unchanged from v0.12).
+
 ## What is in v0.12
 
 - **27 commands**: All v0.11 commands plus `ivy audit evidence` and `ivy trace`.

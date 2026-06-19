@@ -5,6 +5,41 @@ All notable changes to `ivyflow-cli` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.13.0] — 2026-06-19
+
+**Governed Execution — v0.13 "Control" builds lifecycle checkpoint management, decision protocols, preset workflows, workflow evidence, and execution isolation on top of the v0.12 "Trust" foundation.** This release transforms IvyFlow from a workflow enforcer into a governed execution layer with transition guards, evidence chains, and safe parallel worktree isolation.
+
+### Added
+
+- **Lifecycle Projection** (`ivy state`, `ivy state set <checkpoint>`, `ivy state recover`) — Checkpoint model where state is a projection of Change, preventing dual-state-source drift. Backward transitions always allowed without --force. Custom YAML serialization in `.ivy/state.yaml` with 10-entry capped transition history.
+- **Decision Protocol** (`ivy state --pending`) — 4 core decision points (DP-1 requirements, DP-3 design, DP-4 implementation, DP-8 archive) + 3 event hooks (brainstorming, spec-change, failure-strategy). Configurable auto-approve via `workflow.decision_protocol` in project.yaml.
+- **Preset Workflows** (`ivy workflow preset [--detect]`) — 3 built-in presets: full (5-phase), hotfix (skips brainstorming/design, ≤3 tasks), tweak (skips brainstorming/design, ≤5 tasks). Auto-detection based on file count and change name. Auto-upgrade prompt when file threshold exceeded.
+- **Workflow Evidence** (`ivy workflow evidence [--check-archive]`, `ivy workflow archive`) — Rationale + refs recorded at each checkpoint transition. Archive readiness check validates complete evidence chains. JSON export via `ivy export --dimension workflow-evidence`.
+- **Execution Isolation** (`execution-isolation.ts`) — Git worktree provider creating `./worktrees/<change>` branches. Excludes node_modules/dist/target via symlinks. Graceful fallback to `provider: none` on git failure. Cleanup via `ivy workflow archive --clean`.
+- **Explore Mode** (`ivy explore`) — Read-only exploration mode displaying allowed/forbidden actions.
+- **OpenSpec v0-13-design-doc** — Formal proposal/design/specs/tasks documenting 6 capabilities: data-truth-model, session-events, analytics-command, dashboard-command, gitnexus-overlay, platform-expansion.
+- **3 new CLI commands**: `ivy state`, `ivy workflow` (with preset/evidence/archive subcommands), `ivy explore` (29 total).
+- **Guard scripts**: `assets/scripts/state-guard.sh` (per-checkpoint artifact checks), `assets/scripts/state-recover.sh` (state recovery), `assets/hooks/ivy-create-worktree.sh` (worktree creation hook).
+
+### Changed
+
+- `package.json`: version already at `0.13.0` from prior design-documentation release.
+- README.md: v0.13 section rewritten with Governed Execution features.
+- README.zh-CN.md: synced with English README updates.
+- `src/utils/logger.ts`: Added `header()` and `divider()` methods for CLI formatting.
+
+### Technical
+
+- 8 new source files: `lifecycle-projection.ts`, `decision-protocol.ts`, `preset-workflow.ts`, `workflow-evidence.ts`, `execution-isolation.ts`, `commands/state.ts`, `commands/workflow.ts`, `commands/explore.ts`.
+- 4 new test files: `decision-protocol.test.ts`, `preset-workflow.test.ts`, `workflow-evidence.test.ts`, `execution-isolation.test.ts`.
+- Enhanced: `export-api.ts` (workflow-evidence dimension), `types.ts` (ExportPayload workflowEvidence field), `cli/index.ts` (state/workflow/explore command registration).
+- All existing tests continue to pass with no regressions.
+
+### Coverage
+
+- **673 passing tests** across 64 test files (61 new tests for v0.13 governed execution).
+- No new external dependencies added.
+
 ## [0.12.0] — 2026-06-19
 
 **Agent Experience — Evidence & Traceability.** v0.12 introduces evidence coverage audits, bidirectional knowledge tracing, memory health scoring, an evidence quality gate, and graduates Organization Insights from Beta.

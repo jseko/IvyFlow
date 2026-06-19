@@ -14,6 +14,7 @@ import { promises as fs } from 'fs';
 import { fileExists, readDir } from '../utils/fs.js';
 import { readYaml } from '../utils/yaml.js';
 import { MemoryStore } from './memory-arch.js';
+import { readState } from './lifecycle-projection.js';
 import type { ExportPayload, ExportChange, ExportMetric } from './types.js';
 
 // ─── Export Engine ───
@@ -21,7 +22,7 @@ import type { ExportPayload, ExportChange, ExportMetric } from './types.js';
 export interface ExportOptions {
   cwd: string;
   projects?: string[];
-  dimension?: 'changes' | 'metrics' | 'knowledge';
+  dimension?: 'changes' | 'metrics' | 'knowledge' | 'workflow-evidence';
 }
 
 export async function buildExportPayload(opts: ExportOptions): Promise<ExportPayload> {
@@ -30,6 +31,7 @@ export async function buildExportPayload(opts: ExportOptions): Promise<ExportPay
   const allChanges: ExportChange[] = [];
   const allMetrics: ExportMetric[] = [];
   const allKnowledge: ExportPayload['knowledge'] = [];
+  let allWorkflowEvidence: ExportPayload['workflowEvidence'];
 
   for (const projectPath of projects) {
     const ivyDir = path.join(projectPath, '.ivy');
@@ -73,6 +75,15 @@ export async function buildExportPayload(opts: ExportOptions): Promise<ExportPay
       const records = await store.query({});
       allKnowledge.push(...records);
     }
+
+    // Collect workflow evidence from state.yaml
+    if (!opts.dimension || opts.dimension === 'workflow-evidence') {
+      const evidence = await collectWorkflowEvidence(projectPath);
+      if (evidence.length > 0) {
+        if (!allWorkflowEvidence) allWorkflowEvidence = [];
+        allWorkflowEvidence.push(...evidence);
+      }
+    }
   }
 
   return {
@@ -87,6 +98,7 @@ export async function buildExportPayload(opts: ExportOptions): Promise<ExportPay
     changes: allChanges,
     metrics: allMetrics,
     knowledge: allKnowledge,
+    ...(allWorkflowEvidence ? { workflowEvidence: allWorkflowEvidence } : {}),
     errors: [],
   };
 }
@@ -185,4 +197,28 @@ function calcDuration(startDate: string): number {
   const start = new Date(startDate).getTime();
   if (isNaN(start)) return 0;
   return Math.round((Date.now() - start) / (1000 * 60 * 60 * 24) * 10) / 10;
+}
+
+/**
+ * Collect workflow evidence entries from .ivy/state.yaml.
+ */
+async function collectWorkflowEvidence(projectPath: string): Promise<NonNullable<ExportPayload['workflowEvidence']>> {
+  const evidence: NonNullable<ExportPayload['workflowEvidence']> = [];
+  try {
+    const state = await readState(projectPath);
+    if (state && state.transitionHistory.length > 0) {
+      for (const t of state.transitionHistory) {
+        evidence.push({
+          changeName: state.changeName,
+          transition: t.from ? `${t.from}→${t.to}` : `(start)→${t.to}`,
+          rationale: t.rationale ?? '',
+          refs: t.refs ?? [],
+          timestamp: t.timestamp,
+        });
+      }
+    }
+  } catch {
+    // No state file — no evidence to export
+  }
+  return evidence;
 }

@@ -228,5 +228,12 @@ export interface ExportPayload {
   changes: ExportChange[];
   metrics: ExportMetric[];
   knowledge: MemoryRecord[];
+  workflowEvidence?: Array<{
+    changeName: string;
+    transition: string;
+    rationale: string;
+    refs: string[];
+    timestamp: string;
+  }>;
   errors?: Array<{ message: string }>;
 }

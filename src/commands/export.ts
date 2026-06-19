@@ -16,7 +16,7 @@ export interface ExportCommandOptions {
   cwd?: string;
   pipe?: boolean;
   project?: string[];
-  dimension?: 'changes' | 'metrics' | 'knowledge';
+  dimension?: 'changes' | 'metrics' | 'knowledge' | 'workflow-evidence';
 }
 
 export async function runExport(opts: ExportCommandOptions = {}): Promise<number> {

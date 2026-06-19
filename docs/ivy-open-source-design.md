@@ -1544,6 +1544,7 @@ v0.2.0  (M4 末)  — 5 platforms, skill split, tech-stack recommendations
 v0.3.0  (M6 末)  — triple defense, adoption v0.1, security rules
 v0.11.0 (M8)     — Org Insights (Beta), Knowledge Linking, Ecosystem, Knowledge Sync
 v0.12.0 (M8+)    — Evidence & Traceability: Evidence Audit, Traceability, Memory Health, Evidence Gate, Org Insights GA
+v0.13.0 (M8++)   — Governed Execution: Lifecycle Projection, Decision Protocol, Preset Workflows, Workflow Evidence, Execution Isolation
 v1.0.0  (M9+)    — 16 platforms, adoption v1.0, full docs, production-ready
 v1.1.0  (M10)    — 15+ platforms, CI/CD integration
 v1.2.0  (M12)    — abstraction layer, community contributions
@@ -1582,7 +1583,7 @@ v1.2.0  (M12)    — abstraction layer, community contributions
 | **脚本工具** | 7 个 bash 脚本（env/guard/state/handoff/archive/validate/hook-guard） | 1 个（hook-guard.sh，Phase 3+ 扩展） |
 | **CLI 命令** | 5 个（init/status/doctor/update/uninstall） | 7 个（init/status/doctor/analytics/dashboard/update/uninstall） |
 | **代码智能** | CodeGraph 集成 | GitNexus 集成（可选安装） |
-| **当前版本** | v0.3.8（已发布） | v0.12.0（已发布） |
+| **当前版本** | v0.3.8（已发布） | v0.13.0（已发布） |
 
 ---
 
