@@ -11,8 +11,11 @@
  *   ivy capability list --recommended — list recommended skills (Sprint 15.3)
  */
 
+import path from 'path';
+
 import { logger } from '../utils/logger.js';
 import { detectCapabilities, buildTechStack } from '../core/capability-detector.js';
+import { readFile } from '../utils/fs.js';
 
 export interface CapabilityOptions {
   subcommand?: 'detect' | 'list' | 'health' | 'profile';
@@ -31,6 +34,8 @@ export async function runCapability(opts: CapabilityOptions = {}): Promise<numbe
       return await runDetect(cwd, !!opts.refresh, opts.format);
     case 'list':
       return await runList(cwd, !!opts.recommended);
+    case 'health':
+      return await runHealth(cwd, !!opts.gapsOnly, opts.format);
     default:
       return showHelp();
   }
@@ -121,6 +126,99 @@ async function runList(cwd: string, recommended: boolean): Promise<number> {
   }
   for (const t of allTech) {
     logger.info(`  ${t.id.padEnd(21)} │ ${t.category.padEnd(13)} │ package │ active`);
+  }
+
+  return 0;
+}
+
+// ─── Health ───
+
+async function runHealth(cwd: string, gapsOnly: boolean, format?: string): Promise<number> {
+  const { detectCapabilities, buildTechStack } = await import('../core/capability-detector.js');
+  const { generateHealthReport } = await import('../core/capability-health.js');
+
+  const detection = await detectCapabilities(cwd);
+  const allTechStacks = Object.values(detection.techStack).flat().filter(Boolean) as string[];
+  const expectedCapabilities = detection.candidates.map(c => c.id);
+  const actualCapabilities = allTechStacks;
+
+  // For drift, compare against previous detection if available
+  const previousPath = path.join(cwd, '.ivy', 'capability-cache.json');
+  let previousTechStack: string[] = [];
+  try {
+    const prevData = await readFile(previousPath);
+    const parsed = JSON.parse(prevData);
+    previousTechStack = parsed.techStack ?? [];
+  } catch {
+    // No previous detection, drift will be 0
+  }
+
+  const report = generateHealthReport(
+    expectedCapabilities,
+    actualCapabilities,
+    previousTechStack,
+    allTechStacks,
+    []
+  );
+
+  if (format === 'json') {
+    console.log(JSON.stringify(report, null, 2));
+    return 0;
+  }
+
+  if (gapsOnly) {
+    logger.header('IvyFlow Capability Health — Gaps Only');
+    logger.divider();
+    if (report.coverage.gaps.length === 0) {
+      logger.info('  No gaps detected.');
+      return 0;
+    }
+    logger.info('  Gap Type  │ Severity  │ Actionability  │ Item');
+    logger.info('  ──────────┼───────────┼────────────────┼──────────────────');
+    for (const gap of report.coverage.gaps) {
+      logger.info(
+        `  ${gap.type.padEnd(8)} │ ${gap.severity.padEnd(9)} │ ${gap.actionability.padEnd(14)} │ ${gap.expectedItem}`
+      );
+    }
+    return 0;
+  }
+
+  logger.header('IvyFlow Capability Health — 3D Report');
+  logger.divider();
+
+  // Coverage
+  logger.info('  Coverage');
+  logger.info(`    Ratio: ${Math.round(report.coverage.ratio * 100)}% (${report.coverage.actual}/${report.coverage.expected})`);
+  if (report.coverage.gaps.length > 0) {
+    logger.info(`    Gaps: ${report.coverage.gaps.length}`);
+    for (const gap of report.coverage.gaps) {
+      logger.info(`      ⚠ ${gap.expectedItem} (${gap.type}, ${gap.severity})`);
+    }
+  } else {
+    logger.info('    Gaps: 0 ✓');
+  }
+
+  // Drift
+  logger.info('');
+  logger.info('  Drift');
+  logger.info(`    Rate: ${Math.round(report.drift.rate * 100)}%`);
+  if (report.drift.changes.length > 0) {
+    for (const change of report.drift.changes) {
+      logger.info(`      ${change.type === 'added' ? '+' : '-'} ${change.item}`);
+    }
+  } else {
+    logger.info('    No changes ✓');
+  }
+
+  // Risk
+  logger.info('');
+  logger.info('  Risk');
+  if (report.risk.flags.length > 0) {
+    for (const flag of report.risk.flags) {
+      logger.info(`    ⚠ ${flag.type}: ${flag.description}`);
+    }
+  } else {
+    logger.info('    No risk flags ✓');
   }
 
   return 0;
