@@ -3,6 +3,15 @@
  * 5 alias phases. Single source of truth for `IvyPhase` values, allowed
  * transitions, and terminal-phase detection.
  *
+ * 🔴 本文件不得包含：
+ *   - 业务规则（如"BUILD 前必须完成 design.md"）
+ *   - Hook 触发逻辑（如"ARCHIVE 时清理 Git Hook"）
+ *   - 平台相关判断
+ *
+ * 业务规则 → lifecycle-projection.ts
+ * Hook 触发 → git-hook.ts / hook-runtime.ts
+ * 平台判断 → platform-context.ts
+ *
  * Used by:
  * - `ivy validate` to verify `phase` and `phase_history` in `.ivy.yaml`
  * - `core/adoption-lite.ts` to gate `snapshotAdoption` to terminal phase only
