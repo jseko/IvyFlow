@@ -3,32 +3,47 @@ import { describe, it, expect } from 'vitest';
 import {
   PLATFORMS,
   getPlatformById,
+  getPlatformLifecycle,
+  getPlatformsByLifecycle,
   getPlatformSkillsDir,
   type Platform,
 } from './platforms.js';
 
 describe('platforms', () => {
   describe('PLATFORMS invariants (v0.8)', () => {
-    it('ships exactly 16 platforms (11 Certified + 5 Experimental)', () => {
-      expect(PLATFORMS).toHaveLength(16);
+    it('ships exactly 29 platforms (11 Certified + 18 Experimental)', () => {
+      expect(PLATFORMS).toHaveLength(29);
     });
 
-    it('contains all v0.8 platform ids exactly once', () => {
+    it('contains all v0.18 platform ids exactly once', () => {
       const ids = PLATFORMS.map((p) => p.id).sort();
       expect(ids).toEqual([
         'amazon-q',
+        'antigravity',
         'auggie',
+        'bob',
         'claude',
         'cline',
         'codebuddy',
+        'codex',
         'continue',
+        'costrict',
+        'crush',
         'cursor',
+        'factory',
+        'forgecode',
         'gemini-cli',
         'github-copilot',
+        'iflow',
+        'junie',
         'kilocode',
         'kimi-code',
+        'kiro',
         'lingma',
+        'opencode',
+        'pi',
         'qoder',
+        'qwen',
         'roocode',
         'trae',
         'windsurf',
@@ -77,18 +92,18 @@ describe('platforms', () => {
       }
     });
 
-    it('all 16 platforms have detectionPaths populated (v0.7)', () => {
+    it('all platforms have detectionPaths populated (v0.7)', () => {
       for (const p of PLATFORMS) {
         expect(p.detectionPaths).toBeDefined();
         expect(p.detectionPaths!.length).toBeGreaterThan(0);
       }
     });
 
-    it('all 16 platforms have certification field (v0.8)', () => {
+    it('all platforms have certification field (v0.8)', () => {
       const certified = PLATFORMS.filter((p) => p.certification === 'certified');
       const experimental = PLATFORMS.filter((p) => p.certification === 'experimental');
       expect(certified.length).toBe(11);
-      expect(experimental.length).toBe(5);
+      expect(experimental.length).toBe(18);
     });
 
     it('claude detectionPaths matches documented paths', () => {
@@ -142,5 +157,39 @@ describe('platforms', () => {
     it('falls back to project dir when global is undefined', () => {
       expect(getPlatformSkillsDir(withoutGlobal, 'global')).toBe('.y-project');
     });
+  });
+});
+
+describe('v0.18 platform expansion', () => {
+  // TC-1: Platform list contains 29+ platforms
+  it('should have 29+ platforms (TC-1)', () => {
+    expect(PLATFORMS.length).toBeGreaterThanOrEqual(29);
+  });
+
+  // TC-2: New platforms have experimental lifecycle
+  it('should have experimental lifecycle for new platforms (TC-2)', () => {
+    const newPlatforms = ['codex', 'opencode', 'qwen', 'kiro', 'junie', 'costrict', 'crush', 'factory', 'iflow', 'pi', 'antigravity', 'bob', 'forgecode'];
+    for (const id of newPlatforms) {
+      expect(getPlatformLifecycle(id)).toBe('experimental');
+    }
+  });
+
+  // TC-6: Unknown platform ID returns undefined
+  it('should return undefined for unknown platform ID (TC-6)', () => {
+    expect(getPlatformById('non-existent-platform')).toBeUndefined();
+  });
+
+  // TC-10: Platform row count does not exceed hard limit
+  it('should not exceed hard limit of 60 platforms (TC-10)', () => {
+    expect(PLATFORMS.length).toBeLessThanOrEqual(60);
+  });
+
+  // TC-10a: getPlatformsByLifecycle returns correct groups
+  it('should group platforms by lifecycle state', () => {
+    const groups = getPlatformsByLifecycle();
+    expect(groups.certified.length).toBeGreaterThan(0);
+    expect(groups.experimental.length).toBeGreaterThan(0);
+    const totalFromGroups = Object.values(groups).reduce((sum, arr) => sum + arr.length, 0);
+    expect(totalFromGroups).toBe(PLATFORMS.length);
   });
 });
