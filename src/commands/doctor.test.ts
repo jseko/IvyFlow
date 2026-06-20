@@ -102,13 +102,13 @@ describe('runDoctor --platforms (v0.8)', () => {
     expect(out).toContain('rules');
   });
 
-  it('shows all 16 platforms in clean project', async () => {
+  it('shows all platforms in clean project', async () => {
     const code = await runDoctor({ cwd: tmp, platforms: true });
     expect(code).toBe(0);
 
     const out = capturedLogs.join('\n');
-    // Should reference total count (16 platforms)
-    expect(out).toMatch(/\d+ \/ 16 /);
+    // Should reference total count (29 platforms)
+    expect(out).toMatch(/\d+ \/ 29 /);
     expect(out).toContain('Certified');
     expect(out).toContain('Experimental');
   });
@@ -121,8 +121,8 @@ describe('runDoctor --platforms (v0.8)', () => {
     const out = capturedLogs.join('\n');
     // Should show Certified count = 11
     expect(out).toContain('Certified: 11');
-    // Should show Experimental count = 5
-    expect(out).toContain('Experimental: 5');
+    // Should show Experimental count = 18
+    expect(out).toContain('Experimental: 18');
   });
 });
 

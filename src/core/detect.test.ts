@@ -111,9 +111,9 @@ describe('detectPlatforms (v0.2)', () => {
     await fs.rm(tmp, { recursive: true, force: true });
   });
 
-  it('returns 16 entries, all undetected on a clean dir', async () => {
+  it('returns all entries, none detected on a clean dir', async () => {
     const results = await detectPlatforms(tmp);
-    expect(results).toHaveLength(16);
+    expect(results).toHaveLength(29);
     expect(results.every((r) => r.detected === false)).toBe(true);
   });
 

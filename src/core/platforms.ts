@@ -10,7 +10,7 @@ import type { InstallScope } from './types.js';
 
 export type RuleFormat = 'md' | 'mdc' | 'copilot';
 export type HookFormat = 'claude-code' | 'windsurf-json' | 'cursor-json' | 'gemini' | 'qwen' | 'kiro';
-export type PlatformCertification = 'certified' | 'experimental' | 'planned';
+export type PlatformCertification = 'certified' | 'experimental' | 'planned' | 'deprecated' | 'unsupported';
 
 export interface Platform {
   id: string;
@@ -292,8 +292,53 @@ export const PLATFORMS: Platform[] = [
       { rel: '.lingma', confidence: 0.6 },
     ],
   },
+  // ── v0.18 New Experimental Platforms ──
+  { id: 'codex', name: 'Codex CLI', skillsDir: '.codex', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', certification: 'experimental', detectionPaths: [{ rel: '.codex/rules', confidence: 0.8 }, { rel: '.codex', confidence: 0.6 }] },
+  { id: 'opencode', name: 'OpenCode', skillsDir: '.opencode', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', certification: 'experimental', detectionPaths: [{ rel: '.opencode/rules', confidence: 0.8 }, { rel: '.opencode', confidence: 0.6 }] },
+  { id: 'qwen', name: 'Qwen Code', skillsDir: '.qwen', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', certification: 'experimental', detectionPaths: [{ rel: '.qwen/settings.json', confidence: 1.0 }, { rel: '.qwen/rules', confidence: 0.8 }, { rel: '.qwen', confidence: 0.6 }] },
+  { id: 'kiro', name: 'Kiro', skillsDir: '.kiro', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', supportsHooks: true, hookFormat: 'kiro', hookPath: 'hooks/ivy-phase-guard.json', certification: 'experimental', detectionPaths: [{ rel: '.kiro/settings.json', confidence: 1.0 }, { rel: '.kiro/rules', confidence: 0.8 }, { rel: '.kiro', confidence: 0.6 }] },
+  { id: 'junie', name: 'Junie', skillsDir: '.junie', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', certification: 'experimental', detectionPaths: [{ rel: '.junie/rules', confidence: 0.8 }, { rel: '.junie', confidence: 0.6 }] },
+  { id: 'costrict', name: 'CoStrict', skillsDir: '.costrict', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', certification: 'experimental', detectionPaths: [{ rel: '.costrict/rules', confidence: 0.8 }, { rel: '.costrict', confidence: 0.6 }] },
+  { id: 'crush', name: 'Crush', skillsDir: '.crush', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', certification: 'experimental', detectionPaths: [{ rel: '.crush/rules', confidence: 0.8 }, { rel: '.crush', confidence: 0.6 }] },
+  { id: 'factory', name: 'Factory (Droid)', skillsDir: '.factory', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', certification: 'experimental', detectionPaths: [{ rel: '.factory/rules', confidence: 0.8 }, { rel: '.factory', confidence: 0.6 }] },
+  { id: 'iflow', name: 'IFlow CLI', skillsDir: '.iflow', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', certification: 'experimental', detectionPaths: [{ rel: '.iflow/rules', confidence: 0.8 }, { rel: '.iflow', confidence: 0.6 }] },
+  { id: 'pi', name: 'Pi', skillsDir: '.pi', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', certification: 'experimental', detectionPaths: [{ rel: '.pi/rules', confidence: 0.8 }, { rel: '.pi', confidence: 0.6 }] },
+  { id: 'antigravity', name: 'AntiGravity', skillsDir: '.antigravity', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', certification: 'experimental', detectionPaths: [{ rel: '.antigravity/rules', confidence: 0.8 }, { rel: '.antigravity', confidence: 0.6 }] },
+  { id: 'bob', name: 'Bob', skillsDir: '.bob', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', certification: 'experimental', detectionPaths: [{ rel: '.bob/rules', confidence: 0.8 }, { rel: '.bob', confidence: 0.6 }] },
+  { id: 'forgecode', name: 'Forge Code', skillsDir: '.forgecode', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', certification: 'experimental', detectionPaths: [{ rel: '.forgecode/rules', confidence: 0.8 }, { rel: '.forgecode', confidence: 0.6 }] },
 ];
 
 export function getPlatformById(id: string): Platform | undefined {
   return PLATFORMS.find((p) => p.id === id);
+}
+
+export type PlatformLifecycle = 'certified' | 'experimental' | 'planned' | 'deprecated' | 'unsupported';
+
+export const PLATFORM_LIFECYCLE: Record<string, PlatformLifecycle> = {
+  claude: 'certified', cursor: 'certified', 'github-copilot': 'certified',
+  windsurf: 'certified', codebuddy: 'certified', trae: 'certified',
+  qoder: 'certified', cline: 'certified', 'amazon-q': 'certified',
+  'gemini-cli': 'certified', roocode: 'certified',
+  continue: 'experimental', kilocode: 'experimental', auggie: 'experimental',
+  'kimi-code': 'experimental', lingma: 'experimental',
+  codex: 'experimental', opencode: 'experimental', qwen: 'experimental',
+  kiro: 'experimental', junie: 'experimental', costrict: 'experimental',
+  crush: 'experimental', factory: 'experimental', iflow: 'experimental',
+  pi: 'experimental', antigravity: 'experimental', bob: 'experimental',
+  forgecode: 'experimental',
+};
+
+export function getPlatformLifecycle(platformId: string): PlatformLifecycle {
+  return PLATFORM_LIFECYCLE[platformId] ?? 'experimental';
+}
+
+export function getPlatformsByLifecycle(): Record<PlatformLifecycle, string[]> {
+  const groups: Record<PlatformLifecycle, string[]> = {
+    certified: [], experimental: [], planned: [], deprecated: [], unsupported: [],
+  };
+  for (const p of PLATFORMS) {
+    const lifecycle = getPlatformLifecycle(p.id);
+    groups[lifecycle].push(p.id);
+  }
+  return groups;
 }
