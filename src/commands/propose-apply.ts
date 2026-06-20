@@ -7,6 +7,7 @@ import { OpenSpecBridge } from '../core/openspec-bridge.js';
 
 export interface ProposeOptions {
   cwd?: string;
+  parallel?: boolean;
 }
 
 export async function runPropose(changeName: string, opts: ProposeOptions = {}): Promise<number> {
@@ -22,12 +23,26 @@ export async function runPropose(changeName: string, opts: ProposeOptions = {}):
     logger.warn(`Worktree creation skipped: ${(err as Error).message}`);
   }
 
-  // 2) Run /opsx:propose
-  logger.step('Running OpenSpec propose...');
-  try {
-    execSync(`openspec new change "${changeName}"`, { cwd, stdio: 'inherit' });
-  } catch {
-    logger.warn('OpenSpec propose may have already been run or is unavailable.');
+  // 2) Run OpenSpec propose — sequential or parallel
+  if (opts.parallel) {
+    logger.step('Running OpenSpec propose (parallel mode)...');
+    try {
+      execSync(`openspec new change "${changeName}"`, { cwd, stdio: 'inherit' });
+    } catch {
+      logger.warn('OpenSpec propose may have already been run or is unavailable.');
+    }
+
+    logger.step('Generating artifacts in parallel...');
+    const bridge = new OpenSpecBridge({ changeName, cwd });
+    const count = await bridge.generateArtifactsParallel(changeName);
+    logger.success(`Generated ${count} artifact(s) in parallel.`);
+  } else {
+    logger.step('Running OpenSpec propose...');
+    try {
+      execSync(`openspec new change "${changeName}"`, { cwd, stdio: 'inherit' });
+    } catch {
+      logger.warn('OpenSpec propose may have already been run or is unavailable.');
+    }
   }
 
   // 3) Recommend DESIGN phase

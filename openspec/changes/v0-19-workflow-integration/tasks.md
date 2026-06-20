@@ -67,16 +67,16 @@
 
 ## 8. v0.19.5: Archive Cleanup
 
-- [ ] 8.1 Create `src/core/archive-cleanup.ts` with archiveCleanup function
-- [ ] 8.2 Implement archive cleanup hook — triggers when phase changes to ARCHIVE
-- [ ] 8.3 Wire archive cleanup into lifecycle-projection
+- [x] 8.1 Create `src/core/archive-cleanup.ts` with archiveCleanup function
+- [x] 8.2 Implement archive cleanup hook — triggers when phase changes to ARCHIVE
+- [x] 8.3 Wire archive cleanup into lifecycle-projection
 
 ## 9. v0.19.5: Parallel Propose Enhancement
 
-- [ ] 9.1 Enhance OpenSpecBridge to support parallel artifact generation
-- [ ] 9.2 Implement `ivy propose --parallel` flag
+- [x] 9.1 Enhance OpenSpecBridge to support parallel artifact generation
+- [x] 9.2 Implement `ivy propose --parallel` flag
 
 ## 10. v0.19.5: Dispatch Recommend Enhancements
 
-- [ ] 10.1 Implement `ivy dispatch --recommend` — suggest runnable tasks, user confirms
-- [ ] 10.2 Implement `ivy dispatch --recommend-phase` — suggest phase promotion, user confirms
+- [x] 10.1 Implement `ivy dispatch --recommend` — suggest runnable tasks, user confirms
+- [x] 10.2 Implement `ivy dispatch --recommend-phase` — suggest phase promotion, user confirms

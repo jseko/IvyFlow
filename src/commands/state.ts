@@ -22,6 +22,7 @@ import {
   createInitialState,
   applyTransition,
   runGuardChecks,
+  runPostTransitionActions,
   isBackwardTransition,
   type StateYaml,
   type LifecycleCheckpoint,
@@ -278,6 +279,9 @@ async function runStateSet(
   // Write state
   await writeState(cwd, currentState);
   logger.success(`Checkpoint updated: ${from} → ${checkpoint}`);
+
+  // Post-transition actions (archive cleanup hook, etc.)
+  await runPostTransitionActions(cwd, changeName, targetPhase as LifecycleCheckpoint);
 
   return 0;
 }

@@ -24,7 +24,6 @@ import path from 'path';
 import { fileExists, readFile, writeFile, ensureDir } from '../utils/fs.js';
 import { type IvyPhase, parsePhase, canTransition, listPhases } from './phase-machine.js';
 import { recordVerifyResult } from './feedback-collector.js';
-
 // ─── Types ───
 
 export type LifecycleCheckpoint = IvyPhase;
@@ -398,6 +397,21 @@ export async function checkRuleCompliance(
  * Run full guard checks including capability guards for verify checkpoint.
  * Capability guards are advisory only and do NOT block transitions.
  */
+/**
+ * Run post-transition actions after a successful state change.
+ * Currently handles archive cleanup notifications.
+ */
+export async function runPostTransitionActions(
+  cwd: string,
+  changeName: string,
+  to: LifecycleCheckpoint,
+): Promise<void> {
+  if (to === 'archive') {
+    const { onPhaseArchive } = await import('./archive-cleanup.js');
+    await onPhaseArchive(cwd, changeName);
+  }
+}
+
 export async function runFullGuardChecks(
   cwd: string,
   from: LifecycleCheckpoint,

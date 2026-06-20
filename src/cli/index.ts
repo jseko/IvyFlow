@@ -110,8 +110,9 @@ program
   .option('--sync-kb', 'v0.11: Sync knowledge base reference markers', false)
   .option('--memory', 'v0.12: Assess memory health across 6 dimensions', false)
   .option('--json', 'v0.12: Output as JSON', false)
-  .action(async (opts: { fix?: boolean; platforms?: boolean; ecosystem?: boolean; syncKb?: boolean; memory?: boolean; json?: boolean }) => {
-    const exitCode = await runDoctor({ fix: opts.fix, platforms: opts.platforms, ecosystem: opts.ecosystem, syncKb: opts.syncKb, memory: opts.memory, json: opts.json });
+  .option('--mapping', 'v0.18: Check platform↔agent mapping consistency', false)
+  .action(async (opts: { fix?: boolean; platforms?: boolean; ecosystem?: boolean; syncKb?: boolean; memory?: boolean; json?: boolean; mapping?: boolean }) => {
+    const exitCode = await runDoctor({ fix: opts.fix, platforms: opts.platforms, ecosystem: opts.ecosystem, syncKb: opts.syncKb, memory: opts.memory, json: opts.json, mapping: opts.mapping });
     process.exit(exitCode);
   });
 
@@ -782,8 +783,16 @@ dispatchCmd
   .description('Dispatch tasks from tasks.md')
   .option('--tasks <path>', 'Path to tasks.md')
   .option('--parallel <n>', 'Max parallel agents (default: 4)', parseInt)
-  .action(async (opts: { tasks?: string; parallel?: number }) => {
-    const exitCode = await runDispatch({ tasks: opts.tasks, parallel: opts.parallel, cwd: process.cwd() });
+  .option('--recommend', 'Recommend runnable tasks without executing')
+  .option('--recommend-phase', 'Recommend next phase after dispatch completes')
+  .action(async (opts: { tasks?: string; parallel?: number; recommend?: boolean; recommendPhase?: boolean }) => {
+    const exitCode = await runDispatch({
+      tasks: opts.tasks,
+      parallel: opts.parallel,
+      cwd: process.cwd(),
+      recommend: opts.recommend,
+      recommendPhase: opts.recommendPhase,
+    });
     process.exit(exitCode);
   });
 
@@ -810,9 +819,10 @@ dispatchCmd
 program
   .command('propose')
   .argument('<name>', 'Change name')
+  .option('--parallel', 'Generate artifacts in parallel where dependencies allow')
   .description('v0.19: Create a proposal with worktree + recommend DESIGN phase')
-  .action(async (name: string) => {
-    const exitCode = await runPropose(name, { cwd: process.cwd() });
+  .action(async (name: string, opts: { parallel?: boolean }) => {
+    const exitCode = await runPropose(name, { cwd: process.cwd(), parallel: opts.parallel });
     process.exit(exitCode);
   });
 

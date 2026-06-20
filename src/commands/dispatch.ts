@@ -1,12 +1,16 @@
 import path from 'path';
+import fs from 'fs';
 import { logger } from '../utils/logger.js';
 import { fileExists } from '../utils/fs.js';
 import { TaskDispatcher, type Task } from '../core/task-dispatcher.js';
+import { OpenSpecBridge } from '../core/openspec-bridge.js';
 
 export interface DispatchOptions {
   tasks?: string;
   parallel?: number;
   cwd?: string;
+  recommend?: boolean;
+  recommendPhase?: boolean;
 }
 
 interface DispatchStatusOptions {
@@ -45,6 +49,12 @@ export async function runDispatch(opts: DispatchOptions = {}): Promise<number> {
     return 0;
   }
 
+  // ── Recommend mode: show runnable tasks without executing ──
+  if (opts.recommend) {
+    return recommendTasks(cwd, dispatcher, tasks, tasksPath);
+  }
+
+  // ── Normal dispatch ──
   logger.header(`Task Dispatch — ${tasks.length} tasks`);
   logger.divider();
 
@@ -72,7 +82,94 @@ export async function runDispatch(opts: DispatchOptions = {}): Promise<number> {
     logger.info('Run `ivy dispatch sync-status --apply` to apply.');
   }
 
+  // ── Recommend phase mode: suggest next phase if all tasks done ──
+  if (opts.recommendPhase) {
+    await recommendNextPhase(cwd, tasks);
+  }
+
   return report.failed > 0 ? 1 : 0;
+}
+
+// ─── Recommend helpers ───
+
+async function recommendTasks(
+  cwd: string,
+  dispatcher: TaskDispatcher,
+  tasks: Task[],
+  tasksPath: string,
+): Promise<number> {
+  const runnable = dispatcher.findRunnableTasks(tasks);
+
+  logger.header('Task Recommendation');
+  logger.divider();
+
+  if (runnable.length === 0) {
+    logger.info('  No runnable tasks currently available.');
+    logger.info('  All pending tasks have unresolved dependencies.');
+    return 0;
+  }
+
+  logger.info(`  ${runnable.length} task(s) ready to dispatch:`);
+  for (const id of runnable) {
+    const task = tasks.find((t) => t.id === id);
+    if (task) {
+      logger.info(`    ${id}: ${task.subject}`);
+    }
+  }
+
+  logger.info('');
+  logger.info('  To execute these tasks, run:');
+  logger.info(`    ivy dispatch --tasks "${tasksPath}"`);
+  logger.info('');
+  logger.info('  (Recommend mode: no tasks were executed.)');
+
+  return 0;
+}
+
+async function recommendNextPhase(cwd: string, tasks: Task[]): Promise<void> {
+  const completed = tasks.filter((t) => t.status === 'completed').length;
+  const total = tasks.length;
+
+  logger.header('Phase Recommendation');
+  logger.divider();
+
+  if (completed < total) {
+    logger.info(`  Progress: ${completed}/${total} tasks complete.`);
+    logger.info('  Not all tasks are done — phase promotion not recommended yet.');
+    return;
+  }
+
+  logger.info(`  All ${total} tasks complete!`);
+  logger.info('');
+
+  // Use OpenSpecBridge to suggest next phase
+  // Infer change name from tasks.md location pattern: openspec/changes/<name>/tasks.md
+  const changeName = inferChangeNameFromTasksPath(cwd);
+  if (changeName) {
+    const bridge = new OpenSpecBridge({ changeName, cwd });
+    const rec = await bridge.translateEvent('applied', changeName);
+    await bridge.recommendPhase(rec);
+  } else {
+    logger.info('  Run `ivy state set verify` to advance to VERIFY phase.');
+  }
+}
+
+function inferChangeNameFromTasksPath(cwd: string): string | null {
+  // Try: openspec/changes/<name>/tasks.md
+  const changesDir = path.join(cwd, 'openspec', 'changes');
+  if (fs.existsSync(changesDir)) {
+    try {
+      const entries = fs.readdirSync(changesDir);
+      for (const entry of entries) {
+        if (entry.startsWith('.')) continue;
+        const tasksMd = path.join(changesDir, entry, 'tasks.md');
+        if (fs.existsSync(tasksMd)) return entry;
+      }
+    } catch {
+      return null;
+    }
+  }
+  return null;
 }
 
 export async function runDispatchStatus(opts: DispatchStatusOptions = {}): Promise<number> {
