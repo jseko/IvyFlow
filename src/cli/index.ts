@@ -634,22 +634,6 @@ rulesCmd
     process.exit(exitCode);
   });
 
-rulesCmd
-  .command('audit')
-  .description('v0.16: Rule usage insights (read-only)')
-  .argument('[rule-id]', 'Specific rule ID to inspect')
-  .option('--format <fmt>', 'Output format: text (default) or json')
-  .option('--days <n>', 'Analysis window in days (default: 30)', '30')
-  .action(async (ruleId?: string, opts: { format?: string; days?: string } = {}) => {
-    const exitCode = await runRulesAudit({
-      ruleId,
-      format: opts.format as 'text' | 'json' | undefined,
-      days: opts.days ? parseInt(opts.days, 10) : 30,
-      cwd: process.cwd(),
-    });
-    process.exit(exitCode);
-  });
-
 // v0.11: knowledge — knowledge linking commands.
 const knowledge = program
   .command('knowledge')

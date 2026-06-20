@@ -50,9 +50,9 @@ export class WorktreeManager {
     return lines
       .filter((line) => line.includes(zcfPrefix))
       .map((line) => {
-        const parts = line.split(/\s+/);
+        const parts = line.trim().split(/\s+/);
         const wtPath = parts[0];
-        const branch = parts[1]?.replace(/^\[|\]$/g, '') ?? '';
+        const branch = parts.find((p) => p.startsWith('['))?.replace(/^\[|\]$/g, '') ?? '';
         const changeName = path.basename(wtPath);
         return { path: wtPath, branch, changeName };
       });
@@ -66,7 +66,9 @@ export class WorktreeManager {
       return;
     }
     execSync(`git worktree remove "${target.path}"`, { cwd: this.cwd, stdio: 'pipe' });
-    execSync(`git branch -D "${target.branch}"`, { cwd: this.cwd, stdio: 'pipe' });
+    if (target.branch && !/^[0-9a-f]{7,40}$/.test(target.branch)) {
+      execSync(`git branch -D "${target.branch}"`, { cwd: this.cwd, stdio: 'pipe' });
+    }
     logger.success(`Worktree cleaned up: ${changeName}`);
   }
 
