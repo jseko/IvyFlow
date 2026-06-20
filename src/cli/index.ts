@@ -17,6 +17,20 @@ import { runRulesGen, type RulesGenOptions } from '../commands/rules-gen.js';
 import { runRules, type RulesOptions } from '../commands/rules.js';
 import { runArchive } from '../commands/archive.js';
 import { runVerify } from '../commands/verify.js';
+import { runPropose, runApply } from '../commands/propose-apply.js';
+import {
+  runWorktreeCreate,
+  runWorktreeList,
+  runWorktreeCleanup,
+  runWorktreeCleanupAll,
+  runWorktreeMerge,
+  runWorktreeStatus,
+} from '../commands/worktree.js';
+import {
+  runDispatch,
+  runDispatchStatus,
+  runDispatchSyncStatus,
+} from '../commands/dispatch.js';
 import { runFingerprint } from '../commands/fingerprint.js';
 import { runRelease } from '../commands/release.js';
 import { runAudit } from '../commands/audit.js';
@@ -311,7 +325,8 @@ program
   .option('--no-extract', 'Skip knowledge extraction')
   .option('--force', 'Archive from any phase (not just VERIFY)')
   .option('--adr', 'Generate detailed ADR entries in MemoryStore', false)
-  .action(async (opts: { change?: string; action?: string; message?: string; extract?: boolean; force?: boolean; adr?: boolean }) => {
+  .option('--cleanup-worktree', 'Clean up worktree on archive', false)
+  .action(async (opts: { change?: string; action?: string; message?: string; extract?: boolean; force?: boolean; adr?: boolean; cleanupWorktree?: boolean }) => {
     const exitCode = await runArchive({
       change: opts.change,
       action: opts.action,
@@ -319,6 +334,7 @@ program
       noExtract: !opts.extract,
       force: opts.force,
       adr: opts.adr,
+      cleanupWorktree: opts.cleanupWorktree,
     });
     process.exit(exitCode);
   });
@@ -711,6 +727,118 @@ rulesCmd
       days: opts.days ? parseInt(opts.days, 10) : 30,
       cwd: process.cwd(),
     });
+    process.exit(exitCode);
+  });
+
+// v0.19: worktree — git worktree auto-management.
+const worktreeCmd = program
+  .command('worktree')
+  .description('v0.19: Git worktree auto-management');
+
+worktreeCmd
+  .command('create')
+  .argument('<name>', 'Change name')
+  .description('Create a worktree for a change')
+  .option('--branch <name>', 'Branch name (default: ivyflow-wt-<name>)')
+  .action(async (name: string, opts: { branch?: string }) => {
+    const exitCode = await runWorktreeCreate(name, { branch: opts.branch, cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+worktreeCmd
+  .command('list')
+  .description('List all IvyFlow-managed worktrees')
+  .action(async () => {
+    const exitCode = await runWorktreeList({ cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+worktreeCmd
+  .command('cleanup')
+  .argument('<name>', 'Change name')
+  .description('Clean up a worktree')
+  .action(async (name: string) => {
+    const exitCode = await runWorktreeCleanup(name, { cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+worktreeCmd
+  .command('cleanup-all')
+  .description('Clean up all completed worktrees')
+  .action(async () => {
+    const exitCode = await runWorktreeCleanupAll({ cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+worktreeCmd
+  .command('merge')
+  .argument('<name>', 'Change name')
+  .description('Merge worktree branch to origin')
+  .option('--strategy <s>', 'Merge strategy: merge (default) or squash')
+  .action(async (name: string, opts: { strategy?: string }) => {
+    const exitCode = await runWorktreeMerge(name, { strategy: opts.strategy, cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+worktreeCmd
+  .command('status')
+  .description('Show worktree status overview')
+  .action(async () => {
+    const exitCode = await runWorktreeStatus({ cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+// v0.19: dispatch — multi-agent task dispatching.
+const dispatchCmd = program
+  .command('dispatch')
+  .description('v0.19: Multi-agent task dispatch');
+
+dispatchCmd
+  .command('run')
+  .description('Dispatch tasks from tasks.md')
+  .option('--tasks <path>', 'Path to tasks.md')
+  .option('--parallel <n>', 'Max parallel agents (default: 4)', parseInt)
+  .action(async (opts: { tasks?: string; parallel?: number }) => {
+    const exitCode = await runDispatch({ tasks: opts.tasks, parallel: opts.parallel, cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+dispatchCmd
+  .command('status', { isDefault: true })
+  .description('Show task execution status')
+  .option('--tasks <path>', 'Path to tasks.md')
+  .action(async (opts: { tasks?: string }) => {
+    const exitCode = await runDispatchStatus({ tasks: opts.tasks, cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+dispatchCmd
+  .command('sync-status')
+  .description('Sync task status with user confirmation')
+  .option('--apply', 'Apply pending status updates to tasks.md')
+  .option('--tasks <path>', 'Path to tasks.md')
+  .action(async (opts: { apply?: boolean; tasks?: string }) => {
+    const exitCode = await runDispatchSyncStatus({ apply: opts.apply, tasks: opts.tasks, cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+// v0.19: propose — proposal-driven development entry point.
+program
+  .command('propose')
+  .argument('<name>', 'Change name')
+  .description('v0.19: Create a proposal with worktree + recommend DESIGN phase')
+  .action(async (name: string) => {
+    const exitCode = await runPropose(name, { cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+// v0.19: apply — implementation entry point.
+program
+  .command('apply')
+  .argument('<name>', 'Change name')
+  .description('v0.19: Apply a change with recommend VERIFY phase')
+  .action(async (name: string) => {
+    const exitCode = await runApply(name, { cwd: process.cwd() });
     process.exit(exitCode);
   });
 
