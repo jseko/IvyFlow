@@ -27,6 +27,7 @@ export interface ArchiveCommandOptions {
   message?: string;
   force?: boolean;
   adr?: boolean;
+  cleanupWorktree?: boolean;
 }
 
 interface ProjectYaml {
@@ -145,6 +146,19 @@ export async function runArchive(opts: ArchiveCommandOptions = {}): Promise<numb
   logger.dim(`  Report: ${result.reportPath ?? 'n/a'}`);
   logger.dim(`  Knowledge: ${opts.noExtract ? 'skipped' : path.join(knowledgeDir, `${changeName}.yaml`)}`);
   logger.dim(`  From: ${result.oldPhase} → To: ${result.newPhase}`);
+
+  // 3) Worktree cleanup (if requested)
+  if (opts.cleanupWorktree && changeName) {
+    logger.step('Cleaning up worktree...');
+    try {
+      const { WorktreeManager } = await import('../core/worktree-manager.js');
+      const mgr = new WorktreeManager({ cwd });
+      await mgr.cleanup(changeName);
+      logger.success('Worktree cleaned up.');
+    } catch (err) {
+      logger.warn(`Worktree cleanup skipped: ${(err as Error).message}`);
+    }
+  }
 
   return 0;
 }
