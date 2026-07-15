@@ -255,6 +255,27 @@ async function runCodegraphInstall(cwd: string): Promise<void> {
   }
 }
 
+async function shouldInstallSuperpowers(): Promise<boolean> {
+  try {
+    const { execSync } = await import('child_process');
+    execSync('which skills', { stdio: 'pipe' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function runSuperpowersInstall(cwd: string): Promise<void> {
+  const { execSync } = await import('child_process');
+  try {
+    logger.step('Installing Superpowers (brainstorming)...');
+    execSync('skills add obra/superpowers --skill brainstorming -y', { cwd, stdio: 'inherit' });
+    logger.success('Superpowers brainstorming installed');
+  } catch {
+    logger.warn('Superpowers install failed (skills CLI not found), skipped. Install manually: npm i -g skills && skills add obra/superpowers --skill brainstorming -y');
+  }
+}
+
 async function stepOpenspec(): Promise<boolean> {
   return confirm({
     message: t('openspec.prompt', currentLocale),
@@ -333,6 +354,11 @@ async function runWizard(
     await runCodegraphInstall(cwd);
   }
 
+  // Step 5.6: Superpowers install (auto, no prompt)
+  if (await shouldInstallSuperpowers()) {
+    await runSuperpowersInstall(cwd);
+  }
+
   // Step 6: Completion
   if (result === 0) {
     showCompletion(config);
@@ -384,6 +410,11 @@ async function runNonInteractive(
   // Auto-install CodeGraph in non-interactive mode
   if (await shouldInstallCodegraph()) {
     await runCodegraphInstall(cwd);
+  }
+
+  // Auto-install Superpowers (no prompt)
+  if (await shouldInstallSuperpowers()) {
+    await runSuperpowersInstall(cwd);
   }
 
   if (result === 0) {
