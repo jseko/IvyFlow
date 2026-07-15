@@ -250,36 +250,6 @@ async function runCodegraphInstall(cwd: string): Promise<void> {
   }
 }
 
-// ─── Step 3.6: Superpowers ───
-
-async function stepSuperpowers(): Promise<boolean> {
-  return confirm({
-    message: '安装 Superpowers 方法论工具集？（推荐 — brainstorming / writing-plans / TDD 等）',
-    default: true,
-  });
-}
-
-async function runSuperpowersInstall(cwd: string): Promise<void> {
-  const { execSync } = await import('child_process');
-  try {
-    logger.step('安装 Superpowers (brainstorming)...');
-    execSync('skills add obra/superpowers --skill brainstorming -y', { cwd, stdio: 'inherit' });
-    logger.success('Superpowers brainstorming 安装完成');
-  } catch {
-    logger.warn('Superpowers 安装失败（可能未安装 skills CLI），跳过。可稍后手动安装：npm i -g skills && skills add obra/superpowers');
-  }
-}
-
-async function shouldInstallSuperpowers(): Promise<boolean> {
-  try {
-    const { execSync } = await import('child_process');
-    execSync('which skills', { stdio: 'pipe' });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 async function stepOpenspec(): Promise<boolean> {
   return confirm({
     message: '安装 OpenSpec 规范驱动开发工具？（推荐 — 用于变更提案和归档）',
@@ -329,9 +299,6 @@ async function runWizard(
   // Step 3.5: OpenSpec (optional)
   const skipOpenSpec = opts.skipOpenSpec ?? !(await stepOpenspec());
 
-  // Step 3.6: Superpowers (optional)
-  const installSuperpowers = await stepSuperpowers();
-
   // Platform selection
   const platforms = opts.platforms
     ? PLATFORMS.filter((p) => opts.platforms!.includes(p.id))
@@ -359,11 +326,6 @@ async function runWizard(
   // Step 5.5: CodeGraph install (after main install)
   if (installCodegraph) {
     await runCodegraphInstall(cwd);
-  }
-
-  // Step 5.6: Superpowers install
-  if (installSuperpowers) {
-    await runSuperpowersInstall(cwd);
   }
 
   // Step 6: Completion
@@ -417,11 +379,6 @@ async function runNonInteractive(
   // Auto-install CodeGraph in non-interactive mode
   if (await shouldInstallCodegraph()) {
     await runCodegraphInstall(cwd);
-  }
-
-  // Auto-install Superpowers in non-interactive mode
-  if (await shouldInstallSuperpowers()) {
-    await runSuperpowersInstall(cwd);
   }
 
   if (result === 0) {
