@@ -27,7 +27,7 @@ If missing, stop and prompt to run `/ivyflow-open` first.
 ivy memory status
 ```
 
-Review existing ADRs, constraints, and risks in `.ivy/memory/`. Reference relevant decisions in the design doc.
+Review only decisions, constraints, and risks relevant to the change's domain. Do NOT read all memory records — limit to records matching the module or area being designed. Reference relevant ADRs in the design doc.
 
 ### 1. Generate Context Handoff
 

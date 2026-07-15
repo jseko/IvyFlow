@@ -17,19 +17,15 @@ ivy state show --change "<name>"
 
 ### 0.5. Read Project Memory
 
-Before creating the change structure, read the project's accumulated knowledge to avoid repeating past mistakes:
-
 ```bash
 ivy memory status
 ```
 
-Review existing records in `.ivy/memory/`:
-- **Decisions (ADR)**: Previously accepted architecture decisions that this change must respect
-- **Constraints**: Technical, process, or resource constraints from past changes
-- **Risks**: Previously identified risks and their mitigations
-- **Facts**: Established facts about the project (tech stack, conventions, dependencies)
+Review only records relevant to this change:
+- **Decisions (ADR)**: Check for architecture decisions that constrain this change
+- **Constraints**: Check for constraints that apply to the area being modified
 
-If relevant ADRs or constraints exist, reference them in the proposal.
+Do NOT read all memory records — only those matching the change's domain or module. Use `ivy knowledge links` to find related records if memory-linking is enabled.
 
 ### 1. Create Change Structure
 
