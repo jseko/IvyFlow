@@ -15,6 +15,22 @@ Verify the state machine is correctly initialized:
 ivy state show --change "<name>"
 ```
 
+### 0.5. Read Project Memory
+
+Before creating the change structure, read the project's accumulated knowledge to avoid repeating past mistakes:
+
+```bash
+ivy memory status
+```
+
+Review existing records in `.ivy/memory/`:
+- **Decisions (ADR)**: Previously accepted architecture decisions that this change must respect
+- **Constraints**: Technical, process, or resource constraints from past changes
+- **Risks**: Previously identified risks and their mitigations
+- **Facts**: Established facts about the project (tech stack, conventions, dependencies)
+
+If relevant ADRs or constraints exist, reference them in the proposal.
+
 ### 1. Create Change Structure
 
 **Immediately execute:** Use the Skill tool to load the `openspec-new-change` skill. Skipping this step is prohibited.

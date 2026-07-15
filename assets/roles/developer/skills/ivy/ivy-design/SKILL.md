@@ -21,6 +21,14 @@ ls openspec/changes/<name>/proposal.md openspec/changes/<name>/design.md openspe
 
 If missing, stop and prompt to run `/ivyflow-open` first.
 
+### 0.5. Check Project Memory
+
+```bash
+ivy memory status
+```
+
+Review existing ADRs, constraints, and risks in `.ivy/memory/`. Reference relevant decisions in the design doc.
+
 ### 1. Generate Context Handoff
 
 ```bash
