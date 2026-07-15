@@ -10,7 +10,7 @@ export async function runRoleShow(cwd?: string): Promise<number> {
   const projectYaml = await readYaml(path.join(ivyDir, 'project.yaml'));
 
   if (!projectYaml) {
-    logger.error('未找到 .ivy/project.yaml，请先运行 ivy init');
+    logger.error('.ivy/project.yaml not found. Run ivy init first.');
     return 1;
   }
 
@@ -19,7 +19,7 @@ export async function runRoleShow(cwd?: string): Promise<number> {
   const role = defaultRoleRegistry.get(roleId);
 
   if (!role) {
-    logger.error(`未知角色: ${roleId}`);
+    logger.error(`Unknown role: ${roleId}`);
     return 1;
   }
 
@@ -33,7 +33,7 @@ export async function runRoleList(): Promise<number> {
   const roles = defaultRoleRegistry.getAll();
 
   logger.info('');
-  logger.info('可用角色：');
+  logger.info('Available roles：');
   logger.info('');
   for (const role of roles) {
     logger.info(`  ${role.icon}  ${role.name.padEnd(12)} ${role.description}`);
@@ -49,7 +49,7 @@ export async function runRoleSet(roleId: string, cwd?: string): Promise<number> 
 
   const existing = await readYaml(projectYamlPath);
   if (!existing) {
-    logger.error('未找到 .ivy/project.yaml，请先运行 ivy init');
+    logger.error('.ivy/project.yaml not found. Run ivy init first.');
     return 1;
   }
 
@@ -57,13 +57,13 @@ export async function runRoleSet(roleId: string, cwd?: string): Promise<number> 
   const role = defaultRoleRegistry.get(roleId);
 
   if (!role) {
-    logger.error(`未知角色: ${roleId}`);
-    logger.info('可用角色: ' + defaultRoleRegistry.getAll().map(r => r.id).join(', '));
+    logger.error(`Unknown role: ${roleId}`);
+    logger.info('Available roles: ' + defaultRoleRegistry.getAll().map(r => r.id).join(', '));
     return 1;
   }
 
   await patchYaml(projectYamlPath, { role: roleId });
-  logger.info(`${role.icon}  已切换为: ${role.name}`);
+  logger.info(`${role.icon}  Switched to: ${role.name}`);
   logger.info(`   ${role.description}`);
   return 0;
 }
