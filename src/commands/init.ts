@@ -228,6 +228,16 @@ async function stepCodegraph(): Promise<boolean> {
   });
 }
 
+async function shouldInstallCodegraph(): Promise<boolean> {
+  try {
+    const { execSync } = await import('child_process');
+    execSync('which codegraph', { stdio: 'pipe' });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function runCodegraphInstall(cwd: string): Promise<void> {
   const { execSync } = await import('child_process');
   try {
@@ -361,12 +371,17 @@ async function runNonInteractive(
     projectType: 'auto',
     cwd,
     overwrite: opts.overwrite ?? false,
-    skipOpenSpec: opts.skipOpenSpec ?? false,
+    skipOpenSpec: false,
     platforms,
     capabilities: selectedCaps,
   };
 
   const result = await stepInstall(config);
+
+  // Auto-install CodeGraph in non-interactive mode
+  if (await shouldInstallCodegraph()) {
+    await runCodegraphInstall(cwd);
+  }
 
   if (result === 0) {
     showCompletion(config);
