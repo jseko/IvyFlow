@@ -262,9 +262,9 @@ async function stepSuperpowers(): Promise<boolean> {
 async function runSuperpowersInstall(cwd: string): Promise<void> {
   const { execSync } = await import('child_process');
   try {
-    logger.step('安装 Superpowers...');
-    execSync('skills add obra/superpowers', { cwd, stdio: 'inherit' });
-    logger.success('Superpowers 安装完成');
+    logger.step('安装 Superpowers (brainstorming)...');
+    execSync('skills add obra/superpowers --skill brainstorming -y', { cwd, stdio: 'inherit' });
+    logger.success('Superpowers brainstorming 安装完成');
   } catch {
     logger.warn('Superpowers 安装失败（可能未安装 skills CLI），跳过。可稍后手动安装：npm i -g skills && skills add obra/superpowers');
   }
