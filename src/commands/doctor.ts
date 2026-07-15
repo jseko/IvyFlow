@@ -100,7 +100,8 @@ async function checkSkillsForPlatform(
   const skills = await getManifestSkills();
   const missing: string[] = [];
   for (const rel of skills) {
-    const dest = path.join(cwd, getPlatformSkillsDir(platform, scope), 'skills', rel);
+    const destRel = rel.replace(/^roles\/developer\/skills\//, '');
+    const dest = path.join(cwd, getPlatformSkillsDir(platform, scope), 'skills', destRel);
     if (!(await fileExists(dest))) missing.push(rel);
   }
   if (missing.length === 0) {

@@ -8,6 +8,7 @@
 import { recordRuleTrigger } from './feedback-collector.js';
 import { type RuleTriggerSignal, SIGNAL_CONFIDENCE_WEIGHTS } from './feedback-types.js';
 import { type PreToolUseContext, type HookDecision } from './types.js';
+import { IvyPhase } from './phase-machine.js';
 
 // ─── 信号记录配置 ───
 
@@ -24,11 +25,11 @@ export async function recordRuleEvaluation(
   cwd: string,
   ruleId: string,
   result: 'pass' | 'skip' | 'fail',
-  context: { phase?: string; environment?: 'local' | 'ci' | 'prod' } = {},
+  context: { phase?: IvyPhase; environment?: 'local' | 'ci' | 'prod' } = {},
 ): Promise<void> {
   // 异步记录，不阻塞主流程
   await recordRuleTrigger(cwd, ruleId, result, {
-    phase: context.phase as any,
+    phase: context.phase,
     environment: context.environment,
   }).catch(() => {
     // 记录失败不影响主流程
@@ -52,7 +53,7 @@ export async function wrapDecisionWithSignal(
   if (ruleId) {
     const result = decision.decision === 'block' ? 'fail' : 'pass';
     await recordRuleEvaluation(cwd, ruleId, result, {
-      phase: ctx.currentPhase,
+      phase: ctx.currentPhase as IvyPhase,
       environment: 'local',
     });
   }

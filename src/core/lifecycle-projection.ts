@@ -34,6 +34,26 @@ export interface StateYaml {
   enteredAt: string;
   lastTransitionAt: string;
   transitionHistory: TransitionEntry[];
+  // v0.33: workflow execution fields
+  workflow?: string;
+  build_mode?: string;
+  isolation?: string;
+  tdd_mode?: string;
+  verify_mode?: string;
+  verify_result?: string;
+  handoff_context?: string;
+  handoff_hash?: string;
+  design_doc?: string;
+  plan?: string;
+  auto_transition?: boolean | string;
+  archived?: boolean | string;
+  verification_report?: string;
+  branch_status?: string;
+  build_command?: string;
+  verify_command?: string;
+  /** v0.33: Agent collaboration topology */
+  topology?: 'serial' | 'parallel' | 'supervisor' | 'debate';
+  [key: string]: unknown;
 }
 
 export interface TransitionEntry {

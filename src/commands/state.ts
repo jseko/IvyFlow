@@ -152,7 +152,7 @@ async function runStateSet(
     const dpConfig = await readDecisionProtocolConfig(cwd);
 
     // Preset-aware auto-approval: hotfix/tweak skip design & brainstorming
-    const fileCount = await estimateFileCount(changeName);
+    const fileCount = await estimateFileCount(changeName, cwd);
     const detection = detectPreset(changeName, fileCount);
     if (detection.preset === 'hotfix' || detection.preset === 'tweak') {
       const presetConfig = BUILTIN_PRESETS[detection.preset];
@@ -167,7 +167,7 @@ async function runStateSet(
     }
 
     const { allowed, pendingPoints } = canProceedWithTransition(
-      'open', // DP lookup uses target checkpoint
+      state.checkpoint,
       checkpoint as string,
       dpConfig,
     );
@@ -265,7 +265,11 @@ async function runStateSet(
   }
 
   if (!allPassed) {
-    logger.warn('  Some checks failed. Proceeding anyway (guard checks are advisory).');
+    logger.error('Guard checks failed. Transition blocked.');
+    for (const result of guardResults.filter((r) => !r.passed)) {
+      logger.info(`    ✗ ${result.check}: ${result.message ?? 'failed'}`);
+    }
+    return 1;
   } else if (guardResults.length > 0) {
     logger.success('ALL CHECKS PASSED');
   }
@@ -394,8 +398,9 @@ function formatDate(iso: string): string {
   }
 }
 
-async function estimateFileCount(changeName: string): Promise<number> {
-  const changeDir = path.join(process.cwd(), 'openspec', 'changes', changeName);
+async function estimateFileCount(changeName: string, cwd?: string): Promise<number> {
+  const baseDir = cwd ?? process.cwd();
+  const changeDir = path.join(baseDir, 'openspec', 'changes', changeName);
   if (!(await fileExists(changeDir))) return 1;
   const { readDir } = await import('../utils/fs.js');
   try {

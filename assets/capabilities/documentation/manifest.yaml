@@ -1,0 +1,13 @@
+name: documentation
+display_name: "文档生成"
+icon: "📝"
+description: "API 文档 + 变更日志自动生成"
+benefit: "工作流完成后自动更新文档"
+risk_level: low
+network_permission: "无"
+file_permission: "写入文档"
+size_kb: 1200
+rating: 4.0
+recommended: false
+dependencies: []
+conflicts: []

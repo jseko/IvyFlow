@@ -4,7 +4,7 @@ import os from 'os';
 import { promises as fs } from 'fs';
 import { execFileSync } from 'child_process';
 
-import { installGitPrePushHook, installGitPostCommitHook } from './git-hook.js';
+import { installGitPrePushHook, installGitPostCommitHook, HOOK_START_MARKER, HOOK_END_MARKER, POST_COMMIT_START_MARKER, POST_COMMIT_END_MARKER } from './git-hook.js';
 
 async function mkTmpDir(): Promise<string> {
   return fs.mkdtemp(path.join(os.tmpdir(), 'ivyflow-githook-'));
@@ -128,6 +128,63 @@ describe('installGitPrePushHook', () => {
     await installGitPrePushHook(tmp, true);
     expect(runHookOnBranch(tmp).exit).toBe(0);
   });
+
+  // ── Marker injection tests (v0.20) ──
+  it('replaces IvyFlow section when existing hook has markers (overwrite=true)', async () => {
+    git(tmp, 'init', '-q');
+    const hookPath = path.join(tmp, '.git', 'hooks', 'pre-push');
+
+    // Create a pre-existing hook with user content + old IvyFlow content.
+    await fs.mkdir(path.dirname(hookPath), { recursive: true });
+    const userContent = '# Custom hook logic\nsome_command\n';
+    const oldIvy = `${HOOK_START_MARKER}\nold ivy content\n${HOOK_END_MARKER}\n`;
+    await fs.writeFile(hookPath, userContent + oldIvy, 'utf-8');
+
+    const result = await installGitPrePushHook(tmp, true);
+    expect(result.installed).toBe(true);
+
+    const updated = await fs.readFile(hookPath, 'utf-8');
+    expect(updated).toContain(HOOK_START_MARKER);
+    expect(updated).toContain(HOOK_END_MARKER);
+    // User content before markers must be preserved.
+    expect(updated.startsWith(userContent)).toBe(true);
+    // The new content should contain the IvyFlow guard logic.
+    expect(updated).toContain('IvyFlow');
+  });
+
+  it('appends IvyFlow section when existing hook has no markers (overwrite=true)', async () => {
+    git(tmp, 'init', '-q');
+    const hookPath = path.join(tmp, '.git', 'hooks', 'pre-push');
+
+    // Create a hook with only user content, no IvyFlow markers.
+    await fs.mkdir(path.dirname(hookPath), { recursive: true });
+    const userContent = '# User custom hook\necho "hello"\n';
+    await fs.writeFile(hookPath, userContent, 'utf-8');
+
+    const result = await installGitPrePushHook(tmp, true);
+    expect(result.installed).toBe(true);
+
+    const updated = await fs.readFile(hookPath, 'utf-8');
+    expect(updated.startsWith(userContent)).toBe(true);
+    expect(updated).toContain(HOOK_START_MARKER);
+    expect(updated).toContain(HOOK_END_MARKER);
+    expect(updated).toContain('IvyFlow');
+  });
+
+  it('creates fresh hook with markers when no hook file exists', async () => {
+    git(tmp, 'init', '-q');
+    const hookPath = path.join(tmp, '.git', 'hooks', 'pre-push');
+    // Verify no file exists yet.
+    await expect(fs.stat(hookPath)).rejects.toThrow();
+
+    const result = await installGitPrePushHook(tmp, true);
+    expect(result.installed).toBe(true);
+
+    const content = await fs.readFile(hookPath, 'utf-8');
+    expect(content.startsWith(HOOK_START_MARKER)).toBe(true);
+    expect(content).toContain(HOOK_END_MARKER);
+    expect(content).toContain('IvyFlow');
+  });
 });
 
 describe('installGitPostCommitHook', () => {
@@ -165,5 +222,40 @@ describe('installGitPostCommitHook', () => {
     if (!second.installed) {
       expect(second.reason).toBe('skipped-existing');
     }
+  });
+
+  // ── Marker injection tests (v0.20) ──
+  it('replaces IvyFlow section in post-commit when markers present (overwrite=true)', async () => {
+    git(tmp, 'init', '-q');
+    const hookPath = path.join(tmp, '.git', 'hooks', 'post-commit');
+
+    await fs.mkdir(path.dirname(hookPath), { recursive: true });
+    const userContent = '# my custom hook\n';
+    const oldIvy = `${POST_COMMIT_START_MARKER}\nold analytics\n${POST_COMMIT_END_MARKER}\n`;
+    await fs.writeFile(hookPath, userContent + oldIvy, 'utf-8');
+
+    const result = await installGitPostCommitHook(tmp, true);
+    expect(result.installed).toBe(true);
+
+    const updated = await fs.readFile(hookPath, 'utf-8');
+    expect(updated.startsWith(userContent)).toBe(true);
+    expect(updated).toContain(POST_COMMIT_START_MARKER);
+    expect(updated).toContain(POST_COMMIT_END_MARKER);
+  });
+
+  it('appends IvyFlow section in post-commit when no markers exist', async () => {
+    git(tmp, 'init', '-q');
+    const hookPath = path.join(tmp, '.git', 'hooks', 'post-commit');
+
+    await fs.mkdir(path.dirname(hookPath), { recursive: true });
+    const userContent = '# user hook\n';
+    await fs.writeFile(hookPath, userContent, 'utf-8');
+
+    const result = await installGitPostCommitHook(tmp, true);
+    expect(result.installed).toBe(true);
+
+    const updated = await fs.readFile(hookPath, 'utf-8');
+    expect(updated.startsWith(userContent)).toBe(true);
+    expect(updated).toContain(POST_COMMIT_START_MARKER);
   });
 });

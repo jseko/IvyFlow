@@ -8,6 +8,10 @@ import { runStatus } from './status.js';
 import { PLATFORMS } from '../core/platforms.js';
 import { readYaml } from '../utils/yaml.js';
 
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const { version: PKG_VERSION } = require('../../package.json');
+
 async function mkTmpDir(): Promise<string> {
   return fs.mkdtemp(path.join(os.tmpdir(), 'ivyflow-e2e-'));
 }
@@ -66,7 +70,7 @@ describe('end-to-end init — all 11 platforms (v0.5)', () => {
 
       // project.yaml schema v0.11.
       const data = await readYaml<ProjectYaml>(path.join(tmp, '.ivy', 'project.yaml'));
-      expect(data?.version).toBe('0.11.0');
+      expect(data?.version).toBe(PKG_VERSION);
       expect(data?.platforms).toEqual([p.id]);
       expect(data?.analytics_enabled).toBe(false);
     });

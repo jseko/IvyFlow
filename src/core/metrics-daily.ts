@@ -72,7 +72,7 @@ export async function updateDailyMetrics(
   ruleId?: string,
 ): Promise<void> {
   const metricsPath = path.join(cwd, METRICS_DAILY_FILE);
-  let metrics: DailyMetrics[] = await getDailyMetrics(cwd);
+  const metrics: DailyMetrics[] = await getDailyMetrics(cwd);
 
   // 找到或创建对应日期的条目
   let dayMetrics = metrics.find(m => m.date === date);

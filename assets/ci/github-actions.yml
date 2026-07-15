@@ -1,6 +1,9 @@
 # IvyFlow Check — GitHub Actions workflow
 # Copy this file to .github/workflows/ivy-check.yml and customize.
 # Template: runs ivy check on pull requests for workflow health verification.
+#
+# v0.15: Added IvyFlow Quality Check workflow, validate --ci, verify --gate evidence,
+#        and analytics export.
 
 name: IvyFlow Check
 on:
@@ -20,3 +23,23 @@ jobs:
       - run: npm install -g ivyflow-cli
       - run: ivy init --quick --skip-openspec
       - run: ivy check --change ${{ github.head_ref || github.ref_name }} --mode quick
+
+  # v0.15: IvyFlow Quality Check — validate workflow state, evidence coverage, and analytics
+  ivy-quality:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install IvyFlow
+        run: npm install -g ivyflow-cli
+      - name: Validate Workflow State
+        run: ivy validate --ci
+      - name: Check Evidence Coverage
+        run: ivy verify --gate evidence --ci
+      - name: Export Analytics
+        run: ivy analytics --json > ivy-metrics.json
+      - name: Upload Metrics Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ivy-metrics
+          path: ivy-metrics.json

@@ -45,21 +45,19 @@ async function probe(projectPath: string, checks: PathCheck[]): Promise<{ matche
  * Each platform defines its own detectionPaths — no fallback table needed.
  */
 export async function detectPlatforms(projectPath: string): Promise<PlatformDetectResult[]> {
-  const results: PlatformDetectResult[] = [];
-  for (const platform of PLATFORMS) {
-    const checks = platform.detectionPaths;
-    if (!checks || checks.length === 0) {
-      results.push({ platform, detected: false, confidence: 0.6, matchedPath: '' });
-      continue;
-    }
-    const hit = await probe(projectPath, checks);
-    if (hit) {
-      results.push({ platform, detected: true, confidence: hit.confidence, matchedPath: hit.matchedPath });
-    } else {
-      results.push({ platform, detected: false, confidence: 0.6, matchedPath: '' });
-    }
-  }
-  return results;
+  return Promise.all(
+    PLATFORMS.map(async (platform) => {
+      const checks = platform.detectionPaths;
+      if (!checks || checks.length === 0) {
+        return { platform, detected: false, confidence: 0.6, matchedPath: '' };
+      }
+      const hit = await probe(projectPath, checks);
+      if (hit) {
+        return { platform, detected: true, confidence: hit.confidence, matchedPath: hit.matchedPath };
+      }
+      return { platform, detected: false, confidence: 0.6, matchedPath: '' };
+    }),
+  );
 }
 
 /**

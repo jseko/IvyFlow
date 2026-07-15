@@ -1,0 +1,32 @@
+- document [ref=e3]:
+  - generic [ref=e5]:
+    - generic [ref=e12]:
+      - generic [ref=e17]:
+        - text: 传播路径1
+        - text: 边强度=0.7
+      - generic [ref=e22]:
+        - text: 传播路径2
+        - text: 边强度=0.5
+      - generic [ref=e27]:
+        - text: 路径1->2
+        - text: 衰减因子0.6
+      - generic [ref=e31]: ≥阈值0.3
+      - generic [ref=e35]: ≥阈值0.3
+      - generic [ref=e39]: <阈值0.3
+    - generic [ref=e40]:
+      - generic [ref=e46]:
+        - text: FAILED权限节点
+        - text: 权限规则#1
+      - generic [ref=e52]:
+        - text: 节点A
+        - text: 影响=0.7
+      - generic [ref=e58]:
+        - text: 节点B
+        - text: 影响=0.5
+      - generic [ref=e64]:
+        - text: 节点C
+        - text: 影响=0.42
+      - generic [ref=e70]:
+        - text: 影响子图区域
+        - text: 邻接表局部条目
+      - generic [ref=e75]: 排除

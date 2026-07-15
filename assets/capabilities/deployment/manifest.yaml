@@ -1,0 +1,13 @@
+name: deployment
+display_name: "部署集成"
+icon: "🚀"
+description: "CI/CD 模板 + 一键发布流程"
+benefit: "自动生成 CI 配置，标准化发布流程"
+risk_level: medium
+network_permission: "外部 API"
+file_permission: "写入 CI 配置"
+size_kb: 800
+rating: 4.2
+recommended: false
+dependencies: []
+conflicts: []

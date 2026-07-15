@@ -20,9 +20,9 @@ async function mkTmpDir(): Promise<string> {
 describe('skills.ts — assets/manifest.json (v0.2)', () => {
   it('manifest lists all v0.2 skill assets', async () => {
     const skills = await getManifestSkills();
-    expect(skills).toContain('ivy/SKILL.md');
-    expect(skills).toContain('ivy/references/phase-state-machine.md');
-    expect(skills).toContain('ivy/references/cross-cutting.md');
+    expect(skills).toContain('roles/developer/skills/ivy/SKILL.md');
+    expect(skills).toContain('roles/developer/skills/ivy/references/phase-state-machine.md');
+    expect(skills).toContain('roles/developer/skills/ivy/references/cross-cutting.md');
   });
 
   it('getAssetsDir resolves to a real directory', async () => {
@@ -99,7 +99,7 @@ describe('copyIvyRulesForPlatform — per-platform rendering', () => {
     const result = await copyIvyRulesForPlatform(tmp, claude, true, 'project');
     expect(result.copied).toBeGreaterThan(0);
 
-    const src = path.join(getAssetsDir(), 'rules', 'ivy-phase-guard.md');
+    const src = path.join(getAssetsDir(), 'roles', 'developer', 'rules', 'ivy-phase-guard.md');
     const dest = path.join(tmp, '.claude', 'rules', 'ivy-phase-guard.md');
     expect(await fs.readFile(dest, 'utf-8')).toBe(await fs.readFile(src, 'utf-8'));
   });

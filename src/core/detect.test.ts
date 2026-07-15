@@ -204,4 +204,16 @@ describe('detectPlatforms (v0.2)', () => {
     expect(claude?.confidence).toBe(0.8);
   });
 
+  it('detects platforms in parallel (v0.20 Promise.all concurrency)', async () => {
+    // The implementation uses Promise.all(PLATFORMS.map(...)) to start all
+    // probes concurrently. This test verifies the result shape is correct.
+    await fs.mkdir(path.join(tmp, '.github'), { recursive: true });
+    await fs.mkdir(path.join(tmp, '.cursor/rules'), { recursive: true });
+    const results = await detectPlatforms(tmp);
+    expect(results).toHaveLength(29);
+    // All probes should have resolved; detected ones are correct.
+    const detected = results.filter((r) => r.detected);
+    expect(detected.length).toBeGreaterThanOrEqual(2);
+  });
+
 });

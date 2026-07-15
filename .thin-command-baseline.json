@@ -1,0 +1,112 @@
+[
+  {
+    "file": "src/commands/check.ts",
+    "line": 79,
+    "tag": "exec"
+  },
+  {
+    "file": "src/commands/check.ts",
+    "line": 88,
+    "tag": "exec"
+  },
+  {
+    "file": "src/commands/check.ts",
+    "line": 97,
+    "tag": "exec"
+  },
+  {
+    "file": "src/commands/check.ts",
+    "line": 106,
+    "tag": "exec"
+  },
+  {
+    "file": "src/commands/dashboard.ts",
+    "line": 393,
+    "tag": "fs-write"
+  },
+  {
+    "file": "src/commands/doctor.ts",
+    "line": 326,
+    "tag": "exec"
+  },
+  {
+    "file": "src/commands/doctor.ts",
+    "line": 335,
+    "tag": "exec"
+  },
+  {
+    "file": "src/commands/doctor.ts",
+    "line": 414,
+    "tag": "exec"
+  },
+  {
+    "file": "src/commands/doctor.ts",
+    "line": 424,
+    "tag": "exec"
+  },
+  {
+    "file": "src/commands/doctor.ts",
+    "line": 425,
+    "tag": "exec"
+  },
+  {
+    "file": "src/commands/doctor.ts",
+    "line": 435,
+    "tag": "exec"
+  },
+  {
+    "file": "src/commands/doctor.ts",
+    "line": 446,
+    "tag": "exec"
+  },
+  {
+    "file": "src/commands/doctor.ts",
+    "line": 459,
+    "tag": "exec"
+  },
+  {
+    "file": "src/commands/doctor.ts",
+    "line": 472,
+    "tag": "exec"
+  },
+  {
+    "file": "src/commands/export.ts",
+    "line": 50,
+    "tag": "fs-write"
+  },
+  {
+    "file": "src/commands/propose-apply.ts",
+    "line": 30,
+    "tag": "exec"
+  },
+  {
+    "file": "src/commands/propose-apply.ts",
+    "line": 42,
+    "tag": "exec"
+  },
+  {
+    "file": "src/commands/propose-apply.ts",
+    "line": 69,
+    "tag": "exec"
+  },
+  {
+    "file": "src/commands/uninstall.ts",
+    "line": 105,
+    "tag": "fs-write"
+  },
+  {
+    "file": "src/commands/uninstall.ts",
+    "line": 122,
+    "tag": "fs-write"
+  },
+  {
+    "file": "src/commands/uninstall.ts",
+    "line": 124,
+    "tag": "fs-write"
+  },
+  {
+    "file": "src/commands/verify.ts",
+    "line": 176,
+    "tag": "exec"
+  }
+]

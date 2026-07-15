@@ -1,0 +1,33 @@
+- document [ref=e3]:
+  - generic [ref=e5]:
+    - generic [ref=e6]:
+      - generic [ref=e11]: 部署层
+      - generic [ref=e16]: 仿真验证层
+      - generic [ref=e21]: 修复生成层
+      - generic [ref=e26]: 影响分析层
+      - generic [ref=e31]: 监测层
+    - generic [ref=e39]: 状态更新
+    - generic [ref=e40]:
+      - generic [ref=e46]:
+        - text: 邻接表增量更新
+        - text: 至运行时权限约束图
+      - generic [ref=e52]:
+        - text: 沙箱仿真执行
+        - text: 模拟系统调用路径
+      - generic [ref=e58]:
+        - text: 综合评分
+        - text: 覆盖/代价/稳定
+      - generic [ref=e63]: 最优结构选择
+      - generic [ref=e69]:
+        - text: 图结构更新
+        - text: 边重连/备用路径绑定/依赖重建
+      - generic [ref=e74]: 候选修复权限图
+      - generic [ref=e80]:
+        - text: 影响子图提取
+        - text: 基于邻接表传播
+      - generic [ref=e85]: 邻接表
+      - generic [ref=e90]: 失效检测
+      - generic [ref=e95]: 节点有效性监测
+      - generic [ref=e101]:
+        - text: 节点状态表
+        - text: ACTIVE/FAILED

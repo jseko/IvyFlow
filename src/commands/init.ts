@@ -1,27 +1,25 @@
 /**
- * `ivy init` — bootstraps a project for the IvyFlow workflow.
+ * `ivy init` — 6-step interactive wizard with modular capability packs.
  *
- * v0.4: detects all 9 platforms with confidence scores; prompts user to
- * multi-select platforms (or auto-selects in quick mode); installs Skills /
- * Rules / Hooks per-platform in parallel.
+ * v0.15: redesigned from monolithic 339-line command into a layered architecture:
+ *   InitWizard (UX) → InstallEngine (orchestration) → Installers (execution)
  */
 
-import path from 'path';
 import os from 'os';
+import { createRequire } from 'module';
 import { confirm, select, checkbox } from '@inquirer/prompts';
 
 import { detectPlatforms, type PlatformDetectResult } from '../core/detect.js';
-import {
-  copyIvySkillsForPlatform,
-  copyIvyRulesForPlatform,
-  installIvyHookForPlatform,
-} from '../core/skills.js';
-import { installGitPrePushHook, installGitPostCommitHook } from '../core/git-hook.js';
-import { defaultSpecAdapter } from '../core/spec-adapter.js';
-import { writeYaml } from '../utils/yaml.js';
-import { logger } from '../utils/logger.js';
 import { PLATFORMS, type Platform } from '../core/platforms.js';
-import type { InstallScope } from '../core/types.js';
+import type { InstallScope, ProjectFingerprint } from '../core/types.js';
+import { logger } from '../utils/logger.js';
+import { defaultCapabilityRegistry, type CapabilityPack } from '../core/capability-registry.js';
+import { defaultInstallEngine, type InstallConfig } from '../core/install-engine.js';
+import { annotateChoice, selectPlatformsQuick, selectAllDetected } from '../core/installers/platform.js';
+import { setupOpenSpec, setupGitHooks } from '../core/installers/platform.js';
+
+const require = createRequire(import.meta.url);
+const { version: PKG_VERSION } = require('../../package.json');
 
 export type InitMode = 'quick' | 'standard' | 'enterprise';
 
@@ -30,233 +28,359 @@ export interface InitOptions {
   cwd?: string;
   skipOpenSpec?: boolean;
   overwrite?: boolean;
-  /** Override platform selection (used by tests / non-interactive callers). */
   platforms?: string[];
+  yes?: boolean;
+  all?: boolean;
 }
 
-interface InitDecisions {
-  scope: InstallScope;
-  overwrite: boolean;
-  platforms: Platform[];
-}
+// ─── Step 1: Welcome + Scope ───
 
-interface PlatformInstallReport {
-  id: string;
-  ok: boolean;
-  error?: string;
-}
+function showWelcome(detectedHits: PlatformDetectResult[]): void {
+  const platformNames = detectedHits.map((r) => r.platform.name).join(', ');
 
-function annotateChoice(r: PlatformDetectResult): { name: string; value: string; checked: boolean } {
-  let suffix = '';
-  let checked = false;
-  if (r.detected) {
-    if (r.confidence === 1.0) {
-      suffix = ' (detected)';
-      checked = true;
-    } else if (r.confidence === 0.8) {
-      suffix = ' (rules dir)';
-      checked = true;
-    } else {
-      suffix = ' (low confidence — please confirm)';
-      checked = false;
-    }
+  console.log('');
+  console.log('   ╔══════════════════════════════════════════════╗');
+  console.log(`   ║     🍃  IvyFlow  v${PKG_VERSION.padEnd(27)}║`);
+  console.log('   ║     AI-Native Development Workflow             ║');
+  console.log('   ╚══════════════════════════════════════════════╝');
+  console.log('');
+
+  if (detectedHits.length > 0) {
+    console.log(`   检测到 ${detectedHits.length} 个 AI 编程平台：${platformNames}`);
+  } else {
+    console.log('   未检测到 AI 编程平台，将默认使用 Claude Code');
   }
-  return { name: `${r.platform.name}${suffix}`, value: r.platform.id, checked };
+  console.log('');
 }
 
-/** Pick platforms to install. quick = auto (>=0.8 detected); standard = checkbox. */
-export async function selectPlatforms(
-  detected: PlatformDetectResult[],
-  mode: InitMode,
-  override?: string[],
-): Promise<Platform[]> {
-  if (override && override.length > 0) {
-    return PLATFORMS.filter((p) => override.includes(p.id));
-  }
-  if (mode === 'quick') {
-    const picks = detected.filter((r) => r.detected && r.confidence >= 0.8).map((r) => r.platform);
-    // Default to claude if nothing detected so quick mode still works on a clean repo.
-    if (picks.length === 0) {
-      const claude = PLATFORMS.find((p) => p.id === 'claude');
-      return claude ? [claude] : [];
-    }
-    return picks;
-  }
-  const choices = detected.map(annotateChoice);
-  const picked = (await checkbox({
-    message: 'Select platforms to install IvyFlow into',
-    choices,
-    required: true,
-  })) as string[];
-  return PLATFORMS.filter((p) => picked.includes(p.id));
-}
-
-async function runStandardWizard(
-  detected: PlatformDetectResult[],
-  defaultOverwrite: boolean,
-  override?: string[],
-): Promise<InitDecisions> {
-  const scope = (await select({
-    message: 'Install scope?',
+async function stepScope(): Promise<InstallScope> {
+  return select<InstallScope>({
+    message: '安装范围：',
     choices: [
-      { name: 'Project (recommended)', value: 'project' },
-      { name: 'Global (~)', value: 'global' },
+      { name: '当前项目（推荐）', value: 'project' },
+      { name: '全局配置', value: 'global' },
     ],
     default: 'project',
-  })) as InstallScope;
-
-  const overwrite = await confirm({
-    message: 'Overwrite existing IvyFlow files if present?',
-    default: defaultOverwrite,
   });
-
-  const platforms = await selectPlatforms(detected, 'standard', override);
-  return { scope, overwrite, platforms };
 }
 
-async function installForOnePlatform(
-  cwd: string,
-  platform: Platform,
-  overwrite: boolean,
-  scope: InstallScope,
-): Promise<PlatformInstallReport> {
+// ─── Step 2: Language + Project Type ───
+
+function detectLocale(): string {
+  const lang = process.env.LANG || process.env.LC_ALL || process.env.LC_MESSAGES || '';
+  if (lang.startsWith('zh')) return 'zh-CN';
+  if (lang.startsWith('en')) return 'en';
+  // Default to Chinese for broader user base
+  return 'zh-CN';
+}
+
+async function stepLanguage(): Promise<string> {
+  const detected = detectLocale();
+  return select<string>({
+    message: '工作语言 / Language：',
+    choices: [
+      { name: `中文${detected === 'zh-CN' ? '（默认）' : ''}`, value: 'zh-CN' },
+      { name: `English${detected === 'en' ? ' (default)' : ''}`, value: 'en' },
+    ],
+    default: detected,
+  });
+}
+
+// ─── Step 2: Language + Tech Stack ───
+
+function describeFingerprint(fp: ProjectFingerprint): string {
+  const parts: string[] = [];
+  if (fp.language?.value.length) parts.push(fp.language.value.join('/'));
+  if (fp.frontend?.value.length) parts.push(`前端:${fp.frontend.value.join('+')}`);
+  if (fp.backend?.value.length) parts.push(`后端:${fp.backend.value.join('+')}`);
+  if (fp.buildTool?.value.length) parts.push(fp.buildTool.value.join('/'));
+  if (fp.testFramework?.value.length) parts.push(`测试:${fp.testFramework.value.join('/')}`);
+  return parts.join('  ');
+}
+
+async function stepTechStack(cwd: string): Promise<{ language: string; fingerprint: ProjectFingerprint | null }> {
+  const language = await stepLanguage();
+
+  let fingerprint: ProjectFingerprint | null = null;
   try {
-    const skills = await copyIvySkillsForPlatform(cwd, platform, overwrite, scope);
-    const rules = await copyIvyRulesForPlatform(cwd, platform, overwrite, scope);
-    const hook = await installIvyHookForPlatform(cwd, platform, overwrite, scope);
-    logger.success(
-      `${platform.name}: skills ${skills.copied}/${skills.skipped} skipped, rules ${rules.copied}/${rules.skipped} skipped, hook ${hook.installed ? 'installed' : 'n/a'}`,
-    );
-    return { id: platform.id, ok: true };
-  } catch (err) {
-    const msg = (err as Error).message ?? String(err);
-    logger.error(`${platform.name}: ${msg}`);
-    return { id: platform.id, ok: false, error: msg };
+    const { detectFingerprint } = await import('./fingerprint.js');
+    fingerprint = await detectFingerprint(cwd);
+  } catch {
+    // detection failed, continue
+  }
+
+  if (fingerprint && fingerprint.projectType.value !== 'unknown') {
+    const desc = describeFingerprint(fingerprint);
+    logger.info('');
+    logger.info(`  🔍 检测到技术栈：${desc || '未识别'}`);
+    logger.info('');
+  }
+
+  return { language, fingerprint };
+}
+
+// ─── Step 3: CodeGraph ───
+
+function startSpinner(): { update: (line: string) => void; stop: () => void } {
+  const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+  let i = 0;
+  let currentLine = '';
+  const timer = setInterval(() => {
+    if (currentLine) {
+      process.stdout.write(`\r\x1b[K${frames[i % frames.length]} ${currentLine}`);
+      i++;
+    }
+  }, 80);
+
+  const update = (line: string) => {
+    currentLine = line;
+    process.stdout.write(`\r\x1b[K${frames[i % frames.length]} ${line}`);
+    i++;
+  };
+
+  const stop = () => {
+    clearInterval(timer);
+    if (currentLine) {
+      process.stdout.write(`\r\x1b[K✓ ${currentLine}\n`);
+      currentLine = '';
+    }
+  };
+
+  return { update, stop };
+}
+
+async function stepInstall(config: InstallConfig): Promise<number> {
+  const spinner = startSpinner();
+
+  const engine = defaultInstallEngine;
+
+  engine.on('progress', (event) => {
+    if (event.type === 'phase:start') {
+      spinner.update(`${event.phaseLabel}...`);
+    } else if (event.type === 'phase:end') {
+      spinner.stop();
+      logger.success(`${event.phaseLabel}`);
+    }
+  });
+
+  spinner.update('开始安装...');
+
+  const report = await engine.run(config);
+  spinner.stop();
+
+  if (!report.success) {
+    if (report.failedCapabilities.length > 0) {
+      logger.warn(`能力包安装失败：${report.failedCapabilities.join(', ')}`);
+    }
+    if (report.failedPlatforms.length > 0) {
+      logger.warn(`平台安装失败：${report.failedPlatforms.join(', ')}`);
+    }
+  }
+
+  if (config.scope === 'project' && !config.skipOpenSpec) {
+    const ok = await setupOpenSpec(config.cwd, config.platforms, config.scope);
+    if (!ok) return 1;
+  }
+
+  if (config.scope === 'project') {
+    await setupGitHooks(config.cwd, config.overwrite);
+  }
+
+  return 0;
+}
+
+// ─── Step 6: Completion Guide ───
+
+function showCompletion(config: InstallConfig): void {
+  const capList = config.capabilities.map((p) => `${p.manifest.icon} ${p.manifest.display_name}`).join('  ');
+  const platNames = config.platforms.map((p) => p.name).join(', ');
+
+  console.log('');
+  console.log('   ╔══════════════════════════════════════════════╗');
+  console.log('   ║  🎉  IvyFlow 已就绪！                        ║');
+  console.log('   ║                                              ║');
+  console.log('   ║  快速开始：                                  ║');
+  console.log('   ║    /ivyflow "实现用户登录"   启动完整工作流   ║');
+  console.log('   ║    /ivyflow-quick "修复报错"  快速修改        ║');
+  console.log('   ║    /ivyflow-status            查看任务状态    ║');
+  console.log('   ║                                              ║');
+  console.log('   ║  工作目录：docs/ivyflow/specs/               ║');
+  console.log('   ║           docs/ivyflow/plans/                ║');
+  console.log('   ║                                              ║');
+  if (capList) {
+    console.log(`   ║  已安装能力：🍃 内核  ${capList}`);
+  }
+  if (platNames) {
+    console.log(`   ║  已适配平台：${platNames}`);
+  }
+  console.log('   ╚══════════════════════════════════════════════╝');
+  console.log('');
+  console.log('   💡 提示：重启 AI 工具后斜杠命令即可生效');
+  console.log('');
+}
+
+// ─── Step 3.5: CodeGraph ───
+
+async function stepCodegraph(): Promise<boolean> {
+  return confirm({
+    message: '安装 CodeGraph 语义代码智能？（推荐 — 节省 ~16% 成本 · 减少 ~58% 工具调用）',
+    default: true,
+  });
+}
+
+async function runCodegraphInstall(cwd: string): Promise<void> {
+  const { execSync } = await import('child_process');
+  try {
+    logger.step('安装 CodeGraph...');
+    execSync('codegraph install --yes', { cwd, stdio: 'inherit' });
+    execSync('codegraph init -i', { cwd, stdio: 'inherit' });
+    logger.success('CodeGraph 安装完成');
+  } catch {
+    logger.warn('CodeGraph 安装失败（可能未安装 codegraph CLI），跳过。可稍后手动安装：npm i -g @codegraph/cli && codegraph init -i');
   }
 }
 
-export async function runInit(opts: InitOptions = {}): Promise<number> {
-  const mode: InitMode = opts.mode ?? 'quick';
-  const cwd = opts.cwd ?? process.cwd();
+// ─── Step 3.6: OpenSpec ───
 
-  logger.step(`ivy init (${mode} mode) → ${cwd}`);
+async function stepOpenspec(): Promise<boolean> {
+  return confirm({
+    message: '安装 OpenSpec 规范驱动开发工具？（推荐 — 用于变更提案和归档）',
+    default: true,
+  });
+}
+
+// ─── Main Entry ───
+
+export async function runInit(opts: InitOptions = {}): Promise<number> {
+  const cwd = opts.cwd ?? process.cwd();
+  const isTTY = process.stdout.isTTY && process.stdin.isTTY;
 
   const detected = await detectPlatforms(cwd);
   const detectedHits = detected.filter((r) => r.detected);
-  if (detectedHits.length > 0) {
-    logger.info(
-      `Detected platforms: ${detectedHits.map((r) => `${r.platform.id}@${r.confidence}`).join(', ')}`,
-    );
-  } else {
-    logger.warn('No platforms detected — defaulting to Claude Code in quick mode.');
+
+  await defaultCapabilityRegistry.load();
+
+  // Non-interactive modes
+  if (opts.all || opts.yes || opts.mode === 'quick' || !isTTY) {
+    return runNonInteractive(opts, cwd, detected, detectedHits);
   }
 
-  let decisions: InitDecisions;
-  if (mode === 'quick') {
-    decisions = {
-      scope: 'project',
-      overwrite: opts.overwrite ?? false,
-      platforms: await selectPlatforms(detected, 'quick', opts.platforms),
-    };
-  } else {
-    decisions = await runStandardWizard(detected, opts.overwrite ?? false, opts.platforms);
-    if (mode === 'enterprise') {
-      logger.info('Plugin selection: no plugins available yet (v0.1).');
-    }
+  // Interactive wizard
+  return runWizard(opts, cwd, detected, detectedHits);
+}
+
+async function runWizard(
+  opts: InitOptions,
+  cwd: string,
+  detected: PlatformDetectResult[],
+  detectedHits: PlatformDetectResult[],
+): Promise<number> {
+  // Step 1: Welcome + Scope
+  showWelcome(detectedHits);
+  const scope = await stepScope();
+
+  // Step 2: Language + Tech Stack Detection
+  const { language } = await stepTechStack(cwd);
+
+  // Step 3: Capabilities (install all by default)
+  const selectedCaps = defaultCapabilityRegistry.getAll();
+
+  // Step 3: CodeGraph (optional)
+  const installCodegraph = await stepCodegraph();
+
+  // Step 3.5: OpenSpec (optional)
+  const skipOpenSpec = opts.skipOpenSpec ?? !(await stepOpenspec());
+
+  // Platform selection
+  const platforms = opts.platforms
+    ? PLATFORMS.filter((p) => opts.platforms!.includes(p.id))
+    : await selectPlatformsInteractive(detected);
+
+  if (platforms.length === 0) {
+    logger.error('未选择任何平台，安装中止。');
+    return 1;
   }
 
-  if (decisions.platforms.length === 0) {
+  const config: InstallConfig = {
+    scope,
+    language,
+    projectType: 'auto',
+    cwd,
+    overwrite: opts.overwrite ?? false,
+    skipOpenSpec,
+    platforms,
+    capabilities: selectedCaps,
+  };
+
+  // Step 5: Install
+  const result = await stepInstall(config);
+
+  // Step 5.5: CodeGraph install (after main install)
+  if (installCodegraph) {
+    await runCodegraphInstall(cwd);
+  }
+
+  // Step 6: Completion
+  if (result === 0) {
+    showCompletion(config);
+  }
+
+  return result;
+}
+
+async function runNonInteractive(
+  opts: InitOptions,
+  cwd: string,
+  detected: PlatformDetectResult[],
+  detectedHits: PlatformDetectResult[],
+): Promise<number> {
+  const isAll = opts.all === true;
+  const scope: InstallScope = 'project';
+  const language = detectLocale();
+
+  await defaultCapabilityRegistry.load();
+
+  const selectedCaps = isAll
+    ? defaultCapabilityRegistry.getAll()
+    : defaultCapabilityRegistry.getRecommended();
+
+  const platforms = opts.platforms
+    ? PLATFORMS.filter((p) => opts.platforms!.includes(p.id))
+    : isAll
+      ? await selectAllDetected(detected)
+      : await selectPlatformsQuick(detected);
+
+  if (platforms.length === 0) {
     logger.error('No platforms selected; aborting.');
     return 1;
   }
 
-  // 1) OpenSpec — driven by the first platform that exposes an openspecToolId.
-  const toolIds = decisions.platforms.map((p) => p.openspecToolId).filter((id) => id.length > 0);
-  if (!opts.skipOpenSpec && toolIds.length > 0) {
-    logger.step('Setting up OpenSpec...');
-    const cliReady = await defaultSpecAdapter.ensureCli(decisions.scope, cwd);
-    if (!cliReady) {
-      logger.error('OpenSpec CLI not available; aborting. Run `ivy init` again after installing it.');
-      return 1;
-    }
-    const specResult = await defaultSpecAdapter.init(cwd, toolIds, decisions.scope);
-    if (specResult === 'failed') {
-      logger.error('OpenSpec init failed; see logs above.');
-      return 1;
-    }
-    logger.success(`OpenSpec ${specResult}.`);
-  } else {
-    logger.dim(`(OpenSpec setup skipped${toolIds.length === 0 ? ' — no tool ids' : ''})`);
+  const config: InstallConfig = {
+    scope,
+    language,
+    projectType: 'auto',
+    cwd,
+    overwrite: opts.overwrite ?? false,
+    skipOpenSpec: opts.skipOpenSpec ?? false,
+    platforms,
+    capabilities: selectedCaps,
+  };
+
+  const result = await stepInstall(config);
+
+  if (result === 0) {
+    showCompletion(config);
   }
 
-  // 2) Per-platform install in parallel; failures don't block other platforms (R6).
-  logger.step(`Installing IvyFlow into ${decisions.platforms.length} platform(s)...`);
-  const reports = await Promise.all(
-    decisions.platforms.map((p) => installForOnePlatform(cwd, p, decisions.overwrite, decisions.scope)),
-  );
-  const failed = reports.filter((r) => !r.ok);
+  return result;
+}
 
-  // 3) Git hooks (project scope only): pre-push + post-commit.
-  if (decisions.scope === 'project') {
-    logger.step('Installing git pre-push hook...');
-    const prePushResult = await installGitPrePushHook(cwd, decisions.overwrite);
-    if (prePushResult.installed) {
-      logger.success(`Pre-push hook installed at ${path.relative(cwd, prePushResult.path)}`);
-    } else if (prePushResult.reason === 'no-git') {
-      logger.warn('Not a git repo — skipping git hooks (you can re-run `ivy init` later).');
-    } else {
-      logger.dim(`Pre-push hook already exists at ${prePushResult.path} (use --overwrite to replace).`);
-    }
-
-    logger.step('Installing git post-commit hook (analytics)...');
-    const postCommitResult = await installGitPostCommitHook(cwd, decisions.overwrite);
-    if (postCommitResult.installed) {
-      logger.success(`Post-commit hook installed at ${path.relative(cwd, postCommitResult.path)}`);
-    } else if (postCommitResult.reason === 'no-git') {
-      // already warned above
-    } else {
-      logger.dim(`Post-commit hook already exists at ${postCommitResult.path} (use --overwrite to replace).`);
-    }
-  }
-
-  // 4) `.ivy/project.yaml` — v0.10 schema with project_knowledge, quality_gates, fingerprint sections.
-  const ivyDir = decisions.scope === 'global' ? path.join(os.homedir(), '.ivy') : path.join(cwd, '.ivy');
-  const projectYamlPath = path.join(ivyDir, 'project.yaml');
-  await writeYaml(projectYamlPath, {
-    version: '0.11.0',
-    last_migration: new Date().toISOString(),
-    platforms: decisions.platforms.map((p) => p.id),
-    scope: decisions.scope,
-    spec_adapter: defaultSpecAdapter.name,
-    initialized_at: new Date().toISOString(),
-    analytics_enabled: false,
-    detected_platforms: detected
-      .filter((r) => r.detected)
-      .map((r) => ({ id: r.platform.id, confidence: r.confidence, matched: r.matchedPath })),
-    project_knowledge: {
-      enabled: true,
-      extractable_types: ['decision', 'constraint', 'risk', 'fact'],
-    },
-    quality_gates: {
-      compile: true,
-      test: true,
-      task_check: true,
-      coverage: { enabled: false, min_percentage: 80 },
-    },
-    fingerprint: {
-      auto_refresh: true,
-    },
-  });
-  logger.success(`Wrote ${path.relative(cwd, projectYamlPath)}`);
-
-  if (failed.length > 0) {
-    logger.warn(
-      `${failed.length} platform(s) failed: ${failed.map((f) => f.id).join(', ')}. Re-run \`ivy init\` or \`ivy doctor --fix\`.`,
-    );
-    return 2;
-  }
-
-  logger.info('');
-  logger.info('  Done. Use `/ivy` in your AI coding tool to start the workflow.');
-  return 0;
+async function selectPlatformsInteractive(detected: PlatformDetectResult[]): Promise<Platform[]> {
+  const choices = detected.map(annotateChoice);
+  const picked = (await checkbox({
+    message: '选择要安装到的平台',
+    choices,
+    required: true,
+  })) as string[];
+  return PLATFORMS.filter((p) => picked.includes(p.id));
 }

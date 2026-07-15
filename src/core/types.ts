@@ -158,6 +158,8 @@ export interface PreToolUseGuardConfig {
     blockMessage?: string;
   }>;
   globalBlock?: string[];
+  /** v0.33: MCP tool permission levels L0 (auto-allow) to L3 (always block) */
+  toolPermissions?: Record<string, 'L0' | 'L1' | 'L2' | 'L3'>;
 }
 
 // ─── v0.10: Memory Architecture ───

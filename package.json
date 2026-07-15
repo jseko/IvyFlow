@@ -1,6 +1,6 @@
 {
   "name": "ivyflow-cli",
-  "version": "0.13.0",
+  "version": "0.15.0",
   "description": "A Workflow Enforcer for AI Coding Agents — distributes Skills, Rules, and Hooks across 7 platforms to enforce a structured 9-step development workflow",
   "keywords": [
     "ivyflow",
@@ -41,7 +41,9 @@
     "sync-phases:check": "node scripts/sync-phases.js --check",
     "check-manifest": "node scripts/check-manifest.js",
     "check-skill-blocks": "node scripts/check-skill-blocks.js",
-    "check-suggest-redlines": "node scripts/check-suggest-redlines.js"
+    "check-suggest-redlines": "node scripts/check-suggest-redlines.js",
+    "package:binary": "node scripts/package-binary.js",
+    "package:binary:skip-compile": "node scripts/package-binary.js --skip-compile"
   },
   "engines": {
     "node": ">=20"
@@ -50,12 +52,14 @@
     "@eslint/js": "^9.0.0",
     "@types/node": "^24.0.0",
     "@vitest/coverage-v8": "^4.1.6",
+    "esbuild": "^0.28.1",
     "eslint": "^9.0.0",
     "typescript": "^5.9.0",
     "typescript-eslint": "^8.0.0",
     "vitest": "^4.1.6"
   },
   "dependencies": {
+    "@fission-ai/openspec": "^1.6.0",
     "@inquirer/prompts": "^8.4.3",
     "commander": "^14.0.0",
     "yaml": "^2.9.0"

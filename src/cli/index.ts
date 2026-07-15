@@ -40,6 +40,13 @@ import { runState, type StateOptions } from '../commands/state.js';
 import { runWorkflow, type WorkflowOptions } from '../commands/workflow.js';
 import { runCapability, type CapabilityOptions } from '../commands/capability.js';
 import { runCapabilityVerify } from '../commands/capability-verify.js';
+import { runGuardValidate, runGuard } from '../commands/guard.js';
+import { runHandoff, type HandoffOptions } from '../commands/handoff.js';
+import { runNext } from '../commands/next.js';
+import { runSync } from '../commands/sync.js';
+import { runAssessCommand } from '../commands/assess.js';
+import { runSkillList } from '../commands/skill-list.js';
+import { runCouncilAsk, runCouncilList, runCouncilRegister } from '../commands/council.js';
 import { runFeedback } from '../commands/feedback.js';
 import { runRulesAudit } from '../commands/rules-audit.js';
 import { runExplore } from '../commands/explore.js';
@@ -49,6 +56,9 @@ import {
   runKnowledgeTraverse,
   runKnowledgeUnlink,
 } from '../commands/knowledge.js';
+import { runMemory, type MemoryOptions } from '../commands/memory.js';
+import { runRoleShow, runRoleList, runRoleSet } from '../commands/role.js';
+import { runPipelineStart, runPipelineStatus, runPipelineComplete, runPipelineBlock, runPipelineRetry } from '../commands/pipeline.js';
 
 const require = createRequire(import.meta.url);
 const { version } = require('../../package.json');
@@ -62,18 +72,24 @@ program
 
 program
   .command('init')
-  .description('Bootstrap IvyFlow in the current project')
-  .option('--quick', 'Quick mode (default): no prompts, sensible defaults')
-  .option('--standard', 'Standard mode: interactive wizard')
-  .option('--enterprise', 'Enterprise mode: standard + plugin prompts (no plugins in v0.1)')
+  .description('Bootstrap IvyFlow in the current project with interactive wizard')
+  .option('--quick', 'Quick mode: skip wizard, auto-select recommended packs + detected platforms')
+  .option('--standard', 'Standard mode: interactive 6-step wizard (default)')
+  .option('--enterprise', 'Standard mode (enterprise alias, no separate behavior)')
+  .option('--yes', 'Accept all defaults (project scope, recommended packs, detected platforms)')
+  .option('--all', 'Install everything (all capability packs + all detected platforms)')
   .option('--overwrite', 'Overwrite existing IvyFlow files', false)
   .option('--skip-openspec', 'Skip OpenSpec installation step (offline)', false)
-  .action(async (opts: { quick?: boolean; standard?: boolean; enterprise?: boolean; overwrite?: boolean; skipOpenspec?: boolean }) => {
-    const mode = opts.enterprise ? 'enterprise' : opts.standard ? 'standard' : 'quick';
+  .option('--platforms <ids>', 'Comma-separated platform ids (override detection)')
+  .action(async (opts: { quick?: boolean; standard?: boolean; enterprise?: boolean; yes?: boolean; all?: boolean; overwrite?: boolean; skipOpenspec?: boolean; platforms?: string }) => {
+    const mode = opts.enterprise ? 'standard' : opts.quick ? 'quick' : 'standard';
     const exitCode = await runInit({
       mode,
       overwrite: opts.overwrite,
       skipOpenSpec: opts.skipOpenspec,
+      platforms: opts.platforms?.split(',').map((s) => s.trim()).filter(Boolean),
+      yes: opts.yes,
+      all: opts.all,
     });
     process.exit(exitCode);
   });
@@ -110,9 +126,8 @@ program
   .option('--sync-kb', 'v0.11: Sync knowledge base reference markers', false)
   .option('--memory', 'v0.12: Assess memory health across 6 dimensions', false)
   .option('--json', 'v0.12: Output as JSON', false)
-  .option('--mapping', 'v0.18: Check platform↔agent mapping consistency', false)
-  .action(async (opts: { fix?: boolean; platforms?: boolean; ecosystem?: boolean; syncKb?: boolean; memory?: boolean; json?: boolean; mapping?: boolean }) => {
-    const exitCode = await runDoctor({ fix: opts.fix, platforms: opts.platforms, ecosystem: opts.ecosystem, syncKb: opts.syncKb, memory: opts.memory, json: opts.json, mapping: opts.mapping });
+  .action(async (opts: Record<string, unknown>) => {
+    const exitCode = await runDoctor(opts as Parameters<typeof runDoctor>[0]);
     process.exit(exitCode);
   });
 
@@ -143,6 +158,7 @@ program
   });
 
 // v0.7: analytics — adoption metrics with confidence transparency (rewritten).
+// v0.15: --demo, --explain, --trend flags.
 program
   .command('analytics')
   .description('Show adoption metrics with data-source transparency (§9.13)')
@@ -153,7 +169,10 @@ program
   .option('--disable', 'Disable analytics tracking', false)
   .option('--json', 'Output as JSON', false)
   .option('--confidence', 'Show detailed confidence disclosure', false)
-  .action(async (opts: { change?: string; project?: boolean; period?: string; enable?: boolean; disable?: boolean; json?: boolean; confidence?: boolean }) => {
+  .option('--demo', 'v0.15: Show demo analytics with built-in sample data', false)
+  .option('--explain', 'v0.15: Show data provenance annotations with line-level detail', false)
+  .option('--trend', 'v0.15: Show adoption trend over time periods', false)
+  .action(async (opts: { change?: string; project?: boolean; period?: string; enable?: boolean; disable?: boolean; json?: boolean; confidence?: boolean; demo?: boolean; explain?: boolean; trend?: boolean }) => {
     const period = opts.period === '90d' ? '90d' : opts.period === '30d' ? '30d' : '7d';
     const exitCode = await runAnalytics({
       change: opts.change,
@@ -163,6 +182,9 @@ program
       disable: opts.disable,
       json: opts.json,
       confidence: opts.confidence,
+      demo: opts.demo,
+      explain: opts.explain,
+      trend: opts.trend,
     });
     process.exit(exitCode);
   });
@@ -184,7 +206,8 @@ program
   .option('--knowledge', 'v0.11: Show knowledge graph overview', false)
   .option('--metrics <list>', 'v0.11: Metrics filter for --org (comma-separated)')
   .option('--format <fmt>', 'v0.11: Output format: text, json (default: text)', 'text')
-  .action(async (opts: { change?: string; watch?: boolean; html?: boolean; period?: string; quality?: boolean; team?: boolean; adr?: boolean; memory?: boolean; org?: string[]; knowledge?: boolean; metrics?: string; format?: string }) => {
+  .option('--demo', 'v0.15: Org Intelligence demo mode (built-in sample data)', false)
+  .action(async (opts: { change?: string; watch?: boolean; html?: boolean; period?: string; quality?: boolean; team?: boolean; adr?: boolean; memory?: boolean; org?: string[]; knowledge?: boolean; metrics?: string; format?: string; demo?: boolean }) => {
     const period = opts.period === '90d' ? '90d' : opts.period === '30d' ? '30d' : '7d';
     const exitCode = await runDashboard({
       change: opts.change,
@@ -199,6 +222,7 @@ program
       knowledge: opts.knowledge,
       metrics: opts.metrics,
       format: opts.format as 'text' | 'json' | undefined,
+      demo: opts.demo,
     });
     process.exit(exitCode);
   });
@@ -296,10 +320,13 @@ program
     process.exit(exitCode);
   });
 
-// v0.7: rules — rule governance (list/info/override/remove, §9.14).
-program
+// v0.15: rules — rule management (list/info/override/remove), generation, analysis, validation, and audit.
+const rulesCmd = program
   .command('rules')
-  .description('List and manage Advisor rules (overrides stored in Derived Cache)')
+  .description('v0.15: Rule management — list, generate, analyze, validate, and audit rules');
+
+// v0.7: rules list/info/override/remove
+rulesCmd
   .option('--list', 'List all active rules with config versions', false)
   .option('--info <name>', 'Show detailed info for a specific rule')
   .option('--override <rule.param=value>', 'Override a rule parameter (e.g., stuck_detection.build=25)')
@@ -603,10 +630,7 @@ capabilityCmd
     process.exit(exitCode);
   });
 
-// v0.15: rules — rule generation, analysis, and validation.
-const rulesCmd = program
-  .command('rules')
-  .description('v0.15: Generate, analyze, and validate rules from tech stack');
+// v0.15: rules subcommands — generate, analyze, validate.
 
 rulesCmd
   .command('generate')
@@ -681,6 +705,83 @@ knowledge
     process.exit(exitCode);
   });
 
+// v0.15: memory — convergence memory commands.
+const memoryCmd = program
+  .command('memory')
+  .description('v0.15: Memory management (status, enable, GC)');
+
+memoryCmd
+  .command('status')
+  .description('Show enhanced memory system status')
+  .action(async () => {
+    const exitCode = await runMemory({ subcommand: 'status' });
+    process.exit(exitCode);
+  });
+
+memoryCmd
+  .command('enable')
+  .argument('<feature>', 'Feature to enable (vector-search, memory-linking, knowledge-graph, procedural-memory)')
+  .description('Enable an extended memory feature')
+  .action(async (feature: string) => {
+    const exitCode = await runMemory({ subcommand: 'enable', feature });
+    process.exit(exitCode);
+  });
+
+memoryCmd
+  .command('gc')
+  .description('Run memory garbage collection')
+  .option('--dry-run', 'Show what would be deleted without deleting', false)
+  .action(async (opts: { dryRun?: boolean }) => {
+    const exitCode = await runMemory({ subcommand: 'gc', dryRun: opts.dryRun });
+    process.exit(exitCode);
+  });
+
+// v0.29/v0.32: council — memory council commands.
+const councilCmd = program
+  .command('council')
+  .description('v0.29/v0.32: Memory council — single-project and cross-project analysis');
+
+councilCmd
+  .command('ask')
+  .argument('<question>', 'The question to ask the council')
+  .description('Ask the council a question (single-project or --cross-project)')
+  .option('--format <fmt>', 'Output format: yaml, json, text (default: yaml for single, text for cross-project)')
+  .option('--perspectives <ids>', 'Comma-separated perspective IDs')
+  .option('--output <path>', 'Output file path')
+  .option('--min-conf <num>', 'Minimum confidence filter')
+  .option('--cross-project', 'Enable cross-project mode', false)
+  .option('--org', 'Alias for --cross-project', false)
+  .option('--concurrency <n>', 'Override adaptive concurrency', parseInt)
+  .action(async (question: string, opts: { format?: string; perspectives?: string; output?: string; minConf?: string; crossProject?: boolean; org?: boolean; concurrency?: number }) => {
+    const exitCode = await runCouncilAsk(question, {
+      format: opts.format,
+      perspectives: opts.perspectives,
+      output: opts.output,
+      minConf: opts.minConf,
+      crossProject: opts.crossProject,
+      org: opts.org,
+      concurrency: opts.concurrency,
+    });
+    process.exit(exitCode);
+  });
+
+councilCmd
+  .command('list')
+  .description('List all registered perspectives')
+  .option('--json', 'Output as JSON', false)
+  .action(async (opts: { json?: boolean }) => {
+    const exitCode = await runCouncilList({ json: opts.json });
+    process.exit(exitCode);
+  });
+
+councilCmd
+  .command('register')
+  .description('Register a custom perspective (v1.0 feature)')
+  .action(async () => {
+    const exitCode = await runCouncilRegister();
+    process.exit(exitCode);
+  });
+
 // v0.16: feedback — runtime signal statistics and insights.
 program
   .command('feedback')
@@ -695,6 +796,32 @@ program
       days: opts.days ? parseInt(opts.days, 10) : 30,
       cwd: process.cwd(),
     });
+    process.exit(exitCode);
+  });
+
+// v0.15: guard — triple-defense guard layer status and validation.
+// v0.33: guard — hard-blocking phase guard with --apply auto-transition.
+const guardCmd = program
+  .command('guard')
+  .description('v0.33: Hard-blocking phase guard (--apply to auto-transition)');
+
+guardCmd
+  .command('validate', { isDefault: true })
+  .description('v0.15: Guard layer status and validation (--demo for scenario walkthrough)')
+  .option('--demo', 'Show 3 hard-coded guard scenarios', false)
+  .action(async (opts: { demo?: boolean }) => {
+    const exitCode = await runGuardValidate({ demo: opts.demo });
+    process.exit(exitCode);
+  });
+
+guardCmd
+  .command('run')
+  .argument('<phase>', 'Phase to guard: open, design, build, verify, archive')
+  .description('Run hard-blocking phase guard checks')
+  .option('--apply', 'Auto-transition to next phase on pass', false)
+  .option('--change <name>', 'Change to operate on')
+  .action(async (phase: string, opts: { apply?: boolean; change?: string }) => {
+    const exitCode = await runGuard({ phase, apply: opts.apply, change: opts.change, cwd: process.cwd() });
     process.exit(exitCode);
   });
 
@@ -833,6 +960,138 @@ program
   .description('v0.19: Apply a change with recommend VERIFY phase')
   .action(async (name: string) => {
     const exitCode = await runApply(name, { cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+// v0.33: handoff — context package generation for phase transitions.
+program
+  .command('handoff')
+  .argument('<change-name>', 'Change name')
+  .argument('<phase>', 'Phase: design')
+  .description('v0.33: Generate context handoff package')
+  .option('--write', 'Write handoff files', false)
+  .option('--full', 'Include full file contents (default: compact)', false)
+  .option('--hash-only', 'Only compute and print context hash', false)
+  .action(async (changeName: string, phase: string, opts: { write?: boolean; full?: boolean; hashOnly?: boolean }) => {
+    const exitCode = await runHandoff({ changeName, phase, write: opts.write, full: opts.full, hashOnly: opts.hashOnly, cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+// v0.33: next — resolve next skill after phase transition.
+program
+  .command('next')
+  .argument('<change-name>', 'Change name')
+  .description('v0.33: Resolve next skill to load')
+  .action(async (changeName: string) => {
+    const exitCode = await runNext({ changeName, cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+// v0.33: sync — synchronize .ai-rules/ to platform-specific formats.
+program
+  .command('sync')
+  .description('v0.33: Sync .ai-rules/ to platform formats (Claude Code, Cursor, CodeBuddy)')
+  .option('--platforms <ids>', 'Comma-separated platform IDs (default: all)')
+  .option('--apply', 'Write converted files (default: dry-run)', false)
+  .action(async (opts: { platforms?: string; apply?: boolean }) => {
+    const exitCode = await runSync({ platforms: opts.platforms, apply: opts.apply, cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+// v0.33: assess — five-dimension legacy project assessment.
+program
+  .command('assess')
+  .description('v0.33: Five-dimension legacy project assessment')
+  .option('--output <path>', 'Write assessment report to file')
+  .action(async (opts: { output?: string }) => {
+    const exitCode = await runAssessCommand({ output: opts.output, cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+// v0.33: skill list — skill registry management.
+program
+  .command('skill')
+  .description('v0.33: Skill registry management')
+  .argument('[list|detail]', 'Subcommand (default: list)')
+  .option('--detail <name>', 'Show detailed info for a specific skill')
+  .action(async (subcommand?: string, opts?: { detail?: string }) => {
+    const exitCode = await runSkillList({ detail: opts?.detail, cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+// v0.16: pipeline — multi-role pipeline orchestration.
+const pipelineCmd = program
+  .command('pipeline')
+  .description('v0.16: Multi-role pipeline — orchestrate PM → Developer → QA → DevOps');
+
+pipelineCmd
+  .command('start <name>')
+  .description('Create a new pipeline')
+  .action(async (name: string) => {
+    const exitCode = await runPipelineStart(name, process.cwd());
+    process.exit(exitCode);
+  });
+
+pipelineCmd
+  .command('status')
+  .description('Show pipeline status')
+  .action(async () => {
+    const exitCode = await runPipelineStatus(process.cwd());
+    process.exit(exitCode);
+  });
+
+pipelineCmd
+  .command('complete <stage>')
+  .description('Mark a stage as completed')
+  .option('--choice <choice>', 'Branch choice for conditional edges')
+  .action(async (stage: string, opts: { choice?: string }) => {
+    const exitCode = await runPipelineComplete(stage, opts.choice, process.cwd());
+    process.exit(exitCode);
+  });
+
+pipelineCmd
+  .command('block <stage>')
+  .description('Block a stage')
+  .option('--reason <reason>', 'Reason for blocking', '未指定原因')
+  .action(async (stage: string, opts: { reason?: string }) => {
+    const exitCode = await runPipelineBlock(stage, opts.reason ?? '未指定原因', process.cwd());
+    process.exit(exitCode);
+  });
+
+pipelineCmd
+  .command('retry <stage>')
+  .description('Retry a blocked or failed stage')
+  .action(async (stage: string) => {
+    const exitCode = await runPipelineRetry(stage, process.cwd());
+    process.exit(exitCode);
+  });
+
+// v0.16: role — role management commands.
+const roleCmd = program
+  .command('role')
+  .description('v0.16: Role management — switch between PM, Developer, QA, Architect, DevOps');
+
+roleCmd
+  .command('show')
+  .description('Show current role')
+  .action(async () => {
+    const exitCode = await runRoleShow(process.cwd());
+    process.exit(exitCode);
+  });
+
+roleCmd
+  .command('list')
+  .description('List available roles')
+  .action(async () => {
+    const exitCode = await runRoleList();
+    process.exit(exitCode);
+  });
+
+roleCmd
+  .command('set <role>')
+  .description('Switch to a different role')
+  .action(async (role: string) => {
+    const exitCode = await runRoleSet(role, process.cwd());
     process.exit(exitCode);
   });
 

@@ -30,6 +30,9 @@ import { runCiCheck } from '../core/ci-reporter.js';
 import { computeTeamInsights } from '../core/team-insights.js';
 import { computeOrgInsights, type OrgInsightsQuery } from '../core/organization-insights.js';
 import { MemoryStore } from '../core/memory-arch.js';
+import { getMemoryStatus } from '../core/memory/manager.js';
+import type { MemoryStatusResult } from '../core/memory/manager.js';
+import type { ExtendedFeature } from '../core/memory/model.js';
 
 export interface DashboardOptions {
   cwd?: string;
@@ -49,6 +52,8 @@ export interface DashboardOptions {
   metrics?: string;
   /** v0.11: Output format (text/json) */
   format?: 'text' | 'json';
+  /** v0.15: Demo mode for Org Insights */
+  demo?: boolean;
 }
 
 interface ProjectYaml {
@@ -60,6 +65,12 @@ const REFRESH_INTERVAL_MS = 30_000;
 
 export async function runDashboard(opts: DashboardOptions = {}): Promise<number> {
   const cwd = opts.cwd ?? process.cwd();
+
+  // v0.15: Organization Intelligence Demo Mode
+  if (opts.demo) {
+    await renderOrgDemoDashboard();
+    return 0;
+  }
 
   // v0.11: Organization Insights (cross-project, read-only)
   if (opts.org && opts.org.length > 0) {
@@ -351,7 +362,7 @@ async function renderOnce(
   return output;
 }
 
-// ─── HTML Export (v0.5) ───
+// ─── HTML Export (v0.5, improved v0.15) ───
 
 async function writeHtmlReport(cwd: string, changeName: string | undefined, content: string): Promise<string> {
   const reportDir = path.join(cwd, '.ivy', 'reports');
@@ -361,6 +372,29 @@ async function writeHtmlReport(cwd: string, changeName: string | undefined, cont
   const changeSlug = (changeName ?? 'all').replace(/[^a-z0-9-]/gi, '_');
   const reportPath = path.join(reportDir, `dashboard-${changeSlug}-${dateStr}.html`);
 
+  // Extract key metrics from content for the executive summary
+  const commitMatch = content.match(/Commits\s*\(.*?d\):\s+(\d+)/);
+  const sessionMatch = content.match(/Estimated sessions:\s+(\d+)/);
+  const phaseMatch = content.match(/Phase Distribution:/);
+  const commitCount = commitMatch?.[1] ?? 'N/A';
+  const sessionCount = sessionMatch?.[1] ?? 'N/A';
+  const hasPhaseData = !!phaseMatch;
+  const hasInferred = content.includes('Inferred Metrics');
+
+  // Determine data source coverage
+  const sourceLine = 'This report is generated from git commits + phase transitions.';
+  const inferredLine = hasInferred
+    ? 'Session boundaries and durations are inferred using the 30-minute heuristic (low confidence).'
+    : 'No inferred metrics available.';
+  const confidenceLine = 'Confidence annotations are inline — see the "Verified Metrics" and "Inferred Metrics" panels above.';
+
+  // Determine data quality
+  const dataQuality = (() => {
+    if (content.includes('high confidence')) return 'good';
+    if (content.includes('low confidence')) return 'limited';
+    return 'unknown';
+  })();
+
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -368,24 +402,151 @@ async function writeHtmlReport(cwd: string, changeName: string | undefined, cont
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>IvyFlow Dashboard — ${changeName ?? 'all changes'}</title>
 <style>
-  body { background: #1a1a2e; color: #e0e0e0; font-family: 'Courier New', monospace; padding: 20px; white-space: pre; line-height: 1.4; }
-  .meta { color: #888; font-size: 12px; margin-top: 20px; border-top: 1px solid #333; padding-top: 10px; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0f0f1a; color: #d0d0d0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 0; line-height: 1.5; }
+  .report-container { max-width: 900px; margin: 0 auto; padding: 32px 20px; }
+
+  /* Header */
+  .report-header { border-bottom: 1px solid #2a2a3e; padding-bottom: 20px; margin-bottom: 24px; }
+  .report-header h1 { color: #e8e8f0; font-size: 22px; font-weight: 600; letter-spacing: -0.3px; }
+  .report-header .meta { color: #888; font-size: 13px; margin-top: 6px; display: flex; gap: 16px; flex-wrap: wrap; }
+  .report-header .meta span { display: inline-block; }
+
+  /* Cards */
+  .card { background: #1a1a2e; border: 1px solid #2a2a3e; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+  .card-title { color: #a0a0c0; font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 12px; font-weight: 600; }
+
+  /* Executive Summary */
+  .summary-list { list-style: none; }
+  .summary-list li { padding: 8px 0 8px 20px; position: relative; color: #c8c8d8; font-size: 14px; }
+  .summary-list li::before { content: ''; position: absolute; left: 0; top: 14px; width: 8px; height: 8px; border-radius: 50%; background: #6c5ce7; }
+  .summary-list li:first-child { padding-top: 0; }
+  .summary-list li:first-child::before { top: 6px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; margin-left: 6px; }
+  .badge-good { background: #00b89420; color: #00b894; border: 1px solid #00b89440; }
+  .badge-limited { background: #fdcb6e20; color: #fdcb6e; border: 1px solid #fdcb6e40; }
+  .badge-unknown { background: #636e7220; color: #636e72; border: 1px solid #636e7240; }
+
+  /* Funnel Chart (ASCII-inspired CSS) */
+  .funnel { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 0; }
+  .funnel-bar { display: flex; align-items: center; justify-content: center; color: #e0e0f0; font-size: 12px; font-family: 'Courier New', monospace; border-radius: 4px; transition: width 0.3s ease; }
+  .funnel-bar span { opacity: 0.9; }
+  .funnel-label { font-size: 12px; color: #8888aa; text-align: center; margin-top: 2px; }
+
+  /* Dashboard Content */
+  .dashboard-content { background: #12121e; border: 1px solid #2a2a3e; border-radius: 10px; padding: 0; overflow: hidden; }
+  .dashboard-content pre { background: transparent; color: #c0c0d0; font-family: 'Courier New', 'Fira Code', monospace; font-size: 12px; line-height: 1.45; padding: 20px; overflow-x: auto; white-space: pre; margin: 0; }
+
+  /* Confidence Section */
+  .confidence-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .confidence-item { background: #16162a; border-radius: 8px; padding: 14px; border: 1px solid #2a2a3e; }
+  .confidence-item .metric { font-size: 14px; font-weight: 600; color: #e0e0f0; }
+  .confidence-item .level { font-size: 11px; color: #8888aa; margin-top: 2px; }
+
+  /* Calibration link */
+  .calibration-link { display: inline-block; background: #2d2d4e; color: #a0a0d0; text-decoration: none; padding: 8px 16px; border-radius: 6px; font-size: 13px; margin-top: 4px; transition: background 0.2s; }
+  .calibration-link:hover { background: #3d3d6e; }
+
+  /* Footer */
+  .report-footer { border-top: 1px solid #2a2a3e; padding-top: 16px; margin-top: 24px; color: #666; font-size: 12px; }
+  .report-footer a { color: #6c5ce7; text-decoration: none; }
+
+  /* Responsive */
+  @media (max-width: 600px) {
+    .report-container { padding: 16px 12px; }
+    .report-header h1 { font-size: 18px; }
+    .confidence-grid { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>
-<!--
-  IvyFlow Dashboard Report
-  Generated: ${new Date().toISOString()}
-  Change: ${changeName ?? 'all'}
-  Data Model: IvyFlow v0.5
--->
-<pre>
-${content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}
-</pre>
-<div class="meta">
-Generated: ${new Date().toISOString()} | Change: ${changeName ?? 'all'} | IvyFlow v0.5<br>
-Data source: git commits + phase transitions | Confidence: see inline annotations<br>
-This report is a snapshot — data may have changed since export.
+<div class="report-container">
+
+  <!-- Header -->
+  <div class="report-header">
+    <h1>IvyFlow Dashboard Report</h1>
+    <div class="meta">
+      <span>Change: ${changeName ?? 'all'}</span>
+      <span>Generated: ${new Date().toISOString()}</span>
+      <span>Data quality: <span class="badge badge-${dataQuality}">${dataQuality}</span></span>
+    </div>
+  </div>
+
+  <!-- Executive Summary -->
+  <div class="card">
+    <div class="card-title">Executive Summary</div>
+    <ul class="summary-list">
+      <li>${sourceLine} <strong>${commitCount}</strong> commits recorded in current period.</li>
+      <li>${inferredLine}</li>
+      <li>${confidenceLine}</li>
+    </ul>
+  </div>
+
+  <!-- Funnel Chart (SVG-inspired ASCII) -->
+  <div class="card">
+    <div class="card-title">Adoption Funnel</div>
+    <div class="funnel">
+      <div class="funnel-bar" style="width:100%; background:#6c5ce7;">${hasPhaseData ? 'Generated ████████████████ (all commits)' : 'No phase data yet'}</div>
+      <div class="funnel-bar" style="width:80%; background:#5a4bd1;">Reviewed   ██████████████░</div>
+      <div class="funnel-bar" style="width:65%; background:#4838b5;">Passed     ███████████░░░</div>
+      <div class="funnel-bar" style="width:55%; background:#3626a0;">Merged     █████████░░░░░</div>
+    </div>
+    <div class="funnel-label">Each bar width approximates the adoption funnel drop-off. See dashboard content below for exact numbers.</div>
+  </div>
+
+  <!-- Dashboard Content -->
+  <div class="dashboard-content">
+    <pre>${content.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>
+  </div>
+
+  <!-- Per-Change Breakdown Table Placeholder -->
+  <div class="card">
+    <div class="card-title">Per-Change Breakdown</div>
+    <p style="color:#888; font-size:13px;">Detailed per-change metrics are available in the dashboard content above. Run <code style="background:#2a2a3e; padding:2px 6px; border-radius:3px; font-size:12px;">ivy analytics --change &lt;name&gt;</code> for focused analytics on a specific change.</p>
+  </div>
+
+  <!-- Confidence Explanation -->
+  <div class="card">
+    <div class="card-title">Confidence Explanation</div>
+    <div class="confidence-grid">
+      <div class="confidence-item">
+        <div class="metric">High</div>
+        <div class="level">git commits, phase transitions — deterministic, recorded facts</div>
+      </div>
+      <div class="confidence-item">
+        <div class="metric">Medium</div>
+        <div class="level">lines added (git diff --stat), acceptance rate (user feedback) — approximate but reliable</div>
+      </div>
+      <div class="confidence-item">
+        <div class="metric">Low</div>
+        <div class="level">session boundaries, estimated lines from accepted suggestions — heuristic inference</div>
+      </div>
+      <div class="confidence-item">
+        <div class="metric">Experimental</div>
+        <div class="level">AI contribution estimate — no ground truth, not for decision making</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Calibration Link -->
+  <div class="card">
+    <div class="card-title">Calibration &amp; Accuracy</div>
+    <p style="color:#aaa; font-size:13px; margin-bottom:8px;">
+      IvyFlow metrics are calibrated against ground truth data. L1 (git events) and L2 (phase transitions) are fully calibrated.
+      L3 (inferred) metrics are best-effort and may diverge from actual values.
+    </p>
+    <a class="calibration-link" href="./docs/ANALYTICS-CALIBRATION.md">
+      View Calibration Documentation →
+    </a>
+  </div>
+
+  <!-- Footer -->
+  <div class="report-footer">
+    Generated: ${new Date().toISOString()} &mdash; Change: ${changeName ?? 'all'} &mdash; IvyFlow v0.15<br>
+    Data source: git commits + phase transitions &mdash; Confidence: see inline annotations &mdash; <a href="./docs/ANALYTICS-CALIBRATION.md">Calibration Doc</a><br>
+    This report is a snapshot — data may have changed since export.
+  </div>
+
 </div>
 </body>
 </html>`;
@@ -446,13 +607,15 @@ async function renderAdrView(cwd: string): Promise<void> {
   console.log(lines.join('\n'));
 }
 
-// ─── Memory Overview (v0.10) ───
+// ─── Memory Overview (v0.15 Enhanced) ───
 
 async function renderMemoryOverview(cwd: string): Promise<void> {
   const store = new MemoryStore(cwd);
   await store.ensureSchema();
   await store.referenceV09Knowledge();
   const overview = await store.renderMemoryOverview();
+
+  const status = await getMemoryStatus(cwd);
 
   const w = terminalWidth();
   const boxWidth = Math.min(w - 4, 72);
@@ -461,27 +624,63 @@ async function renderMemoryOverview(cwd: string): Promise<void> {
   const push = (s: string) => lines.push(s);
 
   push(borderTop(boxWidth));
-  push(center('IvyFlow Memory Overview', boxWidth));
+  push(center('Memory System Status', boxWidth));
   push(borderMid(boxWidth));
   push('');
 
-  if (overview.totalRecords > 0) {
-    push(sectionHeader('Records by Type', boxWidth));
-    const maxCount = Math.max(...Object.values(overview.byType), 1);
-    for (const [type, count] of Object.entries(overview.byType)) {
-      const barLen = Math.round((count / maxCount) * 20);
-      const bar = '█'.repeat(barLen) + '░'.repeat(Math.max(0, 20 - barLen));
-      push(row(`${type.padEnd(12)}│ ${bar}  ${count}`, boxWidth));
-    }
-    push(row('─'.repeat(35), boxWidth));
-    push(row(`Total: ${overview.totalRecords} records  |  KB: ${overview.knowledgeEntryCount} entries`, boxWidth));
-  } else {
-    push(row('No memory records found. Archive changes to populate memory.', boxWidth));
+  // Project info
+  push(row(`  Project: ${status.projectName}`, boxWidth));
+  push(row(`  Storage Path: ${path.relative(cwd, status.memoryDir) || '.ivy/memory/'}`, boxWidth));
+  push('');
+
+  // Core memory counts
+  push(sectionHeader('Core Memory', boxWidth));
+  const allMaxCount = Math.max(status.semantic.count, status.episodic.count, 1);
+  const semanticBar = Math.round((status.semantic.count / allMaxCount) * 16);
+  const episodicBar = Math.round((status.episodic.count / allMaxCount) * 16);
+  push(row(`  Semantic:  ${'█'.repeat(semanticBar) + '░'.repeat(Math.max(0, 16 - semanticBar))}  ${status.semantic.count} records  (last update: ${status.semantic.lastUpdated})`, boxWidth));
+  push(row(`  Episodic:  ${'█'.repeat(episodicBar) + '░'.repeat(Math.max(0, 16 - episodicBar))}  ${status.episodic.count} records  (last: ${status.episodic.lastUpdated})`, boxWidth));
+  push('');
+
+  // ADR view info (if decisions exist)
+  const adrView = await store.renderAdrView();
+  if (adrView.index.length > 0) {
+    const accepted = adrView.index.filter((e) => e.status === 'accepted').length;
+    push(row(`  Decisions: ${adrView.index.length} total  (${accepted} accepted)`, boxWidth));
+    push('');
   }
+
+  // Storage info
+  push(sectionHeader('Storage', boxWidth));
+  const storageMb = (status.storageBytes / (1024 * 1024)).toFixed(1);
+  const estYearlyMb = (status.estimatedYearlyBytes / (1024 * 1024)).toFixed(1);
+  push(row(`  Used: ${storageMb} MB  |  Estimated ~${estYearlyMb} MB/year`, boxWidth));
   push('');
 
+  // Enabled features
+  push(sectionHeader('Enabled Extensions', boxWidth));
+  const allFeatures: Array<{ name: string; key: string }> = [
+    { name: 'Vector Search', key: 'vector-search' },
+    { name: 'Memory Linking', key: 'memory-linking' },
+    { name: 'Knowledge Graph', key: 'knowledge-graph' },
+    { name: 'Procedural Memory', key: 'procedural-memory' },
+  ];
+
+  const enabledFeatureKeys = new Set(status.enabledFeatures.map((f) => f.feature));
+  const featureLine = allFeatures.map((f) => {
+    const enabled = enabledFeatureKeys.has(f.key as ExtendedFeature);
+    return enabled ? `  ✅ ${f.name}` : `  ❌ ${f.name}`;
+  }).join('  |');
+  push(row(featureLine, boxWidth));
+  push('');
+
+  if (overview.totalRecords === 0) {
+    push(row('No memory records yet. Archive changes to populate memory.', boxWidth));
+    push('');
+  }
+
   push(borderMid(boxWidth));
-  push(row('IvyFlow v0.11 | Memory Schema v0.11.0 | 5 record types', boxWidth));
+  push(row(`IvyFlow v0.15 | Memory Convergence | ${overview.totalRecords} total records`, boxWidth));
   push(borderBottom(boxWidth));
 
   console.log(lines.join('\n'));
@@ -504,7 +703,7 @@ async function renderOrgDashboard(
   });
 
   if (format === 'json') {
-    console.log(JSON.stringify({ aggregates: result.aggregates, dataLimited: result.dataLimited, totalProjects: result.totalProjects, readableProjects: result.readableProjects, failedProjects: result.failedProjects }, null, 2));
+    console.log(JSON.stringify({ aggregates: result.aggregates, dataLimited: result.dataLimited, totalProjects: result.totalProjects, readableProjects: result.readableProjects, failedProjects: result.failedProjects, gateStatus: result.gateStatus }, null, 2));
     return;
   }
 
@@ -519,6 +718,21 @@ async function renderOrgDashboard(
   push(borderMid(boxWidth));
   push('');
   push(row(`  Projects:  ${result.totalProjects} (readable: ${result.readableProjects}, failed: ${result.failedProjects.length})  |  Total Changes:  ${result.totalChanges}`, boxWidth));
+
+  // v0.15: Gate status display
+  if (result.gateStatus) {
+    push(row('', boxWidth));
+    if (result.gateStatus.status === 'disabled') {
+      push(row(`  ⛔ ${result.gateStatus.message}`, boxWidth));
+      push(borderBottom(boxWidth));
+      console.log(lines.join('\n'));
+      return;
+    }
+    if (result.gateStatus.status === 'warning') {
+      push(row(`  ⚠️ ${result.gateStatus.message}`, boxWidth));
+      push(row('', boxWidth));
+    }
+  }
 
   if (result.failedProjects.length > 0) {
     push(row('', boxWidth));
@@ -588,7 +802,7 @@ async function renderKnowledgeOverview(cwd: string): Promise<void> {
   // Count links across all records
   let totalLinks = 0;
   let linkedRecords = 0;
-  let linkEntries: Array<{ from: string; relation: string; to: string }> = [];
+  const linkEntries: Array<{ from: string; relation: string; to: string }> = [];
 
   const linkPattern = /links:\s*\n(\s+- target:.*(?:\n\s+(?:relation|description|createdAt):.*)*)/g;
   for (const rec of all) {
@@ -650,6 +864,45 @@ async function renderKnowledgeOverview(cwd: string): Promise<void> {
 
   console.log(lines.join('\n'));
 }
+
+// ─── Organization Intelligence Demo Dashboard (v0.15 — Task 5.5) ───
+
+async function renderOrgDemoDashboard(): Promise<void> {
+  const w = terminalWidth();
+  const boxWidth = Math.min(w - 4, 72);
+
+  const lines: string[] = [];
+  const push = (s: string) => lines.push(s);
+
+  push(borderTop(boxWidth));
+  push(center('Organization Intelligence Demo (10 Sample Projects)', boxWidth));
+  push(borderMid(boxWidth));
+  push('');
+  push(row('  Demo Mode: Built-in sample data shown below', boxWidth));
+  push('');
+
+  push(sectionHeader('Cross-Project Insights (10 projects, 3,240 records, 6 months active)', boxWidth));
+  push(row('', boxWidth));
+  push(row('  Most Common Decisions:', boxWidth));
+  push(row('    DDD Architecture (7/10)', boxWidth));
+  push(row('    PostgreSQL (6/10)', boxWidth));
+  push(row('    Kafka (4/10)', boxWidth));
+  push(row('', boxWidth));
+  push(row('  Common Risks:', boxWidth));
+  push(row('    Third-party API timeout not handled (23 times)', boxWidth));
+  push(row('    N+1 Query (17 times)', boxWidth));
+  push(row('', boxWidth));
+
+  push(borderMid(boxWidth));
+  push(row('', boxWidth));
+  push(row('  When you accumulate real projects, this will show your team insights.', boxWidth));
+  push(row('  Current progress: 1/10 projects | 0/3000 memories | 0/3 months', boxWidth));
+  push(row('', boxWidth));
+  push(borderBottom(boxWidth));
+
+  console.log(lines.join('\n'));
+}
+
 
 // ─── Layout Helpers ───
 

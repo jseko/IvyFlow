@@ -1,0 +1,27 @@
+id: developer
+name: "全栈开发"
+icon: "💻"
+description: "编码 + 设计 + 测试"
+version: 1
+default_workflow: openspec
+default_topology: parallel
+
+capabilities:
+  - id: coding
+    implementation: ivy-build
+  - id: review
+    implementation: ivy-verify
+  - id: testing
+    implementation: ivy-verify
+  - id: design
+    implementation: ivy-design
+  - id: planning
+    implementation: ivy-open
+
+commands:
+  - common
+  - developer
+
+pipeline_downstream:
+  - role: qa
+    stage: testing

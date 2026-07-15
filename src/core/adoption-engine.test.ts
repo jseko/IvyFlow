@@ -61,7 +61,7 @@ describe('computeAdoptionProfile', () => {
   });
 
   it('returns empty profile when no events exist', async () => {
-    const profile = await computeAdoptionProfile(tmp, undefined, 30);
+    const profile = await computeAdoptionProfile(tmp, undefined, 90);
     expect(profile.funnel.totalCommits).toBe(0);
     expect(profile.funnel.totalChanges).toBe(0);
     expect(profile.confidence.overall).toBe('low');
@@ -129,7 +129,7 @@ describe('computeAdoptionProfile', () => {
   it('produces consistent JSON-format output', async () => {
     await appendRawEvent(tmp, makeCommit('2026-06-01T10:00:00Z', 'feat-x', 'a1'));
 
-    const profile = await computeAdoptionProfile(tmp, undefined, 30);
+    const profile = await computeAdoptionProfile(tmp, undefined, 90);
     const json = JSON.stringify(profile);
     const parsed = JSON.parse(json);
     expect(parsed.funnel.totalCommits).toBe(1);
@@ -139,11 +139,11 @@ describe('computeAdoptionProfile', () => {
   it('caching: returns cached profile within TTL', async () => {
     // First computation
     await appendRawEvent(tmp, makeCommit('2026-06-01T10:00:00Z', 'feat-x', 'a1'));
-    const first = await computeAdoptionProfile(tmp, undefined, 30);
+    const first = await computeAdoptionProfile(tmp, undefined, 90);
     expect(first.funnel.totalCommits).toBe(1);
 
     // Second call should use cache
-    const second = await computeAdoptionProfile(tmp, undefined, 30);
+    const second = await computeAdoptionProfile(tmp, undefined, 90);
     expect(second.funnel.totalCommits).toBe(1);
   });
 });

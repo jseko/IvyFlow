@@ -1,0 +1,60 @@
+id: devops
+name: "DevOps 流程"
+description: "env → cicd → deploy → monitor → alert"
+version: 1
+category: devops
+supports:
+  - devops
+
+phases:
+  - id: env
+    name: "环境规划"
+    requires:
+      - planning
+    artifacts:
+      - docs/devops/infrastructure.md
+  - id: cicd
+    name: "CI/CD 搭建"
+    requires:
+      - coding
+    artifacts:
+      - .github/workflows/*.yml
+  - id: deploy
+    name: "部署"
+    requires:
+      - testing
+    artifacts:
+      - docs/devops/deployment.md
+  - id: monitor
+    name: "监控"
+    requires:
+      - review
+    artifacts:
+      - docs/devops/monitoring.md
+  - id: alert
+    name: "告警"
+    requires:
+      - review
+    artifacts:
+      - docs/devops/alerts.md
+
+transitions:
+  - from: env
+    to: cicd
+    condition: all_guards_pass
+  - from: cicd
+    to: deploy
+    condition: all_guards_pass
+  - from: deploy
+    to: monitor
+    condition: all_guards_pass
+  - from: monitor
+    to: alert
+    condition: all_guards_pass
+  - from: deploy
+    to: cicd
+    condition: rollback_allowed
+
+forbidden_transitions:
+  - from: alert
+    to: env

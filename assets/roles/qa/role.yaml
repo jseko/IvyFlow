@@ -1,0 +1,29 @@
+id: qa
+name: "测试工程师"
+icon: "🧪"
+description: "用例设计 + 测试执行 + 缺陷跟踪"
+version: 1
+default_workflow: qa
+default_topology: parallel
+
+capabilities:
+  - id: planning
+    implementation: qa-testcase
+  - id: testing
+    implementation: qa-execute
+  - id: review
+    implementation: qa-bug
+  - id: documentation
+    implementation: qa-report
+
+commands:
+  - common
+  - qa
+
+pipeline_downstream:
+  - role: devops
+    stage: deployment
+    condition: all_pass
+  - role: developer
+    stage: coding
+    condition: bugs_found

@@ -1,4 +1,3 @@
-import { execSync, spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { logger } from '../utils/logger.js';
@@ -130,7 +129,7 @@ export class TaskDispatcher {
       const start = Date.now();
 
       try {
-        const output = await this.runTask(task);
+        const output = `Task ready: ${task.id} — ${task.subject}`;
         const elapsed = Date.now() - start;
         if (t) { t.status = 'completed'; t.result = output; t.durationMs = elapsed; }
         this.syncDiff.push({ taskId: task.id, from: 'pending', to: 'completed' });
@@ -146,23 +145,9 @@ export class TaskDispatcher {
     return results;
   }
 
-  private runTask(task: Task): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const child = spawn('echo', [`Implement: ${task.subject}`], {
-        cwd: this.cwd,
-        stdio: ['ignore', 'pipe', 'pipe'],
-        timeout: this.timeout,
-      });
-      let stdout = '';
-      let stderr = '';
-      child.stdout?.on('data', (d) => { stdout += d; });
-      child.stderr?.on('data', (d) => { stderr += d; });
-      child.on('error', reject);
-      child.on('close', (code) => {
-        if (code === 0) resolve(stdout);
-        else reject(new Error(stderr || `exit ${code}`));
-      });
-    });
+  /** @deprecated — task execution is delegated to AI Agent via Skill instructions */
+  private runTask(_task: Task): Promise<string> {
+    return Promise.resolve('');
   }
 
   trackStatus(taskId: string): Task | undefined {

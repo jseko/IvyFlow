@@ -8,6 +8,7 @@ import path from 'path';
 import { readYaml } from '../utils/yaml.js';
 import { fileExists } from '../utils/fs.js';
 import { parsePhase } from '../core/phase-machine.js';
+import { runDefaultGuardValidation } from '../core/guard-validator.js';
 import { logger } from '../utils/logger.js';
 
 interface AdoptionSnapshot {
@@ -48,6 +49,18 @@ export async function runStatus(opts: StatusOptions = {}): Promise<number> {
       ? projectYaml.platforms.join(',')
       : projectYaml.platform ?? 'unknown';
   logger.info(`IvyFlow project (${platformLabel}/${projectYaml.scope ?? 'unknown'})`);
+
+  // v0.15: Guard status summary
+  const guardResult = await runDefaultGuardValidation(cwd);
+  const okCount = [guardResult.hook, guardResult.rule, guardResult.gitHook].filter((r) => r.installed).length;
+  const hookIcon = guardResult.hook.installed ? '✅' : '❌';
+  const ruleIcon = guardResult.rule.installed ? '✅' : '❌';
+  const gitIcon = guardResult.gitHook.installed ? '✅' : '❌';
+  if (okCount === 3) {
+    logger.info(`🛡️  守卫：三重完整 [Hook ${hookIcon} Rule ${ruleIcon} GitHook ${gitIcon}]`);
+  } else {
+    logger.dim(`  Guard: ${okCount}/3 layers active [Hook ${hookIcon} Rule ${ruleIcon} GitHook ${gitIcon}]`);
+  }
 
   if (!opts.change) {
     logger.dim('  Pass --change <name> to inspect a specific change.');

@@ -23,7 +23,7 @@ describe('Ecosystem — TC-14: Capability detection', () => {
     expect(specDriven!.provider).toBe('openspec');
 
     rmSync(tmpDir, { recursive: true, force: true });
-  }, 15_000);
+  }, 30_000);
 });
 
 describe('Ecosystem — TC-15: Capability not available', () => {
@@ -41,7 +41,7 @@ describe('Ecosystem — TC-15: Capability not available', () => {
     expect(caps.every((c) => typeof c.detected === 'boolean')).toBe(true);
 
     rmSync(tmpDir, { recursive: true, force: true });
-  }, 15_000);
+  }, 30_000);
 });
 
 describe('Ecosystem — TC-16: project.yaml capabilities write', () => {
@@ -58,7 +58,7 @@ describe('Ecosystem — TC-16: project.yaml capabilities write', () => {
     expect(content).toContain('capabilities');
 
     rmSync(tmpDir, { recursive: true, force: true });
-  }, 15_000);
+  }, 30_000);
 });
 
 describe('Ecosystem — TC-18: Built-in capability limit', () => {

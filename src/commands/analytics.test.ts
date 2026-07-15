@@ -120,7 +120,7 @@ describe('runAnalytics', () => {
     await appendRawEvent(tmp, makeCommit('2026-06-16T10:00:00Z', 'feat-x', 'a1'));
     await appendRawEvent(tmp, makeCommit('2026-06-17T10:00:00Z', 'feat-x', 'a2'));
 
-    const code = await runAnalytics({ cwd: tmp });
+    const code = await runAnalytics({ cwd: tmp, period: '90d' });
     expect(code).toBe(0);
     const out = captured();
     expect(out).toContain('Adoption Analytics');
@@ -130,7 +130,7 @@ describe('runAnalytics', () => {
   it('supports --change filtering', async () => {
     await appendRawEvent(tmp, makeCommit('2026-06-16T10:00:00Z', 'feat-x', 'a1'));
 
-    const code = await runAnalytics({ cwd: tmp, change: 'feat-x' });
+    const code = await runAnalytics({ cwd: tmp, change: 'feat-x', period: '90d' });
     expect(code).toBe(0);
     expect(captured()).toContain('feat-x');
   });
@@ -138,7 +138,7 @@ describe('runAnalytics', () => {
   it('supports --json output', async () => {
     await appendRawEvent(tmp, makeCommit('2026-06-16T10:00:00Z', 'feat-x', 'a1'));
 
-    const code = await runAnalytics({ cwd: tmp, json: true });
+    const code = await runAnalytics({ cwd: tmp, json: true, period: '90d' });
     expect(code).toBe(0);
     const parsed = JSON.parse(captured());
     expect(parsed.funnel).toBeDefined();
@@ -148,7 +148,7 @@ describe('runAnalytics', () => {
   it('supports --confidence for detailed disclosure', async () => {
     await appendRawEvent(tmp, makeCommit('2026-06-16T10:00:00Z', 'feat-x', 'a1'));
 
-    const code = await runAnalytics({ cwd: tmp, confidence: true });
+    const code = await runAnalytics({ cwd: tmp, confidence: true, period: '90d' });
     expect(code).toBe(0);
     const out = captured();
     expect(out).toContain('Confidence Disclosure');
