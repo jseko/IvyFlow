@@ -165,32 +165,49 @@ function patchBundle() {
 }
 
 async function compileBinary() {
-  console.log('[3/3] Compiling binary with Bun (assets embedded in bundle)...');
+  console.log('[3/3] Compiling binaries with Bun (assets embedded in bundle)...');
 
   mkdirSync(BIN_DIR, { recursive: true });
 
   const bundlePath = path.join(DIST, 'ivyflow-bundle.cjs');
 
-  const platform = process.platform;
-  const arch = process.arch === 'arm64' ? 'aarch64' : process.arch;
-  const ext = platform === 'win32' ? '.exe' : '';
-  const outName = `ivyflow-${VERSION}-${platform}-${arch}${ext}`;
-  const outPath = path.join(BIN_DIR, outName);
+  // Target platforms: macOS (arm64/x64), Linux (x64/arm64), Windows (x64)
+  const targets = [
+    { platform: 'darwin', arch: 'aarch64', ext: '' },
+    { platform: 'darwin', arch: 'x64', ext: '' },
+    { platform: 'linux', arch: 'x64', ext: '' },
+    { platform: 'linux', arch: 'aarch64', ext: '' },
+    { platform: 'windows', arch: 'x64', ext: '.exe' },
+  ];
 
-  execSync(
-    `bun build --compile --target=bun-${platform}-${arch} "${bundlePath}" --outfile "${outPath}"`,
-    { cwd: ROOT, stdio: 'inherit' },
-  );
+  for (const target of targets) {
+    const outName = `ivyflow-${VERSION}-${target.platform}-${target.arch}${target.ext}`;
+    const outPath = path.join(BIN_DIR, outName);
 
-  const wrapperName = `ivy${ext}`;
+    console.log(`  Compiling ${target.platform}/${target.arch}...`);
+    try {
+      execSync(
+        `bun build --compile --target=bun-${target.platform}-${target.arch} "${bundlePath}" --outfile "${outPath}"`,
+        { cwd: ROOT, stdio: 'pipe' },
+      );
+      const stat = execSync(`ls -lh "${outPath}"`).toString().trim();
+      console.log(`    ${stat}`);
+    } catch (err) {
+      console.log(`    ⚠ Skipped (cross-compilation may not be supported on this host)`);
+    }
+  }
+
+  // Create wrapper scripts
+  const hostExt = process.platform === 'win32' ? '.exe' : '';
+  const hostArch = process.arch === 'arm64' ? 'aarch64' : 'x64';
+  const hostOutName = `ivyflow-${VERSION}-${process.platform}-${hostArch}${hostExt}`;
+  const wrapperName = `ivy${hostExt}`;
   const wrapperPath = path.join(BIN_DIR, wrapperName);
-  writeFileSync(wrapperPath, `#!/bin/sh\nexec "$(dirname "$0")/${outName}" "$@"\n`);
+  writeFileSync(wrapperPath, `#!/bin/sh\nexec "$(dirname "$0")/${hostOutName}" "$@"\n`);
   execSync(`chmod +x "${wrapperPath}"`);
 
-  const stat = execSync(`ls -lh "${outPath}"`).toString().trim();
-  console.log(`\n  Binary: ${stat}`);
-  console.log(`  Assets: ${collectFiles(ASSETS, ASSETS).length} files embedded in bundle`);
-  console.log(`\n  Test: ${wrapperPath} --version`);
+  console.log(`\n  Assets: ${collectFiles(ASSETS, ASSETS).length} files embedded in bundle`);
+  console.log(`\n  Output: ${BIN_DIR}/`);
 }
 
 async function main() {

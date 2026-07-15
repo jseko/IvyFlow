@@ -1,8 +1,12 @@
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { promises as fs } from 'fs';
 import { createRequire } from 'module';
-import { fileExists, ensureDir } from '../../utils/fs.js';
+import { fileExists, ensureDir, copyFile, writeFile } from '../../utils/fs.js';
 import { logger } from '../../utils/logger.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 import {
   copyIvySkillsForPlatform,
@@ -145,13 +149,12 @@ async function installRoleSkillToPlatform(
     const skillKey = `roles/${role}/SKILL.md`;
     const content = (globalThis as Record<string, unknown>).__ivyflow_assets as Record<string, string> | undefined;
     if (content?.[skillKey]) {
-      await (await import('../../utils/fs.js')).writeFile(path.join(destDir, 'SKILL.md'), content[skillKey]);
+      await writeFile(path.join(destDir, 'SKILL.md'), content[skillKey]);
     }
   } else {
     const srcPath = path.join(path.resolve(__dirname, '..', '..', '..', 'assets'), 'roles', role, 'SKILL.md');
-    const { fileExists: fe, copyFile: cf } = await import('../../utils/fs.js');
-    if (await fe(srcPath)) {
-      await cf(srcPath, path.join(destDir, 'SKILL.md'));
+    if (await fileExists(srcPath)) {
+      await copyFile(srcPath, path.join(destDir, 'SKILL.md'));
     }
   }
 }
@@ -175,13 +178,12 @@ async function installRoleDispatcherToPlatform(
     const skillKey = 'skills/ivy-role/SKILL.md';
     const content = (globalThis as Record<string, unknown>).__ivyflow_assets as Record<string, string> | undefined;
     if (content?.[skillKey]) {
-      await (await import('../../utils/fs.js')).writeFile(path.join(destDir, 'SKILL.md'), content[skillKey]);
+      await writeFile(path.join(destDir, 'SKILL.md'), content[skillKey]);
     }
   } else {
     const srcPath = path.join(path.resolve(__dirname, '..', '..', '..', 'assets'), 'skills', 'ivy-role', 'SKILL.md');
-    const { fileExists: fe, copyFile: cf } = await import('../../utils/fs.js');
-    if (await fe(srcPath)) {
-      await cf(srcPath, path.join(destDir, 'SKILL.md'));
+    if (await fileExists(srcPath)) {
+      await copyFile(srcPath, path.join(destDir, 'SKILL.md'));
     }
   }
 }
@@ -208,13 +210,12 @@ async function copyCapabilityToPlatform(
     const skillKey = `capabilities/${pack.manifest.name}/SKILL.md`;
     const content = globalThis.__ivyflow_assets?.[skillKey];
     if (content) {
-      await (await import('../../utils/fs.js')).writeFile(path.join(destDir, 'SKILL.md'), content);
+      await writeFile(path.join(destDir, 'SKILL.md'), content);
       copied++;
     }
   } else {
-    const { fileExists: fe, copyFile: cf } = await import('../../utils/fs.js');
-    if (await fe(pack.skillPath)) {
-      await cf(pack.skillPath, path.join(destDir, 'SKILL.md'));
+    if (await fileExists(pack.skillPath)) {
+      await copyFile(pack.skillPath, path.join(destDir, 'SKILL.md'));
       copied++;
     }
   }
