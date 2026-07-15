@@ -17,9 +17,13 @@ import { defaultCapabilityRegistry, type CapabilityPack } from '../core/capabili
 import { defaultInstallEngine, type InstallConfig } from '../core/install-engine.js';
 import { annotateChoice, selectPlatformsQuick, selectAllDetected } from '../core/installers/platform.js';
 import { setupOpenSpec, setupGitHooks } from '../core/installers/platform.js';
+import { t } from '../utils/i18n.js';
 
 const require = createRequire(import.meta.url);
 const { version: PKG_VERSION } = require('../../package.json');
+
+// Current locale, updated during init
+let currentLocale = 'zh-CN';
 
 export type InitMode = 'quick' | 'standard' | 'enterprise';
 
@@ -41,24 +45,24 @@ function showWelcome(detectedHits: PlatformDetectResult[]): void {
   console.log('');
   console.log('   ╔══════════════════════════════════════════════╗');
   console.log(`   ║     🍃  IvyFlow  v${PKG_VERSION.padEnd(27)}║`);
-  console.log('   ║     AI-Native Development Workflow             ║');
+  console.log(`   ║     ${t('welcome.title', currentLocale).padEnd(46)}║`);
   console.log('   ╚══════════════════════════════════════════════╝');
   console.log('');
 
   if (detectedHits.length > 0) {
-    console.log(`   检测到 ${detectedHits.length} 个 AI 编程平台：${platformNames}`);
+    console.log(`   ${t('welcome.detected_platforms', currentLocale, { count: detectedHits.length, names: platformNames })}`);
   } else {
-    console.log('   未检测到 AI 编程平台，将默认使用 Claude Code');
+    console.log(`   ${t('welcome.no_platforms', currentLocale)}`);
   }
   console.log('');
 }
 
 async function stepScope(): Promise<InstallScope> {
   return select<InstallScope>({
-    message: '安装范围：',
+    message: t('scope.message', currentLocale),
     choices: [
-      { name: '当前项目（推荐）', value: 'project' },
-      { name: '全局配置', value: 'global' },
+      { name: t('scope.project', currentLocale), value: 'project' },
+      { name: t('scope.global', currentLocale), value: 'global' },
     ],
     default: 'project',
   });
@@ -76,11 +80,12 @@ function detectLocale(): string {
 
 async function stepLanguage(): Promise<string> {
   const detected = detectLocale();
+  currentLocale = detected; // Update global locale
   return select<string>({
-    message: '工作语言 / Language：',
+    message: t('language.message', currentLocale),
     choices: [
-      { name: `中文${detected === 'zh-CN' ? '（默认）' : ''}`, value: 'zh-CN' },
-      { name: `English${detected === 'en' ? ' (default)' : ''}`, value: 'en' },
+      { name: `${t('language.zh_CN', currentLocale)}${detected === 'zh-CN' ? `（${t('language.auto_detected', currentLocale)}）` : ''}`, value: 'zh-CN' },
+      { name: `English${detected === 'en' ? ` (${t('language.auto_detected', currentLocale)})` : ''}`, value: 'en' },
     ],
     default: detected,
   });
@@ -112,7 +117,7 @@ async function stepTechStack(cwd: string): Promise<{ language: string; fingerpri
   if (fingerprint && fingerprint.projectType.value !== 'unknown') {
     const desc = describeFingerprint(fingerprint);
     logger.info('');
-    logger.info(`  🔍 检测到技术栈：${desc || '未识别'}`);
+    logger.info(`  ${t('tech_stack.detected', currentLocale, { desc: desc || 'unknown' })}`);
     logger.info('');
   }
 
@@ -163,17 +168,17 @@ async function stepInstall(config: InstallConfig): Promise<number> {
     }
   });
 
-  spinner.update('开始安装...');
+  spinner.update(t('install.starting', currentLocale));
 
   const report = await engine.run(config);
   spinner.stop();
 
   if (!report.success) {
     if (report.failedCapabilities.length > 0) {
-      logger.warn(`能力包安装失败：${report.failedCapabilities.join(', ')}`);
+      logger.warn(t('install.failed_capabilities', currentLocale, { names: report.failedCapabilities.join(', ') }));
     }
     if (report.failedPlatforms.length > 0) {
-      logger.warn(`平台安装失败：${report.failedPlatforms.join(', ')}`);
+      logger.warn(t('install.failed_platforms', currentLocale, { names: report.failedPlatforms.join(', ') }));
     }
   }
 
@@ -197,25 +202,25 @@ function showCompletion(config: InstallConfig): void {
 
   console.log('');
   console.log('   ╔══════════════════════════════════════════════╗');
-  console.log('   ║  🎉  IvyFlow 已就绪！                        ║');
+  console.log(`   ║  🎉  ${t('completion.title', currentLocale).padEnd(42)}║`);
   console.log('   ║                                              ║');
-  console.log('   ║  快速开始：                                  ║');
-  console.log('   ║    /ivyflow "实现用户登录"   启动完整工作流   ║');
-  console.log('   ║    /ivyflow-quick "修复报错"  快速修改        ║');
-  console.log('   ║    /ivyflow-status            查看任务状态    ║');
+  console.log(`   ║  ${t('completion.quick_start', currentLocale).padEnd(44)}║`);
+  console.log(`   ║    ${t('completion.commands.workflow', currentLocale).padEnd(42)}║`);
+  console.log(`   ║    ${t('completion.commands.quick', currentLocale).padEnd(42)}║`);
+  console.log(`   ║    ${t('completion.commands.status', currentLocale).padEnd(42)}║`);
   console.log('   ║                                              ║');
-  console.log('   ║  工作目录：docs/ivyflow/specs/               ║');
-  console.log('   ║           docs/ivyflow/plans/                ║');
+  console.log(`   ║  ${t('completion.work_dirs', currentLocale).padEnd(44)}║`);
+  console.log(`   ║           ${t('completion.work_dirs2', currentLocale).padEnd(40)}║`);
   console.log('   ║                                              ║');
   if (capList) {
-    console.log(`   ║  已安装能力：🍃 内核  ${capList}`);
+    console.log(`   ║  ${t('completion.installed_caps', currentLocale, { caps: capList }).padEnd(44)}║`);
   }
   if (platNames) {
-    console.log(`   ║  已适配平台：${platNames}`);
+    console.log(`   ║  ${t('completion.installed_platforms', currentLocale, { names: platNames }).padEnd(44)}║`);
   }
   console.log('   ╚══════════════════════════════════════════════╝');
   console.log('');
-  console.log('   💡 提示：重启 AI 工具后斜杠命令即可生效');
+  console.log(`   💡 ${t('completion.tip', currentLocale)}`);
   console.log('');
 }
 
@@ -223,7 +228,7 @@ function showCompletion(config: InstallConfig): void {
 
 async function stepCodegraph(): Promise<boolean> {
   return confirm({
-    message: '安装 CodeGraph 语义代码智能？（推荐 — 节省 ~16% 成本 · 减少 ~58% 工具调用）',
+    message: t('codegraph.prompt', currentLocale),
     default: true,
   });
 }
@@ -241,18 +246,18 @@ async function shouldInstallCodegraph(): Promise<boolean> {
 async function runCodegraphInstall(cwd: string): Promise<void> {
   const { execSync } = await import('child_process');
   try {
-    logger.step('安装 CodeGraph...');
+    logger.step(t('codegraph.installing', currentLocale));
     execSync('codegraph install --yes', { cwd, stdio: 'inherit' });
     execSync('codegraph init -i', { cwd, stdio: 'inherit' });
-    logger.success('CodeGraph 安装完成');
+    logger.success(t('codegraph.success', currentLocale));
   } catch {
-    logger.warn('CodeGraph 安装失败（可能未安装 codegraph CLI），跳过。可稍后手动安装：npm i -g @codegraph/cli && codegraph init -i');
+    logger.warn(t('codegraph.failed', currentLocale));
   }
 }
 
 async function stepOpenspec(): Promise<boolean> {
   return confirm({
-    message: '安装 OpenSpec 规范驱动开发工具？（推荐 — 用于变更提案和归档）',
+    message: t('openspec.prompt', currentLocale),
     default: true,
   });
 }
@@ -305,7 +310,7 @@ async function runWizard(
     : await selectPlatformsInteractive(detected);
 
   if (platforms.length === 0) {
-    logger.error('未选择任何平台，安装中止。');
+    logger.error(t('errors.no_platforms', currentLocale));
     return 1;
   }
 

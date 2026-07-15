@@ -5,6 +5,7 @@ import { EventEmitter } from 'events';
 import { logger } from '../utils/logger.js';
 import { writeYaml, readYaml } from '../utils/yaml.js';
 import { createRequire } from 'module';
+import { t } from '../utils/i18n.js';
 
 import { detectPlatforms, type PlatformDetectResult } from './detect.js';
 import { PLATFORMS, type Platform } from './platforms.js';
@@ -115,7 +116,7 @@ export class InstallEngine extends EventEmitter {
   }
 
   private async installKernel(config: InstallConfig): Promise<void> {
-    const label = '安装内核';
+    const label = t('install.kernel', config.language);
     this.emitPhaseStart('kernel', label);
     const phase: InstallPhase = { name: label, status: 'running' };
     const t0 = Date.now();
@@ -139,7 +140,7 @@ export class InstallEngine extends EventEmitter {
   private async installCapabilities(config: InstallConfig, failed: string[]): Promise<void> {
     if (config.capabilities.length === 0) return;
 
-    const label = '安装能力包';
+    const label = t('install.capabilities', config.language);
     this.emitPhaseStart('capability', label);
 
     const { installCapability } = await import('./installers/capability.js');
@@ -173,7 +174,7 @@ export class InstallEngine extends EventEmitter {
   private async installPlatforms(config: InstallConfig, failed: string[]): Promise<void> {
     if (config.platforms.length === 0) return;
 
-    const label = '安装到平台';
+    const label = t('install.platforms', config.language);
     this.emitPhaseStart('platform', label);
 
     const { installForOnePlatform } = await import('./installers/platform.js');
@@ -205,7 +206,7 @@ export class InstallEngine extends EventEmitter {
   }
 
   private async writeConfig(config: InstallConfig): Promise<void> {
-    const label = '写入配置';
+    const label = t('install.config', config.language);
     this.emitPhaseStart('config', label);
     const t0 = Date.now();
 

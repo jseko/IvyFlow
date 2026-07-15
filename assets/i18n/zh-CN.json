@@ -1,0 +1,61 @@
+{
+  "welcome": {
+    "title": "AI-Native Development Workflow",
+    "detected_platforms": "检测到 {count} 个 AI 编程平台：{names}",
+    "no_platforms": "未检测到 AI 编程平台，将默认使用 Claude Code"
+  },
+  "scope": {
+    "message": "安装范围：",
+    "project": "当前项目（推荐）",
+    "global": "全局配置"
+  },
+  "language": {
+    "message": "工作语言 / Language：",
+    "zh_CN": "中文",
+    "en": "English",
+    "auto_detected": "默认"
+  },
+  "tech_stack": {
+    "detected": "🔍 检测到技术栈：{desc}"
+  },
+  "codegraph": {
+    "prompt": "安装 CodeGraph 语义代码智能？（推荐 — 节省 ~16% 成本 · 减少 ~58% 工具调用）",
+    "installing": "安装 CodeGraph...",
+    "success": "CodeGraph 安装完成",
+    "failed": "CodeGraph 安装失败（可能未安装 codegraph CLI），跳过"
+  },
+  "openspec": {
+    "prompt": "安装 OpenSpec 规范驱动开发工具？（推荐 — 用于变更提案和归档）"
+  },
+  "install": {
+    "starting": "开始安装...",
+    "kernel": "安装内核",
+    "capabilities": "安装能力包",
+    "platforms": "安装到平台",
+    "config": "写入配置",
+    "complete": "IvyFlow 安装完成",
+    "failed_platforms": "平台安装失败：{names}",
+    "failed_capabilities": "能力包安装失败：{names}"
+  },
+  "completion": {
+    "title": "IvyFlow 已就绪！",
+    "quick_start": "快速开始：",
+    "commands": {
+      "workflow": "/ivyflow \"实现用户登录\"   启动完整工作流",
+      "quick": "/ivyflow-quick \"修复报错\"  快速修改",
+      "status": "/ivyflow-status            查看任务状态"
+    },
+    "work_dirs": "工作目录：docs/ivyflow/specs/",
+    "work_dirs2": "docs/ivyflow/plans/",
+    "installed_caps": "已安装能力：🍃 内核  {caps}",
+    "installed_platforms": "已适配平台：{names}",
+    "tip": "重启 AI 工具后斜杠命令即可生效"
+  },
+  "errors": {
+    "no_platforms": "未选择任何平台，安装中止。",
+    "no_platforms_selected": "未选择任何平台，安装中止。",
+    "install_cancelled": "安装已取消。",
+    "disk_space": "磁盘空间不足：需要 {required}MB，可用 {available}MB",
+    "work_dir_not_found": "工作目录不存在：{dir}"
+  }
+}
