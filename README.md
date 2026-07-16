@@ -2,7 +2,7 @@
 
 > **AI-Native Development Workflow.** Enforce structured development across 5 roles, with phase gates, multi-agent collaboration, and one-command setup.
 
-[简体中文](./README.zh-CN.md) | [Changelog](./CHANGELOG.md)
+[简体中文](./README.zh-CN.md) | [Changelog](./CHANGELOG.md) | [Website](https://jseko.github.io/IvyFlow/)
 
 ---
 

@@ -2,7 +2,7 @@
 
 > **AI 编码 Agent 的工作流强约束器。** 阻止 AI Agent 在不该写代码的时候写代码，量化它的实际贡献。
 
-[English](./README.md) | [更新日志](./CHANGELOG.md) | [白皮书](./docs/whitepaper.md)
+[English](./README.md) | [更新日志](./CHANGELOG.md) | [官方网站](https://jseko.github.io/IvyFlow/) | [白皮书](./docs/whitepaper.md)
 
 ---
 
