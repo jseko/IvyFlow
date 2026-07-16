@@ -190,7 +190,7 @@ ivy pipeline complete devops-alert
 
 ## 相关资源
 
-- [README (English)](../README.md)
-- [README (简体中文)](../README.zh-CN.md)
-- [更新日志](../CHANGELOG.md)
-- [贡献指南](../CONTRIBUTING.md)
+- [README (English)](https://github.com/anomalyco/IvyFlow/blob/main/README.md)
+- [README (简体中文)](https://github.com/anomalyco/IvyFlow/blob/main/README.zh-CN.md)
+- [更新日志](https://github.com/anomalyco/IvyFlow/blob/main/CHANGELOG.md)
+- [贡献指南](https://github.com/anomalyco/IvyFlow/blob/main/CONTRIBUTING.md)
