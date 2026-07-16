@@ -17,7 +17,7 @@ hero:
       link: /agent-usage
     - theme: alt
       text: GitHub
-      link: https://github.com/anomalyco/IvyFlow
+      link: https://github.com/jseko/IvyFlow
 
 features:
   - icon: 🛡️

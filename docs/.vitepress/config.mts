@@ -20,8 +20,8 @@ export default defineConfig({
       {
         text: 'v0.15.1',
         items: [
-          { text: '更新日志', link: 'https://github.com/anomalyco/IvyFlow/blob/main/CHANGELOG.md' },
-          { text: 'GitHub', link: 'https://github.com/anomalyco/IvyFlow' },
+          { text: '更新日志', link: 'https://github.com/jseko/IvyFlow/blob/main/CHANGELOG.md' },
+          { text: 'GitHub', link: 'https://github.com/jseko/IvyFlow' },
           { text: 'npm', link: 'https://www.npmjs.com/package/ivyflow-cli' },
         ],
       },
@@ -131,7 +131,7 @@ export default defineConfig({
     },
 
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/anomalyco/IvyFlow' },
+      { icon: 'github', link: 'https://github.com/jseko/IvyFlow' },
     ],
 
     search: {
