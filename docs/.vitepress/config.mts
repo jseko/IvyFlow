@@ -7,11 +7,15 @@ export default defineConfig({
   base: '/IvyFlow/',
 
   head: [
-    ['link', { rel: 'icon', href: '/favicon.svg' }],
+    ['link', { rel: 'icon', href: '/logo.png' }],
+    ['meta', { property: 'og:image', content: '/og-image.png' }],
+    ['meta', { property: 'og:type', content: 'website' }],
+    ['meta', { property: 'og:title', content: 'IvyFlow — AI-Native Development Workflow' }],
+    ['meta', { property: 'og:description', content: 'AI 编码 Agent 的工作流强约束器' }],
   ],
 
   themeConfig: {
-    logo: { src: '/favicon.svg', alt: 'IvyFlow' },
+    logo: { src: '/logo.png', alt: 'IvyFlow' },
 
     nav: [
       { text: '操作手册', link: '/README' },
