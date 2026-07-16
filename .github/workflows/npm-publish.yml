@@ -9,7 +9,21 @@ permissions:
   contents: write
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run sync-phases:check
+      - run: npm run lint
+      - run: npm run test:coverage
+
   publish:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -45,13 +59,16 @@ jobs:
         run: |
           VERSION="${GITHUB_REF#refs/tags/v}"
           awk "/^## \[${VERSION}\]/{found=1; next} /^## \[/{if(found) exit} found" CHANGELOG.md > /tmp/release-notes.md
-          cat /tmp/release-notes.md
+          if [ ! -s /tmp/release-notes.md ]; then
+            echo "No changelog entry found for v$VERSION"
+          else
+            cat /tmp/release-notes.md
+          fi
           echo "notes_path=/tmp/release-notes.md" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           body_path: ${{ steps.changelog.outputs.notes_path }}
-          generate_release_notes: ${{ steps.changelog.outputs.notes_path == '' }}
-          files: |
-            dist/**
+          generate_release_notes: true
+          fail_on_unmatched_files: false
