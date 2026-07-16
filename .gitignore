@@ -51,8 +51,6 @@ Thumbs.db
 docs/.vitepress/dist/
 docs/.vitepress/cache/
 openspec/
-.claude/
-CLAUDE.md
 CHANGELOG.md
 vendors/
 .codebuddy/
