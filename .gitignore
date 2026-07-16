@@ -41,6 +41,11 @@ Thumbs.db
 # Claude Code local-only state
 .claude/settings.local.json
 .claude/agent-memory/
+.claude/worktrees/
+.claude/commands/
+.claude/skills/
+.claude/rules/
+.claude/agents/
 
 # Local test playgrounds
 .ivy/

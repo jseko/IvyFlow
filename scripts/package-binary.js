@@ -188,12 +188,14 @@ async function compileBinary() {
     try {
       execSync(
         `bun build --compile --target=bun-${target.platform}-${target.arch} "${bundlePath}" --outfile "${outPath}"`,
-        { cwd: ROOT, stdio: 'pipe' },
+        { cwd: ROOT, stdio: 'inherit' },
       );
       const stat = execSync(`ls -lh "${outPath}"`).toString().trim();
       console.log(`    ${stat}`);
     } catch (err) {
-      console.log(`    ⚠ Skipped (cross-compilation may not be supported on this host)`);
+      console.error(`    ✗ Failed: ${target.platform}/${target.arch}`);
+      console.error(`      ${err.stderr?.toString() || err.message}`);
+      throw err;
     }
   }
 
@@ -201,10 +203,17 @@ async function compileBinary() {
   const hostExt = process.platform === 'win32' ? '.exe' : '';
   const hostArch = process.arch === 'arm64' ? 'aarch64' : 'x64';
   const hostOutName = `ivyflow-${VERSION}-${process.platform}-${hostArch}${hostExt}`;
-  const wrapperName = `ivy${hostExt}`;
-  const wrapperPath = path.join(BIN_DIR, wrapperName);
-  writeFileSync(wrapperPath, `#!/bin/sh\nexec "$(dirname "$0")/${hostOutName}" "$@"\n`);
-  execSync(`chmod +x "${wrapperPath}"`);
+
+  if (process.platform === 'win32') {
+    // Windows: create .cmd wrapper
+    const cmdPath = path.join(BIN_DIR, 'ivy.cmd');
+    writeFileSync(cmdPath, `@"%~dp0${hostOutName}" %*\r\n`);
+  } else {
+    // macOS/Linux: create shell wrapper
+    const wrapperPath = path.join(BIN_DIR, 'ivy');
+    writeFileSync(wrapperPath, `#!/bin/sh\nexec "$(dirname "$0")/${hostOutName}" "$@"\n`);
+    execSync(`chmod +x "${wrapperPath}"`);
+  }
 
   console.log(`\n  Assets: ${collectFiles(ASSETS, ASSETS).length} files embedded in bundle`);
   console.log(`\n  Output: ${BIN_DIR}/`);
