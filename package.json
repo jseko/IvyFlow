@@ -46,7 +46,8 @@
     "package:binary:skip-compile": "node scripts/package-binary.js --skip-compile",
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
-    "docs:preview": "vitepress preview docs"
+    "docs:preview": "vitepress preview docs",
+    "prepublishOnly": "npm run build"
   },
   "engines": {
     "node": ">=20"
