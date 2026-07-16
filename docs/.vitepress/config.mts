@@ -7,11 +7,11 @@ export default defineConfig({
   base: '/IvyFlow/',
 
   head: [
-    ['link', { rel: 'icon', href: '/IvyFlow/favicon.ico' }],
+    ['link', { rel: 'icon', href: '/IvyFlow/favicon.svg' }],
   ],
 
   themeConfig: {
-    logo: { src: '/IvyFlow/favicon.ico', alt: 'IvyFlow' },
+    logo: { src: '/IvyFlow/favicon.svg', alt: 'IvyFlow' },
 
     nav: [
       { text: '操作手册', link: '/README' },
