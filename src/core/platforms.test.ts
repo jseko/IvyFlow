@@ -137,6 +137,7 @@ describe('platforms', () => {
       globalSkillsDir: '.x-global',
       openspecToolId: 'x',
       certification: 'certified',
+      tier: 3,
     };
     const withoutGlobal: Platform = {
       id: 'y',
@@ -144,6 +145,7 @@ describe('platforms', () => {
       skillsDir: '.y-project',
       openspecToolId: 'y',
       certification: 'certified',
+      tier: 3,
     };
 
     it('returns project dir for project scope', () => {

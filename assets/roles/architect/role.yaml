@@ -1,0 +1,25 @@
+id: architect
+name: "架构师"
+icon: "🏗️"
+description: "技术选型 + 系统设计 + 评审指导"
+version: 1
+default_workflow: architecture
+default_topology: supervisor
+
+capabilities:
+  - id: research
+    implementation: arch-research
+  - id: design
+    implementation: arch-design
+  - id: review
+    implementation: arch-review
+  - id: documentation
+    implementation: arch-guide
+
+commands:
+  - common
+  - architect
+
+pipeline_downstream:
+  - role: developer
+    stage: coding

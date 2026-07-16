@@ -7,6 +7,7 @@
 import path from 'path';
 import { fileExists, readFile, writeFile, ensureDir } from '../utils/fs.js';
 import { readAllSignals, readSignalsInWindow } from './feedback-collector.js';
+import { type RuleTriggerSignal } from './feedback-types.js';
 import { getDailyMetrics, queryDailyMetricsInWindow } from './metrics-daily.js';
 import { getRuleMetricsCache, updateRuleMetricsCache, cleanupExpiredRuleCaches } from './metrics-rules.js';
 import { SIGNAL_CONFIDENCE_WEIGHTS, type RuntimeSignalType, type AggregationConfig } from './feedback-types.js';
@@ -99,9 +100,9 @@ export async function analyzeRuleFeedback(
 
   // 基础统计
   const totalTriggers = ruleSignals.length;
-  const passCount = ruleSignals.filter(s => (s as any).result === 'pass').length;
-  const skipCount = ruleSignals.filter(s => (s as any).result === 'skip').length;
-  const failCount = ruleSignals.filter(s => (s as any).result === 'fail').length;
+  const passCount = ruleSignals.filter(s => (s as RuleTriggerSignal).result === 'pass').length;
+  const skipCount = ruleSignals.filter(s => (s as RuleTriggerSignal).result === 'skip').length;
+  const failCount = ruleSignals.filter(s => (s as RuleTriggerSignal).result === 'fail').length;
 
   const passRate = totalTriggers > 0 ? passCount / totalTriggers : 0;
   const skipRate = totalTriggers > 0 ? skipCount / totalTriggers : 0;
@@ -199,8 +200,8 @@ async function calculateTrend(
   const currentTriggers = currentSignals.filter(s => s.type === 'rule_trigger' && s.ruleId === ruleId);
   const prevTriggers = prevSignals.filter(s => s.type === 'rule_trigger' && s.ruleId === ruleId);
 
-  const currentPasses = currentTriggers.filter(s => (s as any).result === 'pass').length;
-  const prevPasses = prevTriggers.filter(s => (s as any).result === 'pass').length;
+  const currentPasses = currentTriggers.filter(s => (s as RuleTriggerSignal).result === 'pass').length;
+  const prevPasses = prevTriggers.filter(s => (s as RuleTriggerSignal).result === 'pass').length;
 
   const delta = currentTriggers.length - prevTriggers.length;
   const direction = delta > 0 ? 'up' : delta < 0 ? 'down' : 'stable';
@@ -226,8 +227,8 @@ async function calculateTrendFromSignals(
   const currentTriggers = ruleSignals.filter(s => s.ts >= current7dFrom);
   const prevTriggers = ruleSignals.filter(s => s.ts >= prev7dFrom && s.ts < current7dFrom);
 
-  const currentPasses = currentTriggers.filter(s => (s as any).result === 'pass').length;
-  const prevPasses = prevTriggers.filter(s => (s as any).result === 'pass').length;
+  const currentPasses = currentTriggers.filter(s => (s as RuleTriggerSignal).result === 'pass').length;
+  const prevPasses = prevTriggers.filter(s => (s as RuleTriggerSignal).result === 'pass').length;
 
   const delta = currentTriggers.length - prevTriggers.length;
   const direction = delta > 0 ? 'up' : delta < 0 ? 'down' : 'stable';
@@ -253,7 +254,7 @@ function buildContextBreakdown(
 
     const existing = map.get(key) || { triggers: 0, skips: 0 };
     existing.triggers += 1;
-    if ((s as any).result === 'skip') existing.skips += 1;
+    if ((s as RuleTriggerSignal).result === 'skip') existing.skips += 1;
     map.set(key, existing);
   }
 
@@ -369,7 +370,7 @@ export async function getFeedbackSummary(
 
   const signals = await readAllSignals(cwd);
   const uniqueRules = new Set(
-    signals.filter(s => s.type === 'rule_trigger').map(s => (s as any).ruleId)
+    signals.filter(s => s.type === 'rule_trigger').map(s => (s as RuleTriggerSignal).ruleId)
   );
 
   return {

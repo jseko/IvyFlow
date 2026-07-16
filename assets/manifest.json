@@ -2,16 +2,38 @@
   "version": "0.7.0",
   "schemaVersion": 6,
   "dataModelVersion": "DTM-v2",
+  "role": "developer",
   "skills": [
-    "ivy/SKILL.md",
-    "ivy/references/explore-fast-track.md",
-    "ivy/references/step8-9-closure.md",
-    "ivy/references/phase-state-machine.md",
-    "ivy/references/cross-cutting.md"
+    "roles/developer/skills/ivy/SKILL.md",
+    "roles/developer/skills/ivy/ivy-open/SKILL.md",
+    "roles/developer/skills/ivy/ivy-design/SKILL.md",
+    "roles/developer/skills/ivy/ivy-build/SKILL.md",
+    "roles/developer/skills/ivy/ivy-verify/SKILL.md",
+    "roles/developer/skills/ivy/ivy-archive/SKILL.md",
+    "roles/developer/skills/ivy/ivy-hotfix/SKILL.md",
+    "roles/developer/skills/ivy/ivy-tweak/SKILL.md",
+    "roles/developer/skills/ivy/references/explore-fast-track.md",
+    "roles/developer/skills/ivy/references/step8-9-closure.md",
+    "roles/developer/skills/ivy/references/phase-state-machine.md",
+    "roles/developer/skills/ivy/references/cross-cutting.md",
+    "roles/developer/skills/ivy/references/three-gate-check.md",
+    "roles/developer/skills/ivy/references/minimal-fix-rules.md",
+    "roles/developer/skills/ivy/references/spec-quality-check.md",
+    "roles/developer/skills/ivy/references/crud-quality-gate.md",
+    "roles/developer/skills/ivy/references/context-six-questions.md",
+    "roles/developer/skills/ivy/references/legacy-onboarding.md"
   ],
   "rules": [
     "ivy-phase-guard.md",
-    "ivy-security.md"
+    "ivy-security.md",
+    "never-assume.md"
+  ],
+  "commands": [
+    "roles/developer/commands/ivyflow.md",
+    "roles/developer/commands/ivyflow-status.md",
+    "roles/developer/commands/ivyflow-quick.md",
+    "roles/developer/commands/ivyflow-hotfix.md",
+    "roles/developer/commands/ivyflow-tweak.md"
   ],
   "hooks": {
     "claude-code": {

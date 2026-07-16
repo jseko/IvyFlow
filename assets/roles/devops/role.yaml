@@ -1,0 +1,21 @@
+id: devops
+name: "运维/DevOps"
+icon: "🚀"
+description: "环境规划 + CI/CD 搭建 + 部署 + 监控"
+version: 1
+default_workflow: devops
+default_topology: serial
+
+capabilities:
+  - id: planning
+    implementation: devops-env
+  - id: coding
+    implementation: devops-cicd
+  - id: testing
+    implementation: devops-deploy
+  - id: review
+    implementation: devops-monitor
+
+commands:
+  - common
+  - devops

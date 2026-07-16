@@ -49,6 +49,13 @@ export const COMMAND_DOMAIN_REGISTRY: CommandDomainEntry[] = [
   { command: 'knowledge', domain: 'inspect' },
   { command: 'migrate', domain: 'workflow' },
   { command: 'superpowers install', domain: 'platform' },
+  { command: 'guard', domain: 'workflow' },
+  { command: 'guard run', domain: 'workflow' },
+  { command: 'next', domain: 'workflow' },
+  { command: 'handoff', domain: 'workflow' },
+  { command: 'sync', domain: 'workflow' },
+  { command: 'assess', domain: 'inspect' },
+  { command: 'skill', domain: 'inspect' },
   { command: 'mcp', domain: 'system' },
 ];
 

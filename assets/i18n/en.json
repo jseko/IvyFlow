@@ -1,0 +1,61 @@
+{
+  "welcome": {
+    "title": "AI-Native Development Workflow",
+    "detected_platforms": "Detected {count} AI coding platform(s): {names}",
+    "no_platforms": "No AI platforms detected, defaulting to Claude Code"
+  },
+  "scope": {
+    "message": "Install scope:",
+    "project": "Current project (recommended)",
+    "global": "Global config"
+  },
+  "language": {
+    "message": "Language / 工作语言：",
+    "zh_CN": "中文",
+    "en": "English",
+    "auto_detected": "default"
+  },
+  "tech_stack": {
+    "detected": "🔍 Tech stack detected: {desc}"
+  },
+  "codegraph": {
+    "prompt": "Install CodeGraph for semantic code intelligence? (recommended — saves ~16% cost · cuts ~58% tool calls)",
+    "installing": "Installing CodeGraph...",
+    "success": "CodeGraph installed",
+    "failed": "CodeGraph install failed (CLI not found), skipped"
+  },
+  "openspec": {
+    "prompt": "Install OpenSpec for spec-driven development? (recommended — for change proposals and archiving)"
+  },
+  "install": {
+    "starting": "Starting installation...",
+    "kernel": "Installing kernel",
+    "capabilities": "Installing capabilities",
+    "platforms": "Installing to platforms",
+    "config": "Writing config",
+    "complete": "IvyFlow installation complete",
+    "failed_platforms": "Platform install failed: {names}",
+    "failed_capabilities": "Capability install failed: {names}"
+  },
+  "completion": {
+    "title": "IvyFlow is ready!",
+    "quick_start": "Quick start:",
+    "commands": {
+      "workflow": "/ivyflow \"implement login\"   Start full workflow",
+      "quick": "/ivyflow-quick \"fix bug\"    Quick fix",
+      "status": "/ivyflow-status             Check status"
+    },
+    "work_dirs": "Working dirs: docs/ivyflow/specs/",
+    "work_dirs2": "docs/ivyflow/plans/",
+    "installed_caps": "Installed: 🍃 kernel  {caps}",
+    "installed_platforms": "Platforms: {names}",
+    "tip": "Restart your AI tool for slash commands to take effect"
+  },
+  "errors": {
+    "no_platforms": "No platforms selected; aborting.",
+    "no_platforms_selected": "No platforms selected; aborting.",
+    "install_cancelled": "Installation cancelled.",
+    "disk_space": "Insufficient disk space: need {required}MB, available {available}MB",
+    "work_dir_not_found": "Working directory not found: {dir}"
+  }
+}

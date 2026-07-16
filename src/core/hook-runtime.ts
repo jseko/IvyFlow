@@ -37,6 +37,17 @@ export class PreToolUseGuard {
 
   /** Evaluate a tool invocation against the guard rules. */
   evaluate(ctx: PreToolUseContext): HookDecision {
+    // 0. Check MCP tool permission level (v0.33)
+    if (this.config.toolPermissions) {
+      const permLevel = this.config.toolPermissions[ctx.toolName];
+      if (permLevel === 'L3') {
+        return { decision: 'block', reason: `Tool "${ctx.toolName}" is permission level L3: always blocked` };
+      }
+      if (permLevel === 'L2' && !['build', 'verify'].includes(ctx.currentPhase)) {
+        return { decision: 'block', reason: `Tool "${ctx.toolName}" requires L2 permission, not available in ${ctx.currentPhase} phase` };
+      }
+    }
+
     // 1. Check global block patterns
     if (this.config.globalBlock) {
       for (const pattern of this.config.globalBlock) {
@@ -100,9 +111,33 @@ function matchGlob(text: string, pattern: string): boolean {
 export function createDefaultGuardConfig(): PreToolUseGuardConfig {
   return {
     rules: [
+      // Build and Verify: allow all code edits
       { matcher: '**', allowedPhases: ['build', 'verify'], blockMessage: 'Code edits only allowed in BUILD and VERIFY phases' },
+      // Open: only allow OpenSpec artifacts and .ivy config
+      { matcher: 'openspec/**', allowedPhases: ['open', 'design', 'build', 'verify'], blockMessage: 'OpenSpec files can only be edited in open/design/build/verify phases' },
+      { matcher: '.ivy/**', allowedPhases: ['open', 'design', 'build', 'verify', 'archive'], blockMessage: 'IvyFlow config can be edited in any phase' },
+      { matcher: 'docs/superpowers/**', allowedPhases: ['design', 'build', 'verify'], blockMessage: 'Superpowers docs can only be edited in design/build/verify phases' },
+      // Root markdown files: always allowed
+      { matcher: '*.md', allowedPhases: ['open', 'design', 'build', 'verify', 'archive'], blockMessage: '' },
     ],
     globalBlock: [],
+    toolPermissions: {
+      // L0: auto-allow (read/search tools)
+      read: 'L0',
+      grep: 'L0',
+      glob: 'L0',
+      list_files: 'L0',
+      search_file: 'L0',
+      search_content: 'L0',
+      // L2: require confirmation in non-build/verify phases (write tools)
+      write: 'L2',
+      edit: 'L2',
+      apply_patch: 'L2',
+      // L3: always block (destructive tools)
+      rm: 'L3',
+      delete_files: 'L3',
+      force_push: 'L3',
+    },
   };
 }
 

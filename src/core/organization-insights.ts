@@ -11,6 +11,8 @@ import path from 'path';
 import { promises as fs } from 'fs';
 import { fileExists, readDir } from '../utils/fs.js';
 import { readYaml } from '../utils/yaml.js';
+import { readOrgGateThresholds } from './memory/manager.js';
+import type { OrgGateThresholds } from './memory/model.js';
 
 // ─── Types ───
 
@@ -41,6 +43,13 @@ export interface OrgInsightsResult {
   /** true when BOTH < 5 projects AND < 50 total changes */
   dataLimited: boolean;
   totalChanges: number;
+  /** v0.15: Org Intelligence gate status */
+  gateStatus?: {
+    status: 'disabled' | 'warning' | 'full';
+    message: string;
+    current: { projects: number; memories: number; months: number };
+    thresholds: { min: { projects: number; memories: number; months: number }; recommended: { projects: number; memories: number; months: number } };
+  };
 }
 
 interface ProjectData {
@@ -76,6 +85,39 @@ export async function computeOrgInsights(query: OrgInsightsQuery): Promise<OrgIn
   const totalChanges = projectData.reduce((s, d) => s + d.changeCount, 0);
   // v0.12 GA: dataLimited when BOTH < 5 projects AND < 50 changes (not OR)
   const dataLimited = projectPaths.length < 5 && totalChanges < 50;
+
+  // v0.15: Soften Org Intelligence gates with configurable thresholds
+  let gateStatus: OrgInsightsResult['gateStatus'];
+  if (projectPaths.length > 0) {
+    const thresholds = await readOrgGateThresholds(projectPaths[0]);
+    const totalMemories = projectData.reduce((s, d) => s + d.memoryCount, 0);
+    const oldestRecord = findOldestRecord(projectData);
+    const activeMonths = oldestRecord ? Math.max(1, Math.round((Date.now() - new Date(oldestRecord).getTime()) / (1000 * 60 * 60 * 24 * 30))) : 0;
+
+    let status: 'disabled' | 'warning' | 'full';
+    let message: string;
+
+    if (projectPaths.length < thresholds.min_projects || totalMemories < thresholds.min_memories || activeMonths < thresholds.min_active_months) {
+      status = 'disabled';
+      message = `数据不足：需要至少 ${thresholds.min_projects} 个项目、${thresholds.min_memories} 条记忆、${thresholds.min_active_months} 个月活跃期。当前：${projectPaths.length} 项目、${totalMemories} 记忆、${activeMonths} 月`;
+    } else if (projectPaths.length < thresholds.recommended_projects || totalMemories < thresholds.recommended_memories || activeMonths < thresholds.recommended_months) {
+      status = 'warning';
+      message = `数据量有限，部分洞察可能不够准确。建议达到 ${thresholds.recommended_projects}+ 项目、${thresholds.recommended_memories}+ 记忆、${thresholds.recommended_months}+ 月以获得最佳结果。`;
+    } else {
+      status = 'full';
+      message = '';
+    }
+
+    gateStatus = {
+      status,
+      message,
+      current: { projects: projectPaths.length, memories: totalMemories, months: activeMonths },
+      thresholds: {
+        min: { projects: thresholds.min_projects, memories: thresholds.min_memories, months: thresholds.min_active_months },
+        recommended: { projects: thresholds.recommended_projects, memories: thresholds.recommended_memories, months: thresholds.recommended_months },
+      },
+    };
+  }
 
   const aggregates: OrgInsightsResult['aggregates'] = {};
 
@@ -137,6 +179,7 @@ export async function computeOrgInsights(query: OrgInsightsQuery): Promise<OrgIn
     aggregates,
     dataLimited,
     totalChanges,
+    gateStatus,
   };
 }
 
@@ -285,6 +328,25 @@ function computeBottleneckTrend(data: ProjectData): 'up' | 'down' | 'stable' {
   if (ratio < -0.1) return 'down';
   return 'stable';
 }
+
+function findOldestRecord(projectData: ProjectData[]): string | null {
+  let oldest: string | null = null;
+  // Check memory index files for oldest timestamp
+  for (const data of projectData) {
+    if (data.changeCount > 0) {
+      // Use project creation heuristic: earliest phase timestamp
+      const earliest = Object.values(data.phaseDurations)
+        .flat()
+        .reduce((min, d) => (d > 0 && (min === 0 || d < min) ? d : min), 0);
+      if (earliest > 0) {
+        const estDate = new Date(Date.now() - earliest * 86400 * 1000).toISOString();
+        if (!oldest || estDate < oldest) oldest = estDate;
+      }
+    }
+  }
+  return oldest;
+}
+
 
 function calcDaysSince(ts: string): number {
   const start = new Date(ts).getTime();

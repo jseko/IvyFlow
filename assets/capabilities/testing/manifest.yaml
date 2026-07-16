@@ -1,0 +1,13 @@
+name: testing
+display_name: "测试工具链"
+icon: "🧪"
+description: "TDD 方法论 + 测试框架自动适配"
+benefit: "自动检测测试框架，集成质量门控"
+risk_level: low
+network_permission: "无"
+file_permission: "读取项目"
+size_kb: 1500
+rating: 4.6
+recommended: true
+dependencies: []
+conflicts: []

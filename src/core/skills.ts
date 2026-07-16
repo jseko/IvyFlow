@@ -10,6 +10,7 @@
 
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { readFileSync, readdirSync } from 'fs';
 
 import { fileExists, readJson, copyFile, ensureDir, readFile, writeFile, chmod } from '../utils/fs.js';
 import { getPlatformSkillsDir, type Platform, type HookFormat } from './platforms.js';
@@ -23,6 +24,33 @@ import { GeminiHookAdapter } from './render/hook-gemini.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+declare global {
+  var __ivyflow_assets: Record<string, string> | undefined;
+}
+
+function isEmbeddedMode(): boolean {
+  return typeof globalThis.__ivyflow_assets !== 'undefined';
+}
+
+function getEmbeddedAsset(relativePath: string): string | undefined {
+  return globalThis.__ivyflow_assets?.[relativePath];
+}
+
+function listEmbeddedAssets(prefix: string): string[] {
+  const assets = globalThis.__ivyflow_assets;
+  if (!assets) return [];
+  return Object.keys(assets).filter(k => k.startsWith(prefix + '/'));
+}
+
+function readAssetFile(relativePath: string): string {
+  if (isEmbeddedMode()) {
+    const content = getEmbeddedAsset(relativePath);
+    if (content === undefined) throw new Error(`Embedded asset not found: ${relativePath}`);
+    return content;
+  }
+  return readFileSync(path.join(getAssetsDir(), relativePath), 'utf-8');
+}
 
 interface ManifestHook {
   type: 'static' | 'rendered';
@@ -45,6 +73,16 @@ export function getAssetsDir(): string {
 }
 
 async function readManifest(): Promise<Manifest> {
+  if (isEmbeddedMode()) {
+    const raw = getEmbeddedAsset('manifest.json');
+    if (!raw) throw new Error('Manifest not found in embedded assets');
+    const manifest = JSON.parse(raw) as Manifest;
+    if (!manifest || !Array.isArray(manifest.skills)) {
+      throw new Error('Invalid embedded manifest: "skills" must be an array');
+    }
+    return manifest;
+  }
+
   const manifestPath = path.join(getAssetsDir(), 'manifest.json');
   if (!(await fileExists(manifestPath))) {
     throw new Error(`Manifest not found at ${manifestPath}`);
@@ -81,9 +119,21 @@ export async function copyIvySkillsForPlatform(
   let skipped = 0;
 
   for (const skillRelPath of manifest.skills) {
-    const src = path.join(assetsDir, 'skills', skillRelPath);
-    const dest = path.join(baseDir, getPlatformSkillsDir(platform, scope), 'skills', skillRelPath);
+    const assetRelPath = skillRelPath.replace(/\\/g, '/');
+    // Strip roles/developer/skills/ prefix for destination path
+    const destRelPath = skillRelPath.replace(/^roles\/developer\/skills\//, '');
+    const dest = path.join(baseDir, getPlatformSkillsDir(platform, scope), 'skills', destRelPath);
 
+    if (isEmbeddedMode()) {
+      const content = getEmbeddedAsset(assetRelPath);
+      if (content === undefined) throw new Error(`Skill source not found: ${assetRelPath}`);
+      if (!overwrite && (await fileExists(dest))) { skipped++; continue; }
+      await writeFile(dest, content);
+      copied++;
+      continue;
+    }
+
+    const src = path.join(assetsDir, skillRelPath);
     if (!(await fileExists(src))) {
       throw new Error(`Skill source not found: ${src}`);
     }
@@ -154,17 +204,26 @@ export async function copyIvyRulesForPlatform(
   let skipped = 0;
 
   for (const ruleRelPath of rulePaths) {
-    const src = path.join(assetsDir, 'rules', ruleRelPath);
-    if (!(await fileExists(src))) {
-      throw new Error(`Rule source not found: ${src}`);
-    }
+    const assetRelPath = `roles/developer/rules/${ruleRelPath}`.replace(/\\/g, '/');
     const dest = resolveRuleDest(baseDir, platform, scope, ruleRelPath);
 
     if (!overwrite && (await fileExists(dest))) {
       skipped++;
       continue;
     }
-    const md = await readFile(src);
+
+    let md: string;
+    if (isEmbeddedMode()) {
+      const content = getEmbeddedAsset(assetRelPath);
+      if (content === undefined) throw new Error(`Rule source not found: ${assetRelPath}`);
+      md = content;
+    } else {
+      const src = path.join(assetsDir, 'roles', 'developer', 'rules', ruleRelPath);
+      if (!(await fileExists(src))) {
+        throw new Error(`Rule source not found: ${src}`);
+      }
+      md = await readFile(src);
+    }
     const rendered = renderRule(platform.rulesFormat, md);
     await ensureDir(path.dirname(dest));
     await writeFile(dest, rendered);
@@ -237,4 +296,75 @@ export async function installIvyHookForPlatform(
   }
 
   return { installed: true, path: dest };
+}
+
+/**
+ * Copy IvyFlow Commands from role directory into the platform's commands directory.
+ */
+export async function copyIvyCommandsForPlatform(
+  baseDir: string,
+  platform: Platform,
+  overwrite: boolean,
+  scope: InstallScope = 'project',
+  role: string = 'developer',
+): Promise<CopyResult> {
+  const skillsDir = getPlatformSkillsDir(platform, scope);
+  const platformRoot = path.join(baseDir, skillsDir);
+  const commandsDir = path.join(platformRoot, 'commands');
+  await ensureDir(commandsDir);
+
+  let copied = 0;
+  let skipped = 0;
+
+  // Install role-specific commands
+  if (isEmbeddedMode()) {
+    const roleCmdsPrefix = `roles/${role}/commands`;
+    const cmdFiles = listEmbeddedAssets(roleCmdsPrefix);
+    for (const cmdKey of cmdFiles) {
+      const cmdName = path.basename(cmdKey);
+      const dest = path.join(commandsDir, cmdName);
+      if (!overwrite && (await fileExists(dest))) { skipped++; continue; }
+      const content = readAssetFile(cmdKey);
+      if (content !== undefined) {
+        await writeFile(dest, content);
+        copied++;
+      }
+    }
+
+    // Common commands
+    const commonPrefix = 'commands/common';
+    const commonFiles = listEmbeddedAssets(commonPrefix);
+    for (const cmdKey of commonFiles) {
+      const cmdName = path.basename(cmdKey);
+      const dest = path.join(commandsDir, cmdName);
+      if (!overwrite && (await fileExists(dest))) continue;
+      const content = readAssetFile(cmdKey);
+      if (content !== undefined) {
+        await writeFile(dest, content);
+      }
+    }
+  } else {
+    const roleCmdsDir = path.join(getAssetsDir(), 'roles', role, 'commands');
+    try {
+      const cmdFiles = readdirSync(roleCmdsDir);
+      for (const cmdFile of cmdFiles) {
+        const dest = path.join(commandsDir, cmdFile);
+        if (!overwrite && (await fileExists(dest))) { skipped++; continue; }
+        await copyFile(path.join(roleCmdsDir, cmdFile), dest);
+        copied++;
+      }
+    } catch { /* role has no commands directory */ }
+
+    const commonCmdsDir = path.join(getAssetsDir(), 'commands', 'common');
+    try {
+      const commonFiles = readdirSync(commonCmdsDir);
+      for (const cmdFile of commonFiles) {
+        const dest = path.join(commandsDir, cmdFile);
+        if (!overwrite && (await fileExists(dest))) continue;
+        await copyFile(path.join(commonCmdsDir, cmdFile), dest);
+      }
+    } catch { /* no common commands */ }
+  }
+
+  return { copied, skipped };
 }

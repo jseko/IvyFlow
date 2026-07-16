@@ -1,0 +1,60 @@
+id: qa
+name: "QA 测试流程"
+description: "testcase → execute → bug → report → regression"
+version: 1
+category: testing
+supports:
+  - qa
+
+phases:
+  - id: testcase
+    name: "用例设计"
+    requires:
+      - planning
+    artifacts:
+      - docs/testcases/*.md
+  - id: execute
+    name: "测试执行"
+    requires:
+      - testing
+    artifacts:
+      - test-results/*.json
+  - id: bug
+    name: "缺陷跟踪"
+    requires:
+      - review
+    artifacts:
+      - docs/bugs/*.md
+  - id: report
+    name: "测试报告"
+    requires:
+      - documentation
+    artifacts:
+      - docs/reports/test-report.md
+  - id: regression
+    name: "回归验证"
+    requires:
+      - testing
+    artifacts:
+      - docs/reports/regression-report.md
+
+transitions:
+  - from: testcase
+    to: execute
+    condition: all_guards_pass
+  - from: execute
+    to: bug
+    condition: all_guards_pass
+  - from: bug
+    to: report
+    condition: all_guards_pass
+  - from: report
+    to: regression
+    condition: all_guards_pass
+  - from: bug
+    to: execute
+    condition: rollback_allowed
+
+forbidden_transitions:
+  - from: regression
+    to: testcase

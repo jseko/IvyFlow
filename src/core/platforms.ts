@@ -47,6 +47,14 @@ export interface Platform {
    * @since v0.8
    */
   rulesBaseDir?: string;
+  /**
+   * Tier classification for guard enforcement priority.
+   * Tier 1 = core platforms (claude, cursor, github-copilot)
+   * Tier 2 = secondary platforms (windsurf, gemini-cli, cline, amazon-q, continue, roocode)
+   * Tier 3 = other platforms (codebuddy, trae, qoder, kilocode, auggie, kimi-code, lingma, ...)
+   * @since v0.15
+   */
+  tier: 1 | 2 | 3;
 }
 
 export function getPlatformSkillsDir(platform: Platform, scope: InstallScope): string {
@@ -79,6 +87,7 @@ export const PLATFORMS: Platform[] = [
       { rel: '.claude/skills', confidence: 0.8 },
       { rel: '.claude', confidence: 0.6 },
     ],
+    tier: 1,
   },
   {
     id: 'cursor',
@@ -96,6 +105,7 @@ export const PLATFORMS: Platform[] = [
       { rel: '.cursor/rules', confidence: 0.8 },
       { rel: '.cursor', confidence: 0.6 },
     ],
+    tier: 1,
   },
   {
     id: 'github-copilot',
@@ -111,6 +121,7 @@ export const PLATFORMS: Platform[] = [
       { rel: '.github/copilot-instructions.md', confidence: 1.0 },
       { rel: '.github', confidence: 0.6 },
     ],
+    tier: 1,
   },
   {
     id: 'windsurf',
@@ -128,6 +139,7 @@ export const PLATFORMS: Platform[] = [
       { rel: '.windsurf/rules', confidence: 0.8 },
       { rel: '.windsurf', confidence: 0.6 },
     ],
+    tier: 2,
   },
   {
     id: 'codebuddy',
@@ -141,6 +153,7 @@ export const PLATFORMS: Platform[] = [
       { rel: '.codebuddy/rules', confidence: 0.8 },
       { rel: '.codebuddy', confidence: 0.6 },
     ],
+    tier: 3,
   },
   {
     id: 'trae',
@@ -155,6 +168,7 @@ export const PLATFORMS: Platform[] = [
       { rel: '.trae/rules', confidence: 0.8 },
       { rel: '.trae', confidence: 0.6 },
     ],
+    tier: 3,
   },
   {
     id: 'qoder',
@@ -168,6 +182,7 @@ export const PLATFORMS: Platform[] = [
       { rel: '.qoder/rules', confidence: 0.8 },
       { rel: '.qoder', confidence: 0.6 },
     ],
+    tier: 3,
   },
   {
     id: 'cline',
@@ -182,6 +197,7 @@ export const PLATFORMS: Platform[] = [
       { rel: '.cline/rules', confidence: 0.8 },
       { rel: '.cline', confidence: 0.6 },
     ],
+    tier: 2,
   },
   {
     id: 'amazon-q',
@@ -195,6 +211,7 @@ export const PLATFORMS: Platform[] = [
       { rel: '.amazonq/rules', confidence: 0.8 },
       { rel: '.amazonq', confidence: 0.6 },
     ],
+    tier: 2,
   },
   // ── v0.8 New Certified Platforms ──
   {
@@ -212,6 +229,7 @@ export const PLATFORMS: Platform[] = [
       { rel: '.gemini/settings.json', confidence: 1.0 },
       { rel: '.gemini', confidence: 0.8 },
     ],
+    tier: 2,
   },
   {
     id: 'roocode',
@@ -225,6 +243,7 @@ export const PLATFORMS: Platform[] = [
       { rel: '.roo/rules', confidence: 0.8 },
       { rel: '.roo', confidence: 0.6 },
     ],
+    tier: 2,
   },
   // ── v0.8 Experimental Platforms ──
   {
@@ -239,6 +258,7 @@ export const PLATFORMS: Platform[] = [
       { rel: '.continue/config.json', confidence: 0.8 },
       { rel: '.continue', confidence: 0.6 },
     ],
+    tier: 2,
   },
   {
     id: 'kilocode',
@@ -252,6 +272,7 @@ export const PLATFORMS: Platform[] = [
       { rel: '.kilocode/rules', confidence: 0.8 },
       { rel: '.kilocode', confidence: 0.6 },
     ],
+    tier: 3,
   },
   {
     id: 'auggie',
@@ -265,6 +286,7 @@ export const PLATFORMS: Platform[] = [
       { rel: '.augment/rules', confidence: 0.8 },
       { rel: '.augment', confidence: 0.6 },
     ],
+    tier: 3,
   },
   {
     id: 'kimi-code',
@@ -278,6 +300,7 @@ export const PLATFORMS: Platform[] = [
       { rel: '.kimi-code/rules', confidence: 0.8 },
       { rel: '.kimi-code', confidence: 0.6 },
     ],
+    tier: 3,
   },
   {
     id: 'lingma',
@@ -291,21 +314,22 @@ export const PLATFORMS: Platform[] = [
       { rel: '.lingma/rules', confidence: 0.8 },
       { rel: '.lingma', confidence: 0.6 },
     ],
+    tier: 3,
   },
   // ── v0.18 New Experimental Platforms ──
-  { id: 'codex', name: 'Codex CLI', skillsDir: '.codex', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', certification: 'experimental', detectionPaths: [{ rel: '.codex/rules', confidence: 0.8 }, { rel: '.codex', confidence: 0.6 }] },
-  { id: 'opencode', name: 'OpenCode', skillsDir: '.opencode', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', certification: 'experimental', detectionPaths: [{ rel: '.opencode/rules', confidence: 0.8 }, { rel: '.opencode', confidence: 0.6 }] },
-  { id: 'qwen', name: 'Qwen Code', skillsDir: '.qwen', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', certification: 'experimental', detectionPaths: [{ rel: '.qwen/settings.json', confidence: 1.0 }, { rel: '.qwen/rules', confidence: 0.8 }, { rel: '.qwen', confidence: 0.6 }] },
-  { id: 'kiro', name: 'Kiro', skillsDir: '.kiro', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', supportsHooks: true, hookFormat: 'kiro', hookPath: 'hooks/ivy-phase-guard.json', certification: 'experimental', detectionPaths: [{ rel: '.kiro/settings.json', confidence: 1.0 }, { rel: '.kiro/rules', confidence: 0.8 }, { rel: '.kiro', confidence: 0.6 }] },
-  { id: 'junie', name: 'Junie', skillsDir: '.junie', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', certification: 'experimental', detectionPaths: [{ rel: '.junie/rules', confidence: 0.8 }, { rel: '.junie', confidence: 0.6 }] },
-  { id: 'costrict', name: 'CoStrict', skillsDir: '.costrict', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', certification: 'experimental', detectionPaths: [{ rel: '.costrict/rules', confidence: 0.8 }, { rel: '.costrict', confidence: 0.6 }] },
-  { id: 'crush', name: 'Crush', skillsDir: '.crush', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', certification: 'experimental', detectionPaths: [{ rel: '.crush/rules', confidence: 0.8 }, { rel: '.crush', confidence: 0.6 }] },
-  { id: 'factory', name: 'Factory (Droid)', skillsDir: '.factory', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', certification: 'experimental', detectionPaths: [{ rel: '.factory/rules', confidence: 0.8 }, { rel: '.factory', confidence: 0.6 }] },
-  { id: 'iflow', name: 'IFlow CLI', skillsDir: '.iflow', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', certification: 'experimental', detectionPaths: [{ rel: '.iflow/rules', confidence: 0.8 }, { rel: '.iflow', confidence: 0.6 }] },
-  { id: 'pi', name: 'Pi', skillsDir: '.pi', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', certification: 'experimental', detectionPaths: [{ rel: '.pi/rules', confidence: 0.8 }, { rel: '.pi', confidence: 0.6 }] },
-  { id: 'antigravity', name: 'AntiGravity', skillsDir: '.antigravity', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', certification: 'experimental', detectionPaths: [{ rel: '.antigravity/rules', confidence: 0.8 }, { rel: '.antigravity', confidence: 0.6 }] },
-  { id: 'bob', name: 'Bob', skillsDir: '.bob', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', certification: 'experimental', detectionPaths: [{ rel: '.bob/rules', confidence: 0.8 }, { rel: '.bob', confidence: 0.6 }] },
-  { id: 'forgecode', name: 'Forge Code', skillsDir: '.forgecode', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', certification: 'experimental', detectionPaths: [{ rel: '.forgecode/rules', confidence: 0.8 }, { rel: '.forgecode', confidence: 0.6 }] },
+  { id: 'codex', name: 'Codex CLI', skillsDir: '.codex', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', certification: 'experimental', detectionPaths: [{ rel: '.codex/rules', confidence: 0.8 }, { rel: '.codex', confidence: 0.6 }], tier: 3 },
+  { id: 'opencode', name: 'OpenCode', skillsDir: '.opencode', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', certification: 'experimental', detectionPaths: [{ rel: '.opencode/rules', confidence: 0.8 }, { rel: '.opencode', confidence: 0.6 }], tier: 3 },
+  { id: 'qwen', name: 'Qwen Code', skillsDir: '.qwen', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', certification: 'experimental', detectionPaths: [{ rel: '.qwen/settings.json', confidence: 1.0 }, { rel: '.qwen/rules', confidence: 0.8 }, { rel: '.qwen', confidence: 0.6 }], tier: 3 },
+  { id: 'kiro', name: 'Kiro', skillsDir: '.kiro', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', certification: 'experimental', detectionPaths: [{ rel: '.kiro/settings.json', confidence: 1.0 }, { rel: '.kiro/rules', confidence: 0.8 }, { rel: '.kiro', confidence: 0.6 }], tier: 3 },
+  { id: 'junie', name: 'Junie', skillsDir: '.junie', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', certification: 'experimental', detectionPaths: [{ rel: '.junie/rules', confidence: 0.8 }, { rel: '.junie', confidence: 0.6 }], tier: 3 },
+  { id: 'costrict', name: 'CoStrict', skillsDir: '.costrict', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', certification: 'experimental', detectionPaths: [{ rel: '.costrict/rules', confidence: 0.8 }, { rel: '.costrict', confidence: 0.6 }], tier: 3 },
+  { id: 'crush', name: 'Crush', skillsDir: '.crush', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', certification: 'experimental', detectionPaths: [{ rel: '.crush/rules', confidence: 0.8 }, { rel: '.crush', confidence: 0.6 }], tier: 3 },
+  { id: 'factory', name: 'Factory (Droid)', skillsDir: '.factory', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', certification: 'experimental', detectionPaths: [{ rel: '.factory/rules', confidence: 0.8 }, { rel: '.factory', confidence: 0.6 }], tier: 3 },
+  { id: 'iflow', name: 'IFlow CLI', skillsDir: '.iflow', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', certification: 'experimental', detectionPaths: [{ rel: '.iflow/rules', confidence: 0.8 }, { rel: '.iflow', confidence: 0.6 }], tier: 3 },
+  { id: 'pi', name: 'Pi', skillsDir: '.pi', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', certification: 'experimental', detectionPaths: [{ rel: '.pi/rules', confidence: 0.8 }, { rel: '.pi', confidence: 0.6 }], tier: 3 },
+  { id: 'antigravity', name: 'AntiGravity', skillsDir: '.antigravity', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', certification: 'experimental', detectionPaths: [{ rel: '.antigravity/rules', confidence: 0.8 }, { rel: '.antigravity', confidence: 0.6 }], tier: 3 },
+  { id: 'bob', name: 'Bob', skillsDir: '.bob', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', certification: 'experimental', detectionPaths: [{ rel: '.bob/rules', confidence: 0.8 }, { rel: '.bob', confidence: 0.6 }], tier: 3 },
+  { id: 'forgecode', name: 'Forge Code', skillsDir: '.forgecode', openspecToolId: '', rulesDir: 'rules', rulesFormat: 'md', certification: 'experimental', detectionPaths: [{ rel: '.forgecode/rules', confidence: 0.8 }, { rel: '.forgecode', confidence: 0.6 }], tier: 3 },
 ];
 
 export function getPlatformById(id: string): Platform | undefined {
@@ -314,22 +338,10 @@ export function getPlatformById(id: string): Platform | undefined {
 
 export type PlatformLifecycle = 'certified' | 'experimental' | 'planned' | 'deprecated' | 'unsupported';
 
-export const PLATFORM_LIFECYCLE: Record<string, PlatformLifecycle> = {
-  claude: 'certified', cursor: 'certified', 'github-copilot': 'certified',
-  windsurf: 'certified', codebuddy: 'certified', trae: 'certified',
-  qoder: 'certified', cline: 'certified', 'amazon-q': 'certified',
-  'gemini-cli': 'certified', roocode: 'certified',
-  continue: 'experimental', kilocode: 'experimental', auggie: 'experimental',
-  'kimi-code': 'experimental', lingma: 'experimental',
-  codex: 'experimental', opencode: 'experimental', qwen: 'experimental',
-  kiro: 'experimental', junie: 'experimental', costrict: 'experimental',
-  crush: 'experimental', factory: 'experimental', iflow: 'experimental',
-  pi: 'experimental', antigravity: 'experimental', bob: 'experimental',
-  forgecode: 'experimental',
-};
-
 export function getPlatformLifecycle(platformId: string): PlatformLifecycle {
-  return PLATFORM_LIFECYCLE[platformId] ?? 'experimental';
+  const p = PLATFORMS.find((pl) => pl.id === platformId);
+  if (!p) return 'experimental';
+  return p.certification as PlatformLifecycle;
 }
 
 export function getPlatformsByLifecycle(): Record<PlatformLifecycle, string[]> {
@@ -341,4 +353,16 @@ export function getPlatformsByLifecycle(): Record<PlatformLifecycle, string[]> {
     groups[lifecycle].push(p.id);
   }
   return groups;
+}
+
+/**
+ * Return the tier classification for a platform by ID.
+ * Tier 1 = core guard-enforced platforms.
+ * Tier 2 = secondary platforms with partial guard support.
+ * Tier 3 = experimental or niche platforms.
+ * Falls back to 3 when the platform is not found.
+ * @since v0.15
+ */
+export function getPlatformTier(platformId: string): 1 | 2 | 3 {
+  return PLATFORMS.find((p) => p.id === platformId)?.tier ?? 3;
 }

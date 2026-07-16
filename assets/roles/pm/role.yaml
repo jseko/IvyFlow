@@ -1,0 +1,25 @@
+id: pm
+name: "产品经理"
+icon: "📋"
+description: "需求分析 + PRD 撰写 + 评审验收"
+version: 1
+default_workflow: product
+default_topology: supervisor
+
+capabilities:
+  - id: research
+    implementation: pm-analyze
+  - id: documentation
+    implementation: pm-prd
+  - id: planning
+    implementation: pm-collect
+  - id: review
+    implementation: pm-review
+
+commands:
+  - common
+  - pm
+
+pipeline_downstream:
+  - role: developer
+    stage: coding

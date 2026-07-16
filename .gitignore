@@ -47,8 +47,20 @@ Thumbs.db
 
 # spec-workflow MCP local state (not part of IvyFlow source)
 .spec-workflow/
-docs/
+# VitePress build output
+docs/.vitepress/dist/
+docs/.vitepress/cache/
 openspec/
 .claude/
 CLAUDE.md
 CHANGELOG.md
+vendors/
+.codebuddy/
+.codegraph/
+.comet/
+.opencode/
+.playwright/
+.superpowers/
+bin-out/
+specs/
+AGENTS.md

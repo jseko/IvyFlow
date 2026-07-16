@@ -1,0 +1,16 @@
+- document [ref=e3]:
+  - generic [ref=e5]:
+    - generic [ref=e13]:
+      - generic [ref=e18]: 初始部署
+      - generic [ref=e23]: 有效性评分下降
+      - generic [ref=e28]: 评分恢复
+      - generic [ref=e33]: 低于失效阈值
+      - generic [ref=e38]: 修复结构部署
+      - generic [ref=e43]: 稳定性确认
+      - generic [ref=e48]: 修复无效
+      - generic [ref=e53]: 不可恢复
+    - generic [ref=e54]:
+      - generic [ref=e61]: ACTIVE
+      - generic [ref=e66]: DEGRADED
+      - generic [ref=e71]: FAILED
+      - generic [ref=e76]: RECOVERING

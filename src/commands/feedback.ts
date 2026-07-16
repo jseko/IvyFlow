@@ -6,8 +6,8 @@
 
 import { logger } from '../utils/logger.js';
 import { getFeedbackSummary, analyzeAllRules, type RuleFeedbackAnalysis } from '../core/feedback-analyzer.js';
-import { readAllSignals } from '../core/feedback-collector.js';
-import { cleanupOldSignals } from '../core/feedback-collector.js';
+import { readAllSignals, cleanupOldSignals } from '../core/feedback-collector.js';
+import { type RuleTriggerSignal } from '../core/feedback-types.js';
 import { fileExists, readFile } from '../utils/fs.js';
 import path from 'path';
 
@@ -70,7 +70,7 @@ async function runStats(cwd: string, opts: FeedbackOptions): Promise<number> {
 
     const ruleStats = new Map<string, { triggers: number; passes: number; skips: number }>();
     for (const s of ruleSignals) {
-      const ruleId = (s as any).ruleId;
+      const ruleId = (s as unknown as Record<string, unknown>).ruleId as string;
       const stats = ruleStats.get(ruleId) || { triggers: 0, passes: 0, skips: 0 };
       stats.triggers += 1;
       if (s.result === 'pass') stats.passes += 1;
@@ -116,7 +116,7 @@ async function runHistory(cwd: string, opts: FeedbackOptions): Promise<number> {
 
     if (s.type === 'rule_trigger') {
       stats.triggers += 1;
-      if ((s as any).result === 'pass') stats.passes += 1;
+      if ((s as RuleTriggerSignal).result === 'pass') stats.passes += 1;
     } else if (s.type === 'gap_detected') {
       stats.gaps += 1;
     }

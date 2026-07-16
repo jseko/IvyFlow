@@ -136,7 +136,7 @@ describe('PreToolUseGuard', () => {
   it('delegates render to adapter on install', async () => {
     const mockPlatform = {
       id: 'test', name: 'Test', skillsDir: '.test',
-      openspecToolId: '', certification: 'certified' as const,
+      openspecToolId: '', certification: 'certified' as const, tier: 3 as const,
       detectionPaths: [],
     };
     const result = await guard.install(mockPlatform, tmpDir);
@@ -213,8 +213,8 @@ describe('detectLegacyHookConfig', () => {
 describe('createDefaultGuardConfig', () => {
   it('creates a valid config with rules and empty globalBlock', () => {
     const config = createDefaultGuardConfig();
-    expect(config.rules).toHaveLength(1);
-    expect(config.rules[0].allowedPhases).toContain('build');
+    expect(config.rules.length).toBeGreaterThanOrEqual(1);
+    expect(config.rules.some((r) => r.allowedPhases.includes('build'))).toBe(true);
     expect(config.globalBlock).toEqual([]);
   });
 });

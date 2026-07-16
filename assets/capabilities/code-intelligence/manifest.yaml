@@ -1,0 +1,13 @@
+name: code-intelligence
+display_name: "代码理解"
+icon: "🔍"
+description: "语义索引，让 AI 理解你的代码结构"
+benefit: "节省 ~58% 工具调用，加速代码问答"
+risk_level: low
+network_permission: "无"
+file_permission: "读取项目"
+size_kb: 2150
+rating: 4.8
+recommended: true
+dependencies: []
+conflicts: []

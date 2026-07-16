@@ -1,0 +1,11 @@
+ivyflow-ci:
+  stage: quality
+  image: node:20
+  script:
+    - npm ci
+    - npx ivy check
+    - npm test
+    - npx ivy verify
+  only:
+    - main
+    - merge_requests

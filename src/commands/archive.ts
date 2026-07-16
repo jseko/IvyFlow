@@ -61,6 +61,10 @@ export async function runArchive(opts: ArchiveCommandOptions = {}): Promise<numb
     if (changes.length === 1) {
       changeName = changes[0].name;
       logger.info(`Archiving the only active change: ${changeName}`);
+    } else if (!process.stdout.isTTY) {
+      // Non-TTY: auto-select first change
+      changeName = changes[0].name;
+      logger.info(`Auto-selecting first change in non-TTY mode: ${changeName}`);
     } else {
       const { select } = await import('@inquirer/prompts');
       changeName = await select({

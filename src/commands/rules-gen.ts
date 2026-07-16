@@ -63,7 +63,7 @@ async function runGenerate(cwd: string, techStack: TechStack, projectIntent: Pro
   const profile = await generateRules(techStack, projectIntent);
 
   const ivyDir = path.join(cwd, '.ivy');
-  if (await fileExists(ivyDir).catch(() => false) || true) {
+  if (await fileExists(ivyDir).catch(() => false)) {
     await writeRuleProfile(cwd, profile);
   }
 

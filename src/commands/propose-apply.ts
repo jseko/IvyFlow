@@ -1,9 +1,8 @@
-import { execSync } from 'child_process';
 import path from 'path';
 import { logger } from '../utils/logger.js';
 import { fileExists } from '../utils/fs.js';
 import { WorktreeManager } from '../core/worktree-manager.js';
-import { OpenSpecBridge } from '../core/openspec-bridge.js';
+import { readState, writeState, createInitialState } from '../core/lifecycle-projection.js';
 
 export interface ProposeOptions {
   cwd?: string;
@@ -13,7 +12,11 @@ export interface ProposeOptions {
 export async function runPropose(changeName: string, opts: ProposeOptions = {}): Promise<number> {
   const cwd = opts.cwd ?? process.cwd();
 
-  // 1) Create worktree
+  const state = await readState(cwd);
+  if (state && state.checkpoint !== 'open') {
+    logger.warn(`Current phase is '${state.checkpoint}', not 'open'. Proceeding anyway.`);
+  }
+
   logger.step('Creating worktree...');
   const mgr = new WorktreeManager({ cwd });
   try {
@@ -23,33 +26,19 @@ export async function runPropose(changeName: string, opts: ProposeOptions = {}):
     logger.warn(`Worktree creation skipped: ${(err as Error).message}`);
   }
 
-  // 2) Run OpenSpec propose — sequential or parallel
-  if (opts.parallel) {
-    logger.step('Running OpenSpec propose (parallel mode)...');
-    try {
-      execSync(`openspec new change "${changeName}"`, { cwd, stdio: 'inherit' });
-    } catch {
-      logger.warn('OpenSpec propose may have already been run or is unavailable.');
-    }
-
-    logger.step('Generating artifacts in parallel...');
-    const bridge = new OpenSpecBridge({ changeName, cwd });
-    const count = await bridge.generateArtifactsParallel(changeName);
-    logger.success(`Generated ${count} artifact(s) in parallel.`);
+  logger.step('Initializing state...');
+  if (!state) {
+    const newState = createInitialState(changeName);
+    await writeState(cwd, newState);
+    logger.success(`State initialized for "${changeName}" at checkpoint "open".`);
   } else {
-    logger.step('Running OpenSpec propose...');
-    try {
-      execSync(`openspec new change "${changeName}"`, { cwd, stdio: 'inherit' });
-    } catch {
-      logger.warn('OpenSpec propose may have already been run or is unavailable.');
-    }
+    logger.info(`State already exists for "${changeName}" at checkpoint "${state.checkpoint}".`);
   }
 
-  // 3) Recommend DESIGN phase
-  logger.step('Recommending phase transition...');
-  const bridge = new OpenSpecBridge({ changeName, cwd });
-  const rec = await bridge.translateEvent('proposed', changeName);
-  await bridge.recommendPhase(rec);
+  logger.info('');
+  logger.info('To create OpenSpec artifacts, load the ivy-open skill:');
+  logger.info('  Use the Skill tool to load the ivy-open skill');
+  logger.info('');
 
   return 0;
 }
@@ -63,18 +52,15 @@ export async function runApply(changeName: string, opts: ProposeOptions = {}): P
     return 1;
   }
 
-  // 1) Run /opsx:apply
-  logger.step('Running OpenSpec apply...');
-  try {
-    execSync(`openspec start apply "${changeName}"`, { cwd, stdio: 'inherit' });
-  } catch {
-    logger.warn('OpenSpec apply may not be available or already in progress.');
+  const state = await readState(cwd);
+  if (state && state.checkpoint !== 'build') {
+    logger.warn(`Current phase is '${state.checkpoint}', not 'build'. Expected phase for apply is 'build'.`);
   }
 
-  // 2) Recommend VERIFY phase
-  const bridge = new OpenSpecBridge({ changeName, cwd });
-  const rec = await bridge.translateEvent('applied', changeName);
-  await bridge.recommendPhase(rec);
+  logger.info('');
+  logger.info('To implement this change, load the ivy-build skill:');
+  logger.info('  Use the Skill tool to load the ivy-build skill');
+  logger.info('');
 
   return 0;
 }

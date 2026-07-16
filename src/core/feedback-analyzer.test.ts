@@ -10,6 +10,7 @@ import os from 'os';
 import { promises as fs } from 'fs';
 import { randomBytes } from 'crypto';
 
+import { IvyPhase } from './phase-machine.js';
 import {
   analyzeRuleFeedback,
   analyzeAllRules,
@@ -143,9 +144,9 @@ describe('feedback-analyzer', () => {
   // TC-16: ivy rules audit --explain <id> 输出含分类依据 + 上下文
   describe('TC-16: Context breakdown', () => {
     it('should include context breakdown in analysis', async () => {
-      await recordRuleTrigger(tmpDir, 'context-rule', 'pass', { phase: 'build' as any, environment: 'local' });
-      await recordRuleTrigger(tmpDir, 'context-rule', 'skip', { phase: 'verify' as any, environment: 'ci' });
-      await recordRuleTrigger(tmpDir, 'context-rule', 'pass', { phase: 'build' as any, environment: 'local' });
+      await recordRuleTrigger(tmpDir, 'context-rule', 'pass', { phase: IvyPhase.BUILD, environment: 'local' });
+      await recordRuleTrigger(tmpDir, 'context-rule', 'skip', { phase: IvyPhase.VERIFY, environment: 'ci' });
+      await recordRuleTrigger(tmpDir, 'context-rule', 'pass', { phase: IvyPhase.BUILD, environment: 'local' });
 
       const analysis = await analyzeRuleFeedback(tmpDir, 'context-rule');
 

@@ -1,0 +1,51 @@
+id: architecture
+name: "架构设计流程"
+description: "research → design → review → guide"
+version: 1
+category: architecture
+supports:
+  - architect
+
+phases:
+  - id: research
+    name: "方案调研"
+    requires:
+      - research
+    artifacts:
+      - docs/architecture/research/*.md
+  - id: design
+    name: "架构设计"
+    requires:
+      - design
+    artifacts:
+      - docs/architecture/design/*.md
+  - id: review
+    name: "评审"
+    requires:
+      - review
+    artifacts:
+      - docs/architecture/review-record.md
+  - id: guide
+    name: "落地指导"
+    requires:
+      - documentation
+    artifacts:
+      - docs/architecture/implementation-guide.md
+
+transitions:
+  - from: research
+    to: design
+    condition: all_guards_pass
+  - from: design
+    to: review
+    condition: all_guards_pass
+  - from: review
+    to: guide
+    condition: all_guards_pass
+  - from: review
+    to: design
+    condition: rollback_allowed
+
+forbidden_transitions:
+  - from: guide
+    to: research

@@ -1,0 +1,96 @@
+id: openspec
+name: "OpenSpec 开发流程"
+description: "open → design → build → verify → archive"
+version: 1
+category: development
+supports:
+  - developer
+  - architect
+
+phases:
+  - id: open
+    name: "开启"
+    requires:
+      - planning
+    artifacts:
+      - proposal.md
+      - design.md
+      - tasks.md
+    guards:
+      - proposal_exists
+      - design_exists
+      - tasks_exist
+
+  - id: design
+    name: "设计"
+    requires:
+      - design
+    artifacts:
+      - docs/superpowers/specs/*-design.md
+    guards:
+      - handoff_context
+      - handoff_hash
+
+  - id: build
+    name: "构建"
+    requires:
+      - coding
+    artifacts:
+      - src/**
+      - tests/**
+    guards:
+      - isolation_set
+      - build_mode_set
+      - tasks_complete
+
+  - id: verify
+    name: "验证"
+    requires:
+      - testing
+      - review
+    artifacts:
+      - verification_report
+    guards:
+      - verification_report_exists
+      - branch_handled
+
+  - id: archive
+    name: "归档"
+    requires: []
+    artifacts:
+      - openspec/changes/archive/*
+    guards:
+      - archived_flag
+
+transitions:
+  - from: open
+    to: design
+    condition: all_guards_pass
+  - from: design
+    to: build
+    condition: all_guards_pass
+  - from: design
+    to: open
+    condition: rollback_allowed
+  - from: build
+    to: verify
+    condition: all_guards_pass
+  - from: build
+    to: design
+    condition: rollback_allowed
+  - from: verify
+    to: archive
+    condition: all_guards_pass
+  - from: verify
+    to: build
+    condition: rollback_allowed
+
+forbidden_transitions:
+  - from: verify
+    to: design
+  - from: archive
+    to: open
+  - from: archive
+    to: design
+  - from: archive
+    to: build

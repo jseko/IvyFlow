@@ -20,6 +20,8 @@ import {
 import type { LinkRelation } from '../core/knowledge-linking.js';
 import { readYaml } from '../utils/yaml.js';
 import type { MemoryRecordType } from '../core/types.js';
+import { checkFeatureGate } from '../core/memory/manager.js';
+import type { FeatureGateResult } from '../core/memory/manager.js';
 
 export interface KnowledgeLinkOptions {
   cwd?: string;
@@ -39,9 +41,21 @@ function getMemoryDir(cwd: string): string {
 /**
  * `ivy knowledge link —source <id> —target <id> --relation <type> --desc <text>`
  */
+/** Check if knowledge linking feature is enabled. */
+async function checkLinkingGate(cwd: string): Promise<FeatureGateResult> {
+  return checkFeatureGate(cwd, 'memory-linking');
+}
+
 export async function runKnowledgeLink(opts: KnowledgeLinkOptions): Promise<number> {
   const cwd = opts.cwd ?? process.cwd();
   const memoryDir = getMemoryDir(cwd);
+
+  // Feature gate check (Task 5.3)
+  const gate = await checkLinkingGate(cwd);
+  if (!gate.allowed) {
+    logger.error(gate.message!);
+    return 1;
+  }
 
   if (!opts.source || !opts.target || !opts.relation) {
     logger.error('Usage: ivy knowledge link --source <id> --target <id> --relation <type> --desc <text>');
@@ -76,6 +90,13 @@ export async function runKnowledgeLink(opts: KnowledgeLinkOptions): Promise<numb
 export async function runKnowledgeLinks(opts: KnowledgeLinkOptions): Promise<number> {
   const cwd = opts.cwd ?? process.cwd();
   const memoryDir = getMemoryDir(cwd);
+
+  // Feature gate check (Task 5.3)
+  const gate = await checkLinkingGate(cwd);
+  if (!gate.allowed) {
+    logger.error(gate.message!);
+    return 1;
+  }
 
   if (!opts.recordId) {
     logger.error('Usage: ivy knowledge links <record-id>');
@@ -125,6 +146,13 @@ export async function runKnowledgeTraverse(opts: KnowledgeLinkOptions): Promise<
   const cwd = opts.cwd ?? process.cwd();
   const memoryDir = getMemoryDir(cwd);
 
+  // Feature gate check (Task 5.3)
+  const gate = await checkLinkingGate(cwd);
+  if (!gate.allowed) {
+    logger.error(gate.message!);
+    return 1;
+  }
+
   if (!opts.recordId) {
     logger.error('Usage: ivy knowledge traverse <record-id> --to <type>');
     return 1;
@@ -165,6 +193,13 @@ export async function runKnowledgeTraverse(opts: KnowledgeLinkOptions): Promise<
 export async function runKnowledgeUnlink(opts: KnowledgeLinkOptions): Promise<number> {
   const cwd = opts.cwd ?? process.cwd();
   const memoryDir = getMemoryDir(cwd);
+
+  // Feature gate check (Task 5.3)
+  const gate = await checkLinkingGate(cwd);
+  if (!gate.allowed) {
+    logger.error(gate.message!);
+    return 1;
+  }
 
   if (!opts.recordId || opts.linkIndex === undefined) {
     logger.error('Usage: ivy knowledge unlink <record-id> --index <n>');

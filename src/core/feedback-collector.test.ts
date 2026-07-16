@@ -10,6 +10,7 @@ import os from 'os';
 import { promises as fs } from 'fs';
 import { randomBytes } from 'crypto';
 
+import { IvyPhase } from './phase-machine.js';
 import {
   recordRuleTrigger,
   recordVerifyResult,
@@ -39,7 +40,7 @@ describe('feedback-collector', () => {
   // TC-1: 规则触发后检查 JSONL 文件追加记录
   describe('TC-1: Rule trigger signal recording', () => {
     it('should record rule trigger signal to JSONL file', async () => {
-      await recordRuleTrigger(tmpDir, 'test-rule', 'pass', { phase: 'build' as any, environment: 'local' });
+      await recordRuleTrigger(tmpDir, 'test-rule', 'pass', { phase: IvyPhase.BUILD, environment: 'local' });
 
       const logPath = path.join(tmpDir, '.ivy/feedback/log.jsonl');
       const content = await fs.readFile(logPath, 'utf-8');
@@ -101,7 +102,7 @@ describe('feedback-collector', () => {
   // TC-3: 技术栈变化后对比 JSONL 正确记录前后差异
   describe('TC-3: Gap detected signal recording', () => {
     it('should record capability gap signal', async () => {
-      await recordGapDetected(tmpDir, 'capability_gap', 'high', { phase: 'design' as any }, 'missing-rule', 'Rule not deployed');
+      await recordGapDetected(tmpDir, 'capability_gap', 'high', { phase: IvyPhase.DESIGN }, 'missing-rule', 'Rule not deployed');
 
       const logPath = path.join(tmpDir, '.ivy/feedback/log.jsonl');
       const event = JSON.parse((await fs.readFile(logPath, 'utf-8')).trim().split('\n')[0]);

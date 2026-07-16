@@ -1,0 +1,60 @@
+id: product
+name: "产品流程"
+description: "collect → analyze → prd → review → accept"
+version: 1
+category: product
+supports:
+  - pm
+
+phases:
+  - id: collect
+    name: "需求收集"
+    requires:
+      - planning
+    artifacts:
+      - docs/pm/collect-summary.md
+  - id: analyze
+    name: "需求分析"
+    requires:
+      - research
+    artifacts:
+      - docs/pm/analysis-report.md
+  - id: prd
+    name: "PRD 撰写"
+    requires:
+      - documentation
+    artifacts:
+      - docs/prd/*.md
+  - id: review
+    name: "评审"
+    requires:
+      - review
+    artifacts:
+      - docs/pm/review-record.md
+  - id: accept
+    name: "验收"
+    requires:
+      - review
+    artifacts:
+      - docs/pm/acceptance-report.md
+
+transitions:
+  - from: collect
+    to: analyze
+    condition: all_guards_pass
+  - from: analyze
+    to: prd
+    condition: all_guards_pass
+  - from: prd
+    to: review
+    condition: all_guards_pass
+  - from: review
+    to: accept
+    condition: all_guards_pass
+  - from: review
+    to: prd
+    condition: rollback_allowed
+
+forbidden_transitions:
+  - from: accept
+    to: collect
