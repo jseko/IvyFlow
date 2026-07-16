@@ -6,7 +6,7 @@ hero:
   text: "AI-Native Development Workflow"
   tagline: AI 编码 Agent 的工作流强约束器 — 阻止 AI 在不该写代码的时候写代码
   image:
-    src: /favicon.svg
+    src: /hero-bg.svg
     alt: IvyFlow
   actions:
     - theme: brand
