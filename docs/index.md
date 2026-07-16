@@ -6,7 +6,7 @@ hero:
   text: "AI-Native Development Workflow"
   tagline: AI 编码 Agent 的工作流强约束器 — 阻止 AI 在不该写代码的时候写代码
   image:
-    src: /IvyFlow/favicon.ico
+    src: /IvyFlow/favicon.svg
     alt: IvyFlow
   actions:
     - theme: brand
@@ -17,7 +17,7 @@ hero:
       link: /agent-usage
     - theme: alt
       text: GitHub
-      link: https://github.com/anomalyco/IvyFlow
+      link: https://github.com/jseko/IvyFlow
 
 features:
   - icon: 🛡️
