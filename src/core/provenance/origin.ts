@@ -1,8 +1,8 @@
-import { randomBytes } from 'crypto';
+import crypto from 'node:crypto';
 import type { Origin, OriginStatus, AIAction, CodeArtifact } from './types.js';
 
 export function generateOriginId(): string {
-  return 'orig_' + randomBytes(8).toString('hex');
+  return `orig_${crypto.randomBytes(8).toString('hex')}`;
 }
 
 export function createOrigin(provider: string): Origin {
