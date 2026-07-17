@@ -3,7 +3,7 @@ import { createInterface } from 'readline';
 import path from 'path';
 import { ensureDir, fileExists, writeFile } from '../../utils/fs.js';
 import type { OriginEventStore } from './event-store.js';
-import type { OriginEvent, OriginProjection, EventQuery } from './types.js';
+import type { OriginEvent, OriginProjection, Origin, EventQuery } from './types.js';
 
 export class JSONLEventStore implements OriginEventStore {
   private projectPath: string;
@@ -69,7 +69,7 @@ export class JSONLEventStore implements OriginEventStore {
   }
 
   async rebuildProjection(): Promise<OriginProjection> {
-    const origins = new Map<string, any>();
+    const origins = new Map<string, Origin>();
     let lastEventId: string | null = null;
 
     for await (const event of this.stream()) {

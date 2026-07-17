@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { DefaultAIProviderGateway } from './gateway.js';
 import { ClaudeCodeAdapter } from './claude-code.js';
-import type { AIProviderAdapter, IntermediateEvent } from './types.js';
+import type { AIProviderAdapter } from './types.js';
 
 describe('DefaultAIProviderGateway', () => {
   it('returns null when no adapter matches', () => {

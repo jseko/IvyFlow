@@ -115,9 +115,11 @@ function extractSemanticTokens(sourceFile: ts.SourceFile): string {
 function parseSourceFile(code: string, filePath: string): ts.SourceFile | null {
   try {
     const sourceFile = ts.createSourceFile(filePath, code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
-    if (sourceFile.parseDiagnostics && sourceFile.parseDiagnostics.length > 0) {
-      const hasSyntaxError = sourceFile.parseDiagnostics.some(
-        (d) => d.category === ts.DiagnosticCategory.Error,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- parseDiagnostics is an internal TS API
+    const diagnostics = (sourceFile as any).parseDiagnostics;
+    if (diagnostics && diagnostics.length > 0) {
+      const hasSyntaxError = diagnostics.some(
+        (d: ts.Diagnostic) => d.category === ts.DiagnosticCategory.Error,
       );
       if (hasSyntaxError) return null;
     }
