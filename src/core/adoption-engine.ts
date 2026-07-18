@@ -14,6 +14,11 @@ import { readRawEvents, type RawEvent } from './sessions.js';
 import { getSuggestionQuality } from './feedback-recorder.js';
 import { buildTypeMap } from './suggest-engine.js';
 import type { OriginEventStore } from './provenance/event-store.js';
+import { computeRetention } from './adoption/retention.js';
+import { computeRework } from './adoption/rework.js';
+import { computeAbandonment } from './adoption/abandonment.js';
+import { computeLineage } from './adoption/lineage.js';
+import { computeFailureIntelligence } from './adoption/failure-intelligence.js';
 
 // ─── Constants ───
 
@@ -136,10 +141,19 @@ export class AdoptionEngineV2 {
   async computeProfile(opts: ComputeOptions): Promise<AdoptionProfile> {
     const projection = await this.store.getProjection();
     const origins = [...projection.origins.values()];
+    const periodDays = opts.periodDays ?? 30;
+
+    const [retention, rework, abandonment, lineage, failureIntelligence] = await Promise.all([
+      computeRetention(projection, opts.projectPath, opts.retentionWindow),
+      computeRework(projection, opts.projectPath),
+      Promise.resolve(computeAbandonment(projection, opts.projectPath)),
+      Promise.resolve(computeLineage(projection, opts.projectPath)),
+      Promise.resolve(computeFailureIntelligence(projection)),
+    ]);
 
     const profile: AdoptionProfile = {
       changeName: opts.changeName ?? 'all',
-      periodStart: '',
+      periodStart: new Date(Date.now() - periodDays * 86400000).toISOString(),
       periodEnd: new Date().toISOString(),
       funnel: {
         totalCommits: 0,
@@ -156,7 +170,15 @@ export class AdoptionEngineV2 {
         avgTimeToResolve: 0,
       },
       weeklyTrend: [],
-      confidence: { overall: 'low', note: 'V2 engine — metrics computed from provenance data.' },
+      confidence: {
+        overall: origins.length >= 5 ? 'medium' : 'low',
+        note: `V2 engine — ${origins.length} origins from provenance data.`,
+      },
+      retention,
+      rework,
+      abandonment,
+      lineage,
+      failureIntelligence,
     };
 
     return profile;
