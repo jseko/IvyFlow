@@ -59,8 +59,16 @@ After the skill loads, create the change skeleton, then generate artifacts one b
 
 ### 2. Initialize State
 
+在工作流开始时为当前 change 初始化生命周期状态（写入 `phase: open` 与初始化默认值）。`ivy state init` 命令不存在，改用 `ivy state set open`：
+
 ```bash
-ivy state init "<name>"
+ivy state set open
+```
+
+如需显式指定 change，可加 `--change "<name>"`：
+
+```bash
+ivy state set open --change "<name>"
 ```
 
 ### 3. Content Completeness Check

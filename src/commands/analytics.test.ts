@@ -8,6 +8,7 @@
  * - --period filtering
  * - --json output
  * - --confidence disclosure
+ * - --value / --csi / --feedback (Phase 2B flags)
  * - Empty data handling
  */
 
@@ -21,6 +22,8 @@ import { runAnalytics } from './analytics.js';
 import { runInit } from './init.js';
 import { appendRawEvent } from '../core/sessions.js';
 import { type RawEvent } from '../core/sessions.js';
+import { JSONLEventStore } from '../core/provenance/event-store-jsonl.js';
+import type { OriginEvent } from '../core/provenance/types.js';
 
 async function mkTmpDir(): Promise<string> {
   return fs.mkdtemp(path.join(os.tmpdir(), 'ivyflow-analytics-'));
@@ -163,5 +166,65 @@ describe('runAnalytics', () => {
     const code = await runAnalytics({ cwd: tmp, period: '90d' });
     expect(code).toBe(0);
     expect(captured()).toContain('Adoption Analytics');
+  });
+
+  describe('--provenance with Phase 2B flags', () => {
+    async function seedProvenance(cwd: string): Promise<void> {
+      const store = new JSONLEventStore(cwd);
+      const originEvent: OriginEvent = {
+        eventId: 'evt_001',
+        type: 'origin_created',
+        originId: 'origin-1',
+        timestamp: Date.now(),
+        payload: { source: 'test' },
+      };
+      await store.append(originEvent);
+    }
+
+    beforeEach(async () => {
+      await seedProvenance(tmp);
+    });
+
+    it('--value flag shows Value Index', async () => {
+      const code = await runAnalytics({ cwd: tmp, provenance: true, value: true });
+      expect(code).toBe(0);
+      const out = captured();
+      expect(out).toContain('Value Index');
+      expect(out).toContain('Quality Factor');
+      expect(out).toContain('Business Impact');
+    });
+
+    it('--csi flag shows Context Sufficiency Index', async () => {
+      const code = await runAnalytics({ cwd: tmp, provenance: true, csi: true });
+      expect(code).toBe(0);
+      const out = captured();
+      expect(out).toContain('Context Sufficiency Index');
+      expect(out).toContain('CSI');
+      expect(out).toContain('Dimensions');
+    });
+
+    it('--feedback flag shows Human Feedback Loop', async () => {
+      const code = await runAnalytics({ cwd: tmp, provenance: true, feedback: true });
+      expect(code).toBe(0);
+      const out = captured();
+      expect(out).toContain('Human Feedback Loop');
+      expect(out).toContain('Accepted & Kept');
+      expect(out).toContain('Rejected Outright');
+    });
+
+    it('--provenance without Phase 2B flags shows adoption profile', async () => {
+      const code = await runAnalytics({ cwd: tmp, provenance: true });
+      expect(code).toBe(0);
+      const out = captured();
+      expect(out).toContain('Adoption Analytics');
+    });
+
+    it('--json with --provenance outputs JSON', async () => {
+      const code = await runAnalytics({ cwd: tmp, provenance: true, json: true });
+      expect(code).toBe(0);
+      const parsed = JSON.parse(captured());
+      expect(parsed.changeName).toBeDefined();
+      expect(parsed.funnel).toBeDefined();
+    });
   });
 });

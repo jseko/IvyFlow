@@ -6,7 +6,7 @@
  * Commands:
  *   ivy state                          — display current checkpoint and history
  *   ivy state set <checkpoint>         — transition to a new checkpoint
- *   ivy state recover                  — restore checkpoint from state.yaml
+ *   ivy state recover                  — restore checkpoint from the change state file (.ivy.yaml)
  *   ivy state --pending                — show pending decision points
  */
 
@@ -34,10 +34,13 @@ import {
   getActiveEventHooks,
 } from '../core/decision-protocol.js';
 import { detectPreset, BUILTIN_PRESETS } from '../core/preset-workflow.js';
+import { detectCurrentChangeSync } from '../core/change-detection.js';
 
 export interface StateOptions {
-  command?: 'set' | 'recover';
+  command?: 'set' | 'recover' | 'get';
   checkpoint?: string;
+  value?: string;
+  field?: string;
   change?: string;
   pending?: boolean;
   rationale?: string;
@@ -55,7 +58,7 @@ export async function runState(opts: StateOptions = {}): Promise<number> {
     return 1;
   }
 
-  const changeName = opts.change ?? await detectCurrentChange(cwd);
+  const changeName = opts.change ?? detectCurrentChangeSync(cwd);
   if (!changeName) {
     logger.error('No change detected. Specify --change <name> or create a change first.');
     return 1;
@@ -72,7 +75,16 @@ export async function runState(opts: StateOptions = {}): Promise<number> {
     return showStateRecover(state, changeName);
   }
 
+  if (opts.command === 'get') {
+    return runStateGet(state, opts.field!);
+  }
+
   if (opts.command === 'set') {
+    // 字段写入形态：`ivy state set <field> <value>`（第二位置参数存在）
+    if (opts.value !== undefined) {
+      return await runStateSetField(cwd, changeName, state, opts.checkpoint!, opts.value);
+    }
+    // 阶段转移形态：`ivy state set <checkpoint>`
     return await runStateSet(cwd, changeName, state, opts.checkpoint, opts.rationale, opts.refs);
   }
 
@@ -120,6 +132,17 @@ function showState(state: StateYaml | null, changeName: string): number {
     const from = entry.from ?? '(start)';
     const rationale = entry.rationale ? `  ✓ ${entry.rationale}` : '';
     logger.info(`    ${from} → ${entry.to}  ${formatDate(entry.timestamp)}${rationale}`);
+  }
+
+  // Workflow execution fields
+  const WF_ORDER = ['workflow', 'isolation', 'build_mode', 'tdd_mode', 'verify_mode', 'verify_result', 'branch_status', 'verification_report', 'archived', 'topology'];
+  const wf = WF_ORDER.filter((f) => (state as Record<string, unknown>)[f] !== undefined);
+  if (wf.length > 0) {
+    logger.info('');
+    logger.info('  Workflow Fields:');
+    for (const f of wf) {
+      logger.info(`    ${f}: ${(state as Record<string, unknown>)[f]}`);
+    }
   }
 
   return 0;
@@ -290,6 +313,96 @@ async function runStateSet(
   return 0;
 }
 
+// ─── State field set (generic workflow-field writer) ───
+
+/**
+ * 工作流字段白名单。
+ *
+ * 这些字段被 `guard-engine.ts` 的硬守卫读取（如 build 守卫读 `isolation`/
+ * `build_mode`，verify 守卫读 `verification_report`/`branch_status`）。此前没有任何
+ * 写入路径，导致 build/verify 守卫永远失败（P0-2）。本函数提供统一的
+ * `ivy state set <field> <value>` 入口，对齐 Comet 的 `comet-state.sh set`。
+ *
+ * 白名单之外的字段也允许写入（free-form），以满足 skill 中出现的自定义字段。
+ */
+const WORKFLOW_FIELDS = new Set<string>([
+  'workflow',
+  'build_mode',
+  'isolation',
+  'tdd_mode',
+  'verify_mode',
+  'verify_result',
+  'handoff_context',
+  'handoff_hash',
+  'design_doc',
+  'plan',
+  'auto_transition',
+  'archived',
+  'verification_report',
+  'branch_status',
+  'build_command',
+  'verify_command',
+  'topology',
+]);
+
+async function runStateSetField(
+  cwd: string,
+  changeName: string,
+  state: StateYaml | null,
+  field: string,
+  value: string,
+): Promise<number> {
+  if (!WORKFLOW_FIELDS.has(field)) {
+    logger.warn(`Unknown workflow field '${field}'. Setting it as free-form (verify spelling).`);
+  }
+
+  let coerced: string | boolean = value;
+
+  if (field === 'archived' || field === 'auto_transition') {
+    if (value === 'true') coerced = true;
+    else if (value === 'false') coerced = false;
+    else {
+      logger.error(`Field '${field}' expects 'true' or 'false'.`);
+      return 1;
+    }
+  }
+
+  if (field === 'isolation' && !['branch', 'worktree'].includes(value)) {
+    logger.error(`isolation must be 'branch' or 'worktree'.`);
+    return 1;
+  }
+  if (field === 'branch_status' && value !== 'handled') {
+    logger.warn(`branch_status should be 'handled' for the verify guard to pass.`);
+  }
+
+  let current = state;
+  if (!current) {
+    current = createInitialState(changeName);
+    logger.info(`Initialised state for change '${changeName}' (checkpoint: open).`);
+  }
+
+  const next: StateYaml = { ...current, [field]: coerced };
+  await writeState(cwd, next, changeName);
+  logger.success(`Set ${field} = ${coerced} for change '${changeName}'.`);
+  return 0;
+}
+
+// ─── State field get ───
+
+function runStateGet(state: StateYaml | null, field: string): number {
+  if (!state) {
+    logger.error('No lifecycle state found. Run `ivy state set <checkpoint>` first.');
+    return 1;
+  }
+  const raw = (state as Record<string, unknown>)[field];
+  if (raw === undefined || raw === null) {
+    logger.info(`${field}: (unset)`);
+    return 0;
+  }
+  logger.info(`${field}: ${raw}`);
+  return 0;
+}
+
 // ─── State recover ───
 
 function showStateRecover(state: StateYaml | null, changeName: string): number {
@@ -361,33 +474,6 @@ function showPendingDecisionPoints(state: StateYaml | null): number {
 }
 
 // ─── Helpers ───
-
-async function detectCurrentChange(cwd: string): Promise<string | null> {
-  const changesDir = path.join(cwd, 'openspec', 'changes');
-  if (!(await fileExists(changesDir))) return null;
-
-  const { readDir } = await import('../utils/fs.js');
-  const entries = await readDir(changesDir);
-  const changes = entries.filter((e) => !e.startsWith('.') && e !== 'archive');
-  if (changes.length === 0) return null;
-  if (changes.length === 1) return changes[0];
-
-  // Pick the most recent by checking .ivy.yaml modification time
-  let latest: string | null = null;
-  let latestTime = 0;
-  for (const change of changes) {
-    const ivyPath = path.join(changesDir, change, '.ivy.yaml');
-    if (await fileExists(ivyPath)) {
-      const { promises: fs } = await import('fs');
-      const stat = await fs.stat(ivyPath);
-      if (stat.mtimeMs > latestTime) {
-        latestTime = stat.mtimeMs;
-        latest = change;
-      }
-    }
-  }
-  return latest;
-}
 
 function formatDate(iso: string): string {
   try {

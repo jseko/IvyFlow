@@ -41,3 +41,6 @@ This project is indexed by GitNexus as **IvyFlow** (2991 symbols, 5470 relations
 | Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
 
 <!-- gitnexus:end -->
+
+<!-- ivyflow-language -->
+请始终使用中文回复。

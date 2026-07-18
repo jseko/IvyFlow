@@ -14,7 +14,7 @@ export async function runNext(opts: NextOptions): Promise<number> {
 
   const state = await readState(cwd);
   if (!state) {
-    logger.error('No lifecycle state found. Run ivy state init first.');
+    logger.error('No lifecycle state found. Run `ivy state set open` first.');
     return 1;
   }
 

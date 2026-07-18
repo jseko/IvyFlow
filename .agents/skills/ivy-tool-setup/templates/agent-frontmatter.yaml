@@ -1,0 +1,127 @@
+# Agent Frontmatter 模板
+# 用于生成 agent 文件的 YAML frontmatter 部分
+# 占位符说明：{{AGENT_NAME}} / {{AGENT_DESCRIPTION}} / {{ENABLED_AUTO_RUN}}
+
+---
+name: "{{AGENT_NAME}}"
+description: "{{AGENT_DESCRIPTION}}"
+agentMode: agentic
+enabled: true
+enabledAutoRun: {{ENABLED_AUTO_RUN}}
+---
+
+# 预定义 Agent Frontmatter 配置
+
+agents:
+  # ===== 前端 Agent =====
+  frontend-agent:
+    name: "frontend-agent"
+    description: "Vue 3 + TypeScript 前端研发专家。使用场景：开发 Vue 组件、编写类型定义、重构组件、设计 composables、修复类型错误。"
+    enabledAutoRun: true
+
+  react-agent:
+    name: "react-agent"
+    description: "React + TypeScript 前端研发专家。使用场景：开发 React 组件、编写 Hooks、状态管理（Zustand/Redux）、性能优化（memo/useMemo）、Next.js SSR。"
+    enabledAutoRun: true
+
+  angular-agent:
+    name: "angular-agent"
+    description: "Angular + TypeScript 前端研发专家。使用场景：开发 Angular 组件、DI 配置、RxJS 流式编程、NgRx 状态管理、Angular Material。"
+    enabledAutoRun: true
+
+  # ===== 后端 Agent（Java 生态） =====
+  spring-agent:
+    name: "spring-agent"
+    description: "Spring Boot 后端架构师。使用场景：编写/审查 Spring Boot 代码、设计 REST API、重构服务层、架构决策。支持 Spring MVC/WebFlux、JPA/MyBatis/MyBatis-Plus。"
+    enabledAutoRun: true
+
+  spring-cloud-agent:
+    name: "spring-cloud-agent"
+    description: "Spring Cloud 微服务专家。使用场景：服务注册发现（Nacos/Consul）、配置中心、API 网关（Gateway）、熔断降级（Sentinel）、分布式链路追踪。"
+    enabledAutoRun: false
+
+  quarkus-agent:
+    name: "quarkus-agent"
+    description: "Quarkus 云原生后端专家。使用场景：Quarkus 应用开发、GraalVM 原生编译优化、Panache ORM、Reactive Messaging、CDI 编程模型。"
+    enabledAutoRun: false
+
+  micronaut-agent:
+    name: "micronaut-agent"
+    description: "Micronaut 后端专家。使用场景：Micronaut 编译期 DI 开发、Micronaut Data JDBC/R2DBC、GraalVM 原生镜像、云原生微服务。"
+    enabledAutoRun: false
+
+  # ===== 后端 Agent（多语言） =====
+  python-agent:
+    name: "python-agent"
+    description: "Python 后端研发专家。使用场景：FastAPI/Django REST API 设计、Pydantic 数据验证、SQLAlchemy ORM、异步编程（asyncio）、Celery 任务队列。"
+    enabledAutoRun: true
+
+  go-agent:
+    name: "go-agent"
+    description: "Go 后端研发专家。使用场景：Go/Gin/Echo/Fiber Web 开发、并发模式（goroutine/channel）、接口设计、GORM 数据访问、错误处理。"
+    enabledAutoRun: true
+
+  node-agent:
+    name: "node-agent"
+    description: "Node.js 后端研发专家。使用场景：Express/Koa/NestJS API 开发、中间件设计、Prisma/TypeORM 数据访问、JWT 认证、事件循环调优。"
+    enabledAutoRun: true
+
+  rust-agent:
+    name: "rust-agent"
+    description: "Rust 后端研发专家。使用场景：Actix/Axum Web 开发、异步运行时（tokio）、ORM（Diesel/SeaORM）、内存安全、unsafe 代码审查。"
+    enabledAutoRun: false
+
+  # ===== 代码审查 Agent =====
+  java-reviewer:
+    name: "java-reviewer"
+    description: "Java 代码审查专家。使用场景：审查 Java 代码、检查 Spring Boot/Quarkus/Micronaut 最佳实践、识别代码异味。支持多 Java 框架。"
+    enabledAutoRun: false
+
+  typescript-reviewer:
+    name: "typescript-reviewer"
+    description: "TypeScript 代码审查专家。使用场景：审查 TypeScript/JavaScript 代码、检查类型安全、识别反模式。支持 Vue/React/Angular 框架模式审查。"
+    enabledAutoRun: false
+
+  python-reviewer:
+    name: "python-reviewer"
+    description: "Python 代码审查专家。使用场景：审查 Python 代码、检查 PEP 8 规范、类型注解完整性、异步编程模式、安全漏洞识别。"
+    enabledAutoRun: false
+
+  go-reviewer:
+    name: "go-reviewer"
+    description: "Go 代码审查专家。使用场景：审查 Go 代码、检查 Go 风格规范、并发安全（goroutine leak/data race）、接口设计、错误处理模式。"
+    enabledAutoRun: false
+
+  # ===== 构建/工具 Agent =====
+  java-build-resolver:
+    name: "java-build-resolver"
+    description: "Java 编译问题修复专家。使用场景：修复编译错误、解决依赖冲突、修复 Maven/Gradle 配置问题。"
+    enabledAutoRun: false
+
+  # ===== 跨切面 Agent =====
+  database-agent:
+    name: "database-agent"
+    description: "数据库设计与优化专家。使用场景：Schema 设计、索引优化、查询优化、SQL 审查、迁移策略、连接池调优。支持 MySQL/PostgreSQL/MongoDB/Redis。"
+    enabledAutoRun: false
+
+  devops-agent:
+    name: "devops-agent"
+    description: "DevOps 部署专家。使用场景：Dockerfile/Compose 编写、CI/CD pipeline 设计（GitHub Actions/Jenkins）、K8s 部署配置、基础设施即代码。"
+    enabledAutoRun: false
+
+  testing-agent:
+    name: "testing-agent"
+    description: "测试策略专家。使用场景：单元测试（JUnit/Pytest/Jest）、集成测试、E2E 测试（Playwright/Cypress）、测试覆盖率分析、TDD 驱动开发。"
+    enabledAutoRun: false
+
+  # ===== 通用开发 Agent =====
+  java-agent:
+    name: "java-agent"
+    description: "Java 通用研发专家。使用场景：Java 核心编程、并发编程、JVM 调优、数据结构设计、I/O 与网络编程、代码重构、单元测试。不限定特定框架。"
+    enabledAutoRun: true
+
+  # ===== 调试诊断 Agent =====
+  bug-analyzer:
+    name: "bug-analyzer"
+    description: "深度调试与根因分析专家。使用场景：定位复杂 Bug、分析崩溃日志、追踪内存泄漏、诊断并发问题、性能瓶颈分析、Git Bisect 回归定位。"
+    enabledAutoRun: false

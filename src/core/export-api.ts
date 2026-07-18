@@ -78,7 +78,7 @@ export async function buildExportPayload(opts: ExportOptions): Promise<ExportPay
       allKnowledge.push(...records);
     }
 
-    // Collect workflow evidence from state.yaml
+    // Collect workflow evidence from the change state file (.ivy.yaml)
     if (!opts.dimension || opts.dimension === 'workflow-evidence') {
       const evidence = await collectWorkflowEvidence(projectPath);
       if (evidence.length > 0) {
@@ -238,7 +238,7 @@ function calcDuration(startDate: string): number {
 }
 
 /**
- * Collect workflow evidence entries from .ivy/state.yaml.
+ * Collect workflow evidence entries from the change state file (.ivy.yaml).
  */
 async function collectWorkflowEvidence(projectPath: string): Promise<NonNullable<ExportPayload['workflowEvidence']>> {
   const evidence: NonNullable<ExportPayload['workflowEvidence']> = [];

@@ -14,11 +14,15 @@ import { readRawEvents, type RawEvent } from './sessions.js';
 import { getSuggestionQuality } from './feedback-recorder.js';
 import { buildTypeMap } from './suggest-engine.js';
 import type { OriginEventStore } from './provenance/event-store.js';
+import type { AIOperation } from './provenance/types.js';
 import { computeRetention } from './adoption/retention.js';
 import { computeRework } from './adoption/rework.js';
 import { computeAbandonment } from './adoption/abandonment.js';
 import { computeLineage } from './adoption/lineage.js';
 import { computeFailureIntelligence } from './adoption/failure-intelligence.js';
+import { computeValueIndex } from './adoption/value-engine.js';
+import { computeCSI } from './adoption/context-intelligence.js';
+import { inferFeedback } from './adoption/feedback-loop.js';
 
 // ─── Constants ───
 
@@ -65,6 +69,9 @@ export interface AdoptionProfile {
   abandonment?: AbandonmentMetrics;
   lineage?: LineageMetrics;
   failureIntelligence?: FailureMetrics;
+  valueIndex?: ValueIndex;
+  csi?: CSIMetrics;
+  feedback?: FeedbackLoopSummary;
 }
 
 export interface RetentionMetrics {
@@ -128,6 +135,67 @@ export interface FailureMetrics {
   confidence: 'low' | 'medium' | 'high';
 }
 
+export type ContextDimensionName = 'codebaseContext' | 'knowledgeContext' | 'taskContext';
+
+export interface ContextDimension {
+  dimension: ContextDimensionName;
+  available: number;
+  required: number;
+  ratio: number;
+}
+
+export interface CSIMetrics {
+  csi: number;
+  taskType: AIOperation;
+  confidence: 'low' | 'medium' | 'high';
+  dimensions: ContextDimension[];
+}
+
+export type BusinessImpactType =
+  | 'payment'
+  | 'security'
+  | 'core_business'
+  | 'data_pipeline'
+  | 'infrastructure'
+  | 'crud'
+  | 'api_gateway'
+  | 'unknown';
+
+export interface ValueIndex {
+  valueIndex: number;
+  qualityFactor: number;
+  businessImpactType: BusinessImpactType;
+  businessImpactWeight: number;
+  retentionRatio: number;
+  reworkCost: number;
+  abandonmentRate: number;
+}
+
+export type FeedbackType =
+  | 'accepted_and_kept'
+  | 'accepted_then_modified'
+  | 'accepted_then_deleted'
+  | 'rejected_outright'
+  | 'unknown';
+
+export interface FeedbackEntry {
+  originId: string;
+  type: FeedbackType;
+  confidence: 'low' | 'medium';
+  commitsSince: number;
+}
+
+export interface FeedbackLoopSummary {
+  entries: FeedbackEntry[];
+  summary: {
+    acceptedAndKept: number;
+    acceptedThenModified: number;
+    acceptedThenDeleted: number;
+    rejectedOutright: number;
+    unknown: number;
+  };
+}
+
 export interface ComputeOptions {
   projectPath: string;
   changeName?: string;
@@ -143,12 +211,15 @@ export class AdoptionEngineV2 {
     const origins = [...projection.origins.values()];
     const periodDays = opts.periodDays ?? 30;
 
-    const [retention, rework, abandonment, lineage, failureIntelligence] = await Promise.all([
+    const [retention, rework, abandonment, lineage, failureIntelligence, valueIndex, csi, feedback] = await Promise.all([
       computeRetention(projection, opts.projectPath, opts.retentionWindow),
       computeRework(projection, opts.projectPath),
       Promise.resolve(computeAbandonment(projection, opts.projectPath)),
       Promise.resolve(computeLineage(projection, opts.projectPath)),
       Promise.resolve(computeFailureIntelligence(projection)),
+      computeValueIndex(projection, opts.projectPath, opts.retentionWindow),
+      computeCSI(projection),
+      inferFeedback(projection, opts.projectPath),
     ]);
 
     const profile: AdoptionProfile = {
@@ -179,6 +250,9 @@ export class AdoptionEngineV2 {
       abandonment,
       lineage,
       failureIntelligence,
+      valueIndex,
+      csi,
+      feedback,
     };
 
     return profile;
@@ -411,6 +485,81 @@ export function formatAdoptionProfile(profile: AdoptionProfile): string {
   lines.push(`  Overall: ${profile.confidence.overall.toUpperCase()}`);
   lines.push(`  ${profile.confidence.note}`);
   lines.push('');
+
+  // V2 metrics
+  if (profile.retention) {
+    lines.push('🔄 Retention');
+    lines.push(`  AI-generated lines: ${profile.retention.totalGeneratedLines}`);
+    lines.push(`  Survived lines:     ${profile.retention.surviveLines}`);
+    lines.push(`  Retention ratio:    ${Math.round(profile.retention.retentionRatio * 100)}%`);
+    lines.push(`  Confidence:         ${profile.retention.confidence}`);
+    lines.push('');
+  }
+
+  if (profile.rework) {
+    lines.push('🔧 Rework');
+    lines.push(`  AI-generated lines:   ${profile.rework.aiGeneratedLines}`);
+    lines.push(`  Human-modified lines: ${profile.rework.humanModifiedLines}`);
+    lines.push(`  Rework ratio:         ${Math.round(profile.rework.reworkRatio * 100)}%`);
+    lines.push(`  Confidence:           ${profile.rework.confidence}`);
+    lines.push('');
+  }
+
+  if (profile.abandonment) {
+    lines.push('🚫 Abandonment');
+    lines.push(`  Abandoned / Total: ${profile.abandonment.abandonedOrigins} / ${profile.abandonment.totalOrigins}`);
+    lines.push(`  Abandonment rate:  ${Math.round(profile.abandonment.abandonmentRate * 100)}%`);
+    lines.push(`  Confidence:        ${profile.abandonment.confidence}`);
+    lines.push('');
+  }
+
+  if (profile.lineage) {
+    lines.push('🧬 Lineage');
+    lines.push(`  L1 (file):     ${profile.lineage.l1FileMatches}`);
+    lines.push(`  L2 (AST):      ${profile.lineage.l2AstMatches}`);
+    lines.push(`  L3 (semantic): ${profile.lineage.l3SemanticMatches}`);
+    lines.push(`  Confidence:    ${profile.lineage.confidence}`);
+    lines.push('');
+  }
+
+  if (profile.failureIntelligence) {
+    lines.push('⚠️  Failure Intelligence');
+    for (const [phase, data] of Object.entries(profile.failureIntelligence.byPhase)) {
+      lines.push(`  ${phase}: ${data.failed}/${data.total} failed (${Math.round(data.rate * 100)}%)`);
+    }
+    lines.push(`  Confidence: ${profile.failureIntelligence.confidence}`);
+    lines.push('');
+  }
+
+  if (profile.valueIndex) {
+    lines.push('💎 Value Index');
+    lines.push(`  Value Index:          ${profile.valueIndex.valueIndex}`);
+    lines.push(`  Quality Factor:       ${profile.valueIndex.qualityFactor}`);
+    lines.push(`  Business Impact:      ${profile.valueIndex.businessImpactType} (weight: ${profile.valueIndex.businessImpactWeight})`);
+    lines.push('');
+  }
+
+  if (profile.csi) {
+    lines.push('🧠 Context Intelligence (CSI)');
+    lines.push(`  CSI Score:  ${profile.csi.csi}`);
+    lines.push(`  Task Type:  ${profile.csi.taskType}`);
+    lines.push(`  Confidence: ${profile.csi.confidence}`);
+    for (const dim of profile.csi.dimensions) {
+      lines.push(`  ${dim.dimension}: ${dim.available}/${dim.required} (${Math.round(dim.ratio * 100)}%)`);
+    }
+    lines.push('');
+  }
+
+  if (profile.feedback) {
+    lines.push('🔁 Feedback Loop');
+    lines.push(`  Accepted & Kept:      ${profile.feedback.summary.acceptedAndKept}`);
+    lines.push(`  Accepted then Modified: ${profile.feedback.summary.acceptedThenModified}`);
+    lines.push(`  Accepted then Deleted:  ${profile.feedback.summary.acceptedThenDeleted}`);
+    lines.push(`  Rejected Outright:    ${profile.feedback.summary.rejectedOutright}`);
+    lines.push(`  Unknown:              ${profile.feedback.summary.unknown}`);
+    lines.push('');
+  }
+
   lines.push('  Metric confidence breakdown:');
   lines.push('    completionRate    → high (L1 phase_transition)');
   lines.push('    totalCommits      → high (L1 git_commit)');
@@ -434,6 +583,14 @@ export function formatAdoptionProfileJson(profile: AdoptionProfile): Record<stri
     suggestionImpact: profile.suggestionImpact,
     weeklyTrend: profile.weeklyTrend,
     confidence: profile.confidence,
+    retention: profile.retention,
+    rework: profile.rework,
+    abandonment: profile.abandonment,
+    lineage: profile.lineage,
+    failureIntelligence: profile.failureIntelligence,
+    valueIndex: profile.valueIndex,
+    csi: profile.csi,
+    feedback: profile.feedback,
   };
 }
 

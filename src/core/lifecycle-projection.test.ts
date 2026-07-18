@@ -49,9 +49,9 @@ describe('lifecycle-projection', () => {
     it('should write and read state yaml correctly', async () => {
       const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ivy-lc-test-'));
       const state = makeTestState({ changeName: 'tc-1-change' });
-      await writeState(tmpDir, state);
+      await writeState(tmpDir, state, 'tc-1-change');
 
-      const read = await readState(tmpDir);
+      const read = await readState(tmpDir, 'tc-1-change');
       expect(read).not.toBeNull();
       expect(read!.changeName).toBe('tc-1-change');
       expect(read!.checkpoint).toBe('open');
@@ -168,9 +168,9 @@ describe('lifecycle-projection', () => {
     it('should preserve state across write/read cycle', async () => {
       const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ivy-lc-recover-'));
       const original = makeTestState({ changeName: 'recover-test', checkpoint: 'build' as LifecycleCheckpoint });
-      await writeState(tmpDir, original);
+      await writeState(tmpDir, original, 'recover-test');
 
-      const recovered = await readState(tmpDir);
+      const recovered = await readState(tmpDir, 'recover-test');
       expect(recovered).not.toBeNull();
       expect(recovered!.changeName).toBe('recover-test');
       expect(recovered!.checkpoint).toBe('build');

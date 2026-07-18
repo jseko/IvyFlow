@@ -14,6 +14,7 @@ import { readYaml, patchYaml } from '../utils/yaml.js';
 import { fileExists } from '../utils/fs.js';
 import { computeAdoptionProfile, formatAdoptionProfile, formatAdoptionProfileJson } from '../core/adoption-engine.js';
 import { AdoptionEngineV2 } from '../core/adoption-engine.js';
+import type { ValueIndex, CSIMetrics, FeedbackLoopSummary } from '../core/adoption-engine.js';
 import { JSONLEventStore } from '../core/provenance/event-store-jsonl.js';
 import { DEMO_ADOPTION_DATA } from '../core/adoption-demo-data.js';
 
@@ -30,6 +31,9 @@ export interface AnalyticsOptions {
   explain?: boolean;
   trend?: boolean;
   provenance?: boolean;
+  value?: boolean;
+  csi?: boolean;
+  feedback?: boolean;
 }
 
 interface ProjectYaml {
@@ -99,6 +103,21 @@ export async function runAnalytics(opts: AnalyticsOptions = {}): Promise<number>
       if (opts.json) {
         const json = formatAdoptionProfileJson(profile);
         console.log(JSON.stringify(json, null, 2));
+        return 0;
+      }
+
+      if (opts.value && profile.valueIndex) {
+        showValueOutput(profile.valueIndex);
+        return 0;
+      }
+
+      if (opts.csi && profile.csi) {
+        showCSIOutput(profile.csi);
+        return 0;
+      }
+
+      if (opts.feedback && profile.feedback) {
+        showFeedbackOutput(profile.feedback);
         return 0;
       }
 
@@ -306,5 +325,59 @@ function aggregateWeeklyToMonthly(weeks: Array<{ week: string; commits: number; 
 function formatDelta(val: number): string {
   const sign = val >= 0 ? '+' : '';
   return `${sign}${(val * 100).toFixed(1)}%`;
+}
+
+function showValueOutput(vi: ValueIndex): void {
+  logger.info('');
+  logger.info('💰 Value Index');
+  logger.info('═══════════════════════════════════════════════════════');
+  logger.info(`  Value Index:        ${vi.valueIndex.toFixed(2)}`);
+  logger.info(`  Quality Factor:     ${vi.qualityFactor.toFixed(2)}`);
+  logger.info(`  Business Impact:    ${vi.businessImpactType} (weight: ${vi.businessImpactWeight})`);
+  logger.info(`  Retention Ratio:    ${(vi.retentionRatio * 100).toFixed(0)}%`);
+  logger.info(`  Rework Cost:        ${(vi.reworkCost * 100).toFixed(0)}%`);
+  logger.info(`  Abandonment Rate:   ${(vi.abandonmentRate * 100).toFixed(0)}%`);
+  logger.info('');
+  logger.info('  Formula: Value = Retention × (1 - (Rework + Abandonment)/2) × BusinessWeight');
+  logger.info('');
+}
+
+function showCSIOutput(csi: CSIMetrics): void {
+  logger.info('');
+  logger.info('🔍 Context Sufficiency Index (CSI)');
+  logger.info('═══════════════════════════════════════════════════════');
+  logger.info(`  CSI:              ${(csi.csi * 100).toFixed(0)}%`);
+  logger.info(`  Task Type:        ${csi.taskType}`);
+  logger.info(`  Confidence:       ${csi.confidence}`);
+  logger.info('  Dimensions:');
+  for (const d of csi.dimensions) {
+    const bar = '█'.repeat(Math.round(d.ratio * 20)) + '░'.repeat(20 - Math.round(d.ratio * 20));
+    logger.info(`    ${d.dimension.padEnd(18)} ${bar}  ${(d.ratio * 100).toFixed(0)}% (${d.available}/${d.required})`);
+  }
+  logger.info('');
+}
+
+function showFeedbackOutput(feedback: FeedbackLoopSummary): void {
+  logger.info('');
+  logger.info('🔄 Human Feedback Loop');
+  logger.info('═══════════════════════════════════════════════════════');
+  logger.info(`  Accepted & Kept:        ${feedback.summary.acceptedAndKept}`);
+  logger.info(`  Accepted Then Modified: ${feedback.summary.acceptedThenModified}`);
+  logger.info(`  Accepted Then Deleted:  ${feedback.summary.acceptedThenDeleted}`);
+  logger.info(`  Rejected Outright:      ${feedback.summary.rejectedOutright}`);
+  logger.info(`  Unknown:                ${feedback.summary.unknown}`);
+  logger.info('');
+  logger.info('  Thresholds: 30 commits (kept), 10 (modified), 5 (deleted)');
+  logger.info('');
+  if (feedback.entries.length > 0) {
+    logger.info('  Details:');
+    for (const e of feedback.entries.slice(0, 5)) {
+      logger.info(`    ${e.originId}: ${e.type} (${e.confidence}, ${e.commitsSince} commits)`);
+    }
+    if (feedback.entries.length > 5) {
+      logger.info(`    ... and ${feedback.entries.length - 5} more`);
+    }
+    logger.info('');
+  }
 }
 

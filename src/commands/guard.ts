@@ -1,10 +1,8 @@
-import path from 'path';
 import { logger } from '../utils/logger.js';
-import { readYaml } from '../utils/yaml.js';
-import { fileExists } from '../utils/fs.js';
 import { parsePhase } from '../core/phase-machine.js';
 import { readState, applyTransition, writeState, runPostTransitionActions } from '../core/lifecycle-projection.js';
 import { runHardGuard, formatGuardResult } from '../core/guard-engine.js';
+import { detectCurrentChangeSync } from '../core/change-detection.js';
 import type { LifecycleCheckpoint } from '../core/lifecycle-projection.js';
 
 export interface GuardOptions {
@@ -22,7 +20,7 @@ export async function runGuard(opts: GuardOptions): Promise<number> {
     return 1;
   }
 
-  const changeName = opts.change ?? await detectCurrentChange(cwd);
+  const changeName = opts.change ?? detectCurrentChangeSync(cwd);
   if (!changeName) {
     logger.error('No change detected. Specify --change <name>.');
     return 1;
@@ -30,7 +28,7 @@ export async function runGuard(opts: GuardOptions): Promise<number> {
 
   const state = await readState(cwd);
   if (!state) {
-    logger.error('No lifecycle state found. Run ivy state init first.');
+    logger.error('No lifecycle state found. Run `ivy state set open` first.');
     return 1;
   }
 
@@ -99,13 +97,4 @@ function renderDemo(): void {
   logger.info('  Blocks at: Layer 3 (Git Hook) — no writes allowed in terminal phase');
   logger.info('');
   logger.success('Demo complete — 3 scenarios shown');
-}
-
-async function detectCurrentChange(cwd: string): Promise<string | null> {
-  const changesDir = path.join(cwd, 'openspec', 'changes');
-  if (!(await fileExists(changesDir))) return null;
-  const { readDir } = await import('../utils/fs.js');
-  const entries = await readDir(changesDir);
-  const changes = entries.filter((e) => !e.startsWith('.') && e !== 'archive');
-  return changes.length > 0 ? changes[0] : null;
 }

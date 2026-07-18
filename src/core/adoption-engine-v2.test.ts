@@ -18,6 +18,9 @@ describe('AdoptionEngineV2.computeProfile', () => {
     expect(profile.abandonment).toBeDefined();
     expect(profile.lineage).toBeDefined();
     expect(profile.failureIntelligence).toBeDefined();
+    expect(profile.valueIndex).toBeDefined();
+    expect(profile.csi).toBeDefined();
+    expect(profile.feedback).toBeDefined();
     expect(profile.funnel.totalChanges).toBe(0);
   });
 
@@ -28,5 +31,36 @@ describe('AdoptionEngineV2.computeProfile', () => {
       projectPath: '/tmp/nonexistent-v2-test-2',
     });
     expect(profile.changeName).toBe('all');
+  });
+
+  it('should include valueIndex in profile', async () => {
+    const store = new JSONLEventStore('/tmp/nonexistent-v2-test-3');
+    const engine = new AdoptionEngineV2(store);
+    const profile = await engine.computeProfile({
+      projectPath: '/tmp/nonexistent-v2-test-3',
+    });
+    expect(profile.valueIndex).toBeDefined();
+    expect(profile.valueIndex!.valueIndex).toBeDefined();
+  });
+
+  it('should include csi in profile', async () => {
+    const store = new JSONLEventStore('/tmp/nonexistent-v2-test-4');
+    const engine = new AdoptionEngineV2(store);
+    const profile = await engine.computeProfile({
+      projectPath: '/tmp/nonexistent-v2-test-4',
+    });
+    expect(profile.csi).toBeDefined();
+    expect(profile.csi!.csi).toBeDefined();
+  });
+
+  it('should include feedback in profile', async () => {
+    const store = new JSONLEventStore('/tmp/nonexistent-v2-test-5');
+    const engine = new AdoptionEngineV2(store);
+    const profile = await engine.computeProfile({
+      projectPath: '/tmp/nonexistent-v2-test-5',
+    });
+    expect(profile.feedback).toBeDefined();
+    expect(profile.feedback!.entries).toBeDefined();
+    expect(profile.feedback!.summary).toBeDefined();
   });
 });

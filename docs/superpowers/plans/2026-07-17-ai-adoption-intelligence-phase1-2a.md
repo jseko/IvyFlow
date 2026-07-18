@@ -2,6 +2,7 @@
 change: analytics-adoption-intelligence-phase1-2a
 design-doc: docs/superpowers/specs/2026-07-17-ai-adoption-intelligence-phase1-2a-design.md
 base-ref: c23099094f77fae68bf3e9702087323b435f1f25
+archived-with: 2026-07-18-analytics-adoption-intelligence-phase1-2a
 ---
 
 # AI Adoption Intelligence Phase 1+2A Implementation Plan
@@ -24,6 +25,7 @@ base-ref: c23099094f77fae68bf3e9702087323b435f1f25
 - Git operations via `src/utils/git.ts` (`runGit`) or `execSync` from `child_process`
 - File-level test convention: `<module-name>.test.ts` alongside source
 
+archived-with: 2026-07-18-analytics-adoption-intelligence-phase1-2a
 ---
 
 ### Task 1: AdoptionProfile 类型扩展 + AdoptionEngineV2 骨架
@@ -240,6 +242,7 @@ git add src/core/adoption-engine.ts src/core/adoption-engine-v2.test.ts
 git commit -m "feat: add AdoptionEngineV2 skeleton and V2 metric types to AdoptionProfile"
 ```
 
+archived-with: 2026-07-18-analytics-adoption-intelligence-phase1-2a
 ---
 
 ### Task 2: Retention Ratio 模块
@@ -441,6 +444,7 @@ git add src/core/adoption/retention.ts src/core/adoption/retention.test.ts
 git commit -m "feat: add Retention Ratio computation module"
 ```
 
+archived-with: 2026-07-18-analytics-adoption-intelligence-phase1-2a
 ---
 
 ### Task 3: Rework Cost 模块
@@ -646,6 +650,7 @@ git add src/core/adoption/rework.ts src/core/adoption/rework.test.ts
 git commit -m "feat: add Rework Cost computation module"
 ```
 
+archived-with: 2026-07-18-analytics-adoption-intelligence-phase1-2a
 ---
 
 ### Task 4: Abandonment Rate 模块（8 类原因）
@@ -860,6 +865,7 @@ git add src/core/adoption/abandonment.ts src/core/adoption/abandonment.test.ts
 git commit -m "feat: add Abandonment Rate computation with 8 reason categories"
 ```
 
+archived-with: 2026-07-18-analytics-adoption-intelligence-phase1-2a
 ---
 
 ### Task 5: Code Lineage L1-L3 模块
@@ -1003,6 +1009,7 @@ git add src/core/adoption/lineage.ts src/core/adoption/lineage.test.ts
 git commit -m "feat: add Code Lineage L1-L3 computation module"
 ```
 
+archived-with: 2026-07-18-analytics-adoption-intelligence-phase1-2a
 ---
 
 ### Task 6: Failure Intelligence 模块
@@ -1225,6 +1232,7 @@ git add src/core/adoption/failure-intelligence.ts src/core/adoption/failure-inte
 git commit -m "feat: add Failure Intelligence computation module"
 ```
 
+archived-with: 2026-07-18-analytics-adoption-intelligence-phase1-2a
 ---
 
 ### Task 7: AdoptionEngineV2.computeProfile() 集成 5 个子模块
@@ -1360,6 +1368,7 @@ git add src/core/adoption-engine.ts src/core/adoption-engine-v2.test.ts
 git commit -m "feat: wire up 5 sub-analyzers into AdoptionEngineV2.computeProfile()"
 ```
 
+archived-with: 2026-07-18-analytics-adoption-intelligence-phase1-2a
 ---
 
 ### Task 8: analytics.ts — 增加 `--provenance` flag
@@ -1446,6 +1455,7 @@ git add src/commands/analytics.ts src/cli/index.ts
 git commit -m "feat: add --provenance flag to analytics CLI for provenance data source"
 ```
 
+archived-with: 2026-07-18-analytics-adoption-intelligence-phase1-2a
 ---
 
 ### Task 9: dashboard.ts — 新增 Lifecycle Funnel + Abandonment Reasons 面板
@@ -1535,6 +1545,7 @@ git add src/commands/dashboard.ts
 git commit -m "feat: add Lifecycle Funnel and Abandonment Reasons panels to dashboard"
 ```
 
+archived-with: 2026-07-18-analytics-adoption-intelligence-phase1-2a
 ---
 
 ### Task 10: formatAdoptionProfile 输出新增 V2 指标
@@ -1655,6 +1666,7 @@ git add src/core/adoption-engine.ts
 git commit -m "feat: add V2 metrics output to formatAdoptionProfile and JSON format"
 ```
 
+archived-with: 2026-07-18-analytics-adoption-intelligence-phase1-2a
 ---
 
 ### Task 11: 向下兼容验证 + 最终质量门

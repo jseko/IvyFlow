@@ -20,9 +20,11 @@
  */
 
 import path from 'path';
+import { execSync } from 'child_process';
 
 import { fileExists, readFile, writeFile, ensureDir } from '../utils/fs.js';
 import { type IvyPhase, parsePhase, canTransition, listPhases } from './phase-machine.js';
+import { detectCurrentChangeSync } from './change-detection.js';
 import { recordVerifyResult } from './feedback-collector.js';
 // ─── Types ───
 
@@ -51,6 +53,8 @@ export interface StateYaml {
   branch_status?: string;
   build_command?: string;
   verify_command?: string;
+  /** Git base commit recorded when the change was opened (consumed by adoption-lite). */
+  base_commit?: string;
   /** v0.33: Agent collaboration topology */
   topology?: 'serial' | 'parallel' | 'supervisor' | 'debate';
   [key: string]: unknown;
@@ -98,22 +102,37 @@ export interface RuleComplianceResult {
 
 // ─── State file management ───
 
-const STATE_FILE = '.ivy/state.yaml';
 const MAX_HISTORY = 10;
 
 /**
- * Get the absolute path to the state file relative to a project root.
+ * Resolve the path to a change's authoritative state file.
+ *
+ * Single source of truth: the writer (this module) and every reader — the git
+ * pre-push hook, `ivy status`, `ivy validate`, and `adoption-lite` — all
+ * operate on the SAME per-change file `openspec/changes/<name>/.ivy.yaml`.
+ *
+ * This eliminates the former dual-state-file drift where `.ivy/state.yaml` was
+ * written by the CLI but never read by anything (the hook/status/validate/
+ * adoption all expected `openspec/changes/<name>/.ivy.yaml`).
+ *
+ * The persisted key is `phase` (not `checkpoint`) so the shell hook / adoption
+ * / status / validate — which all read `phase:` — stay in sync.
  */
-export function getStatePath(cwd: string): string {
-  return path.join(cwd, STATE_FILE);
+export function getStatePath(cwd: string, changeName?: string): string {
+  const name = changeName ?? detectCurrentChangeSync(cwd);
+  if (!name) {
+    // No active change: return a path that will not exist so readState => null.
+    return path.join(cwd, 'openspec', 'changes', '.ivy.yaml');
+  }
+  return path.join(cwd, 'openspec', 'changes', name, '.ivy.yaml');
 }
 
 /**
- * Read the current lifecycle state from `.ivy/state.yaml`.
- * Returns null if the file doesn't exist.
+ * Read the current lifecycle state.
+ * Returns null if the state file doesn't exist.
  */
-export async function readState(cwd: string): Promise<StateYaml | null> {
-  const statePath = getStatePath(cwd);
+export async function readState(cwd: string, changeName?: string): Promise<StateYaml | null> {
+  const statePath = getStatePath(cwd, changeName);
   if (!(await fileExists(statePath))) {
     return null;
   }
@@ -124,12 +143,32 @@ export async function readState(cwd: string): Promise<StateYaml | null> {
 }
 
 /**
- * Write the lifecycle state to `.ivy/state.yaml`.
+ * Write the lifecycle state to the per-change `.ivy.yaml`.
+ *
+ * On first write (or when missing) `base_commit` is captured from
+ * `git rev-parse HEAD` so `adoption-lite` can compute an adoption diff at the
+ * terminal phase. Best-effort: ignored when git is unavailable.
  */
-export async function writeState(cwd: string, state: StateYaml): Promise<void> {
-  const statePath = getStatePath(cwd);
+export async function writeState(cwd: string, state: StateYaml, changeName?: string): Promise<void> {
+  const statePath = getStatePath(cwd, changeName ?? state.changeName);
   await ensureDir(path.dirname(statePath));
-  await writeFile(statePath, serializeStateYaml(state));
+
+  let toWrite = state;
+  if (!state.base_commit) {
+    try {
+      const head = execSync('git rev-parse HEAD', {
+        cwd,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      })
+        .toString()
+        .trim();
+      if (head) toWrite = { ...state, base_commit: head };
+    } catch {
+      // git unavailable — leave base_commit unset
+    }
+  }
+
+  await writeFile(statePath, serializeStateYaml(toWrite));
 }
 
 /**
@@ -151,6 +190,11 @@ export function createInitialState(changeName: string): StateYaml {
         rationale: 'New change created',
       },
     ],
+    // 初始化默认值（对齐 skill-orchestration spec：ivy state init 的字段默认值）。
+    // build_mode / isolation 默认为 null（不写入，保持未设置）。
+    workflow: 'full',
+    auto_transition: true,
+    verify_result: 'pending',
   };
 }
 
@@ -481,14 +525,35 @@ export async function runFullGuardChecks(
 
 /**
  * Minimal YAML serializer for StateYaml.
- * Produces valid YAML with proper indentation for transitionHistory arrays.
+ *
+ * Persists EVERY top-level scalar field (not just the 4 core ones) so workflow
+ * fields such as `build_mode`, `isolation`, `verify_result`, `branch_status`,
+ * `handoff_context`/`handoff_hash`, `design_doc`, etc. survive a write/read
+ * cycle. `checkpoint` is written as `phase:` to stay compatible with the shell
+ * hook, status, validate, and adoption-lite, which all read `phase:`.
  */
 function serializeStateYaml(state: StateYaml): string {
   const lines: string[] = [];
   lines.push(`changeName: ${state.changeName}`);
-  lines.push(`checkpoint: ${state.checkpoint}`);
+  lines.push(`phase: ${state.checkpoint}`);
   lines.push(`enteredAt: ${state.enteredAt}`);
   lines.push(`lastTransitionAt: ${state.lastTransitionAt}`);
+
+  const skip = new Set([
+    'changeName',
+    'checkpoint',
+    'enteredAt',
+    'lastTransitionAt',
+    'transitionHistory',
+  ]);
+  for (const [key, value] of Object.entries(state)) {
+    if (skip.has(key)) continue;
+    if (value === undefined || value === null) continue;
+    if (typeof value === 'object') continue; // minimal serializer: skip nested values
+    const rendered = typeof value === 'boolean' ? (value ? 'true' : 'false') : String(value);
+    lines.push(`${key}: ${rendered}`);
+  }
+
   lines.push('transitionHistory:');
   for (const entry of state.transitionHistory) {
     lines.push(`  - from: ${entry.from ?? 'null'}`);
@@ -509,7 +574,8 @@ function serializeStateYaml(state: StateYaml): string {
 
 /**
  * Minimal YAML parser for StateYaml.
- * Handles the specific format produced by serializeStateYaml.
+ * Handles the format produced by serializeStateYaml, including generic
+ * top-level scalar fields written under the `[key: string]: unknown` index.
  */
 function parseStateYaml(raw: string): StateYaml {
   const lines = raw.split('\n');
@@ -526,14 +592,28 @@ function parseStateYaml(raw: string): StateYaml {
     const changeMatch = line.match(/^changeName:\s*(.+)$/);
     if (changeMatch) { state.changeName = changeMatch[1].trim(); continue; }
 
-    const checkpointMatch = line.match(/^checkpoint:\s*(.+)$/);
-    if (checkpointMatch) { state.checkpoint = checkpointMatch[1].trim() as LifecycleCheckpoint; continue; }
+    const phaseMatch = line.match(/^phase:\s*(.+)$/);
+    if (phaseMatch) { state.checkpoint = phaseMatch[1].trim() as LifecycleCheckpoint; continue; }
 
     const enteredMatch = line.match(/^enteredAt:\s*(.+)$/);
     if (enteredMatch) { state.enteredAt = enteredMatch[1].trim(); continue; }
 
     const lastMatch = line.match(/^lastTransitionAt:\s*(.+)$/);
     if (lastMatch) { state.lastTransitionAt = lastMatch[1].trim(); continue; }
+
+    // Generic top-level scalar field (start-of-line, not indented).
+    const generic = line.match(/^([A-Za-z_][\w-]*):\s*(.+)$/);
+    if (generic && !line.startsWith(' ') && !line.startsWith('\t')) {
+      const k = generic[1];
+      if (!['changeName', 'phase', 'enteredAt', 'lastTransitionAt', 'transitionHistory'].includes(k)) {
+        let v: unknown = generic[2].trim();
+        if (v === 'true') v = true;
+        else if (v === 'false') v = false;
+        else if (/^\d+$/.test(v as string)) v = Number(v);
+        (state as Record<string, unknown>)[k] = v;
+        continue;
+      }
+    }
 
     // transitionHistory entries
     const fromMatch = line.match(/^\s+- from:\s*(.+)$/);
