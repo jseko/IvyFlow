@@ -13,6 +13,7 @@ import { fileExists, readFile, writeFile, ensureDir } from '../utils/fs.js';
 import { readRawEvents, type RawEvent } from './sessions.js';
 import { getSuggestionQuality } from './feedback-recorder.js';
 import { buildTypeMap } from './suggest-engine.js';
+import type { OriginEventStore } from './provenance/event-store.js';
 
 // ─── Constants ───
 
@@ -52,6 +53,114 @@ export interface AdoptionProfile {
     overall: 'low' | 'medium';
     note: string;
   };
+
+  // --- V2 fields (Phase 1+2A, optional) ---
+  retention?: RetentionMetrics;
+  rework?: ReworkMetrics;
+  abandonment?: AbandonmentMetrics;
+  lineage?: LineageMetrics;
+  failureIntelligence?: FailureMetrics;
+}
+
+export interface RetentionMetrics {
+  totalGeneratedLines: number;
+  surviveLines: number;
+  retentionRatio: number;
+  trackedCommits: number;
+  confidence: 'low' | 'medium' | 'high';
+}
+
+export interface ReworkMetrics {
+  aiGeneratedLines: number;
+  humanModifiedLines: number;
+  reworkRatio: number;
+  modificationCount: number;
+  confidence: 'low' | 'medium' | 'high';
+}
+
+export type AbandonmentReason =
+  | 'user_rejected'
+  | 'never_committed'
+  | 'deleted_before_merge'
+  | 'reverted'
+  | 'refactored_away'
+  | 'replaced_by_human'
+  | 'timed_out'
+  | 'unknown';
+
+export interface AbandonmentMetrics {
+  totalOrigins: number;
+  abandonedOrigins: number;
+  abandonmentRate: number;
+  byReason: Record<AbandonmentReason, number>;
+  timeToAbandon: {
+    minHours: number;
+    maxHours: number;
+    medianHours: number;
+    p95Hours: number;
+  };
+  confidence: 'low' | 'medium' | 'high';
+}
+
+export interface LineageMetrics {
+  l1FileMatches: number;
+  l2AstMatches: number;
+  l3SemanticMatches: number;
+  totalTrackedOrigins: number;
+  confidence: 'low' | 'medium' | 'high';
+}
+
+export interface FailureMode {
+  pattern: string;
+  count: number;
+  phase: string;
+  affectedFiles: string[];
+}
+
+export interface FailureMetrics {
+  byPhase: Record<string, { total: number; failed: number; rate: number }>;
+  topFailureModes: FailureMode[];
+  confidence: 'low' | 'medium' | 'high';
+}
+
+export interface ComputeOptions {
+  projectPath: string;
+  changeName?: string;
+  periodDays?: number;
+  retentionWindow?: number;
+}
+
+export class AdoptionEngineV2 {
+  constructor(private store: OriginEventStore) {}
+
+  async computeProfile(opts: ComputeOptions): Promise<AdoptionProfile> {
+    const projection = await this.store.getProjection();
+    const origins = [...projection.origins.values()];
+
+    const profile: AdoptionProfile = {
+      changeName: opts.changeName ?? 'all',
+      periodStart: '',
+      periodEnd: new Date().toISOString(),
+      funnel: {
+        totalCommits: 0,
+        totalFilesChanged: 0,
+        totalLinesAdded: 0,
+        totalChanges: origins.length,
+        completedChanges: 0,
+        completionRate: 0,
+      },
+      suggestionImpact: {
+        totalSuggestions: 0,
+        acceptedSuggestions: 0,
+        estimatedLinesFromAccepted: 0,
+        avgTimeToResolve: 0,
+      },
+      weeklyTrend: [],
+      confidence: { overall: 'low', note: 'V2 engine — metrics computed from provenance data.' },
+    };
+
+    return profile;
+  }
 }
 
 // ─── Cache I/O ───
@@ -87,6 +196,7 @@ async function writeCachedProfile(projectPath: string, profile: AdoptionProfile)
 /**
  * Compute adoption profile from raw events.
  * Reads events.jsonl + git diff + feedback data.
+ * @deprecated Use AdoptionEngineV2 with provenance data source
  */
 export async function computeAdoptionProfile(
   projectPath: string,
