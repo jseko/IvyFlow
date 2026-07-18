@@ -173,7 +173,10 @@ program
   .option('--explain', 'v0.15: Show data provenance annotations with line-level detail', false)
   .option('--trend', 'v0.15: Show adoption trend over time periods', false)
   .option('--provenance', 'Use provenance data source (Phase 0 Origin events)', false)
-  .action(async (opts: { change?: string; project?: boolean; period?: string; enable?: boolean; disable?: boolean; json?: boolean; confidence?: boolean; demo?: boolean; explain?: boolean; trend?: boolean; provenance?: boolean }) => {
+  .option('--value', 'Phase 2B: Show Value Index', false)
+  .option('--csi', 'Phase 2B: Show Context Sufficiency Index', false)
+  .option('--feedback', 'Phase 2B: Show Human Feedback Loop', false)
+  .action(async (opts: { change?: string; project?: boolean; period?: string; enable?: boolean; disable?: boolean; json?: boolean; confidence?: boolean; demo?: boolean; explain?: boolean; trend?: boolean; provenance?: boolean; value?: boolean; csi?: boolean; feedback?: boolean }) => {
     const period = opts.period === '90d' ? '90d' : opts.period === '30d' ? '30d' : '7d';
     const exitCode = await runAnalytics({
       change: opts.change,
@@ -187,6 +190,9 @@ program
       explain: opts.explain,
       trend: opts.trend,
       provenance: opts.provenance,
+      value: opts.value,
+      csi: opts.csi,
+      feedback: opts.feedback,
     });
     process.exit(exitCode);
   });
@@ -209,7 +215,10 @@ program
   .option('--metrics <list>', 'v0.11: Metrics filter for --org (comma-separated)')
   .option('--format <fmt>', 'v0.11: Output format: text, json (default: text)', 'text')
   .option('--demo', 'v0.15: Org Intelligence demo mode (built-in sample data)', false)
-  .action(async (opts: { change?: string; watch?: boolean; html?: boolean; period?: string; quality?: boolean; team?: boolean; adr?: boolean; memory?: boolean; org?: string[]; knowledge?: boolean; metrics?: string; format?: string; demo?: boolean }) => {
+  .option('--value', 'Phase 2B: Show Value Index panel', false)
+  .option('--csi', 'Phase 2B: Show Context Sufficiency Index panel', false)
+  .option('--feedback', 'Phase 2B: Show Feedback Loop panel', false)
+  .action(async (opts: { change?: string; watch?: boolean; html?: boolean; period?: string; quality?: boolean; team?: boolean; adr?: boolean; memory?: boolean; org?: string[]; knowledge?: boolean; metrics?: string; format?: string; demo?: boolean; value?: boolean; csi?: boolean; feedback?: boolean }) => {
     const period = opts.period === '90d' ? '90d' : opts.period === '30d' ? '30d' : '7d';
     const exitCode = await runDashboard({
       change: opts.change,
@@ -225,6 +234,9 @@ program
       metrics: opts.metrics,
       format: opts.format as 'text' | 'json' | undefined,
       demo: opts.demo,
+      value: opts.value,
+      csi: opts.csi,
+      feedback: opts.feedback,
     });
     process.exit(exitCode);
   });
@@ -473,7 +485,8 @@ const stateCmd = program
 
 stateCmd
   .command('set')
-  .argument('<checkpoint> [value]', 'Target checkpoint to transition to, OR a workflow field when followed by [value]')
+  .argument('<checkpoint>', 'Target checkpoint to transition to (open/design/build/verify/archive)')
+  .argument('[value]', 'When present, switches to field mode: set workflow field <checkpoint> to <value>')
   .description('Transition to a checkpoint, OR set a workflow field: `ivy state set <field> <value>`')
   .option('--change <name>', 'Change to operate on')
   .option('--rationale <text>', 'Transition rationale (recorded in Workflow Evidence)')

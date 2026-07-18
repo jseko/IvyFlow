@@ -33,6 +33,8 @@ import { MemoryStore } from '../core/memory-arch.js';
 import { getMemoryStatus } from '../core/memory/manager.js';
 import type { MemoryStatusResult } from '../core/memory/manager.js';
 import type { ExtendedFeature } from '../core/memory/model.js';
+import { AdoptionEngineV2 } from '../core/adoption-engine.js';
+import { JSONLEventStore } from '../core/provenance/event-store-jsonl.js';
 
 export interface DashboardOptions {
   cwd?: string;
@@ -54,6 +56,9 @@ export interface DashboardOptions {
   format?: 'text' | 'json';
   /** v0.15: Demo mode for Org Insights */
   demo?: boolean;
+  value?: boolean;
+  csi?: boolean;
+  feedback?: boolean;
 }
 
 interface ProjectYaml {
@@ -124,13 +129,21 @@ export async function runDashboard(opts: DashboardOptions = {}): Promise<number>
 
     while (running) {
       console.clear();
-      await renderOnce(cwd, opts.change, opts.html, opts.period, opts.quality);
+      await renderOnce(cwd, opts.change, opts.html, opts.period, opts.quality, {
+        value: opts.value,
+        csi: opts.csi,
+        feedback: opts.feedback,
+      });
       await sleep(REFRESH_INTERVAL_MS);
     }
     return 0;
   }
 
-  const output = await renderOnce(cwd, opts.change, opts.html, opts.period, opts.quality);
+  const output = await renderOnce(cwd, opts.change, opts.html, opts.period, opts.quality, {
+    value: opts.value,
+    csi: opts.csi,
+    feedback: opts.feedback,
+  });
   if (opts.html && output) {
     await writeHtmlReport(cwd, opts.change, output);
   }
@@ -143,6 +156,7 @@ async function renderOnce(
   htmlMode?: boolean,
   period?: '7d' | '30d' | '90d',
   showQuality?: boolean,
+  phase2bOpts?: { value?: boolean; csi?: boolean; feedback?: boolean },
 ): Promise<string | null> {
   const periodDays = period === '90d' ? 90 : period === '30d' ? 30 : 7;
   await runSessionInference(cwd);
@@ -318,6 +332,58 @@ async function renderOnce(
       push(row(`⚠️  ${warning}`, boxWidth));
     }
     push('');
+  }
+
+  // Phase 2B: Value Intelligence panels (when flags set)
+  if (phase2bOpts && (phase2bOpts.value || phase2bOpts.csi || phase2bOpts.feedback)) {
+    try {
+      const store = new JSONLEventStore(cwd);
+      const engine = new AdoptionEngineV2(store);
+      const v2Profile = await engine.computeProfile({
+        projectPath: cwd,
+        changeName,
+        periodDays,
+      });
+
+      if (phase2bOpts.value && v2Profile.valueIndex) {
+        const vi = v2Profile.valueIndex;
+        push(sectionHeader('Value Index  —  Phase 2B', boxWidth));
+        push(row(`Value Index:      ${vi.valueIndex.toFixed(2)}`, boxWidth));
+        push(row(`Quality Factor:   ${vi.qualityFactor.toFixed(2)}`, boxWidth));
+        push(row(`Business Impact:  ${vi.businessImpactType} (weight: ${vi.businessImpactWeight})`, boxWidth));
+        push(row(`Retention:        ${(vi.retentionRatio * 100).toFixed(0)}%`, boxWidth));
+        push(row(`Rework Cost:      ${(vi.reworkCost * 100).toFixed(0)}%`, boxWidth));
+        push(row(`Abandonment:      ${(vi.abandonmentRate * 100).toFixed(0)}%`, boxWidth));
+        push('');
+      }
+
+      if (phase2bOpts.csi && v2Profile.csi) {
+        const csi = v2Profile.csi;
+        push(sectionHeader('Context Sufficiency Index (CSI)  —  Phase 2B', boxWidth));
+        push(row(`CSI:              ${(csi.csi * 100).toFixed(0)}%`, boxWidth));
+        push(row(`Task Type:        ${csi.taskType}`, boxWidth));
+        push(row(`Confidence:       ${csi.confidence}`, boxWidth));
+        for (const d of csi.dimensions) {
+          const bar = '█'.repeat(Math.round(d.ratio * 12)) + '░'.repeat(Math.max(0, 12 - Math.round(d.ratio * 12)));
+          push(row(`  ${d.dimension.padEnd(16)} ${bar}  ${(d.ratio * 100).toFixed(0)}% (${d.available}/${d.required})`, boxWidth));
+        }
+        push('');
+      }
+
+      if (phase2bOpts.feedback && v2Profile.feedback) {
+        const fb = v2Profile.feedback;
+        push(sectionHeader('Human Feedback Loop  —  Phase 2B', boxWidth));
+        push(row(`Accepted & Kept:        ${fb.summary.acceptedAndKept}`, boxWidth));
+        push(row(`Accepted Then Modified: ${fb.summary.acceptedThenModified}`, boxWidth));
+        push(row(`Accepted Then Deleted:  ${fb.summary.acceptedThenDeleted}`, boxWidth));
+        push(row(`Rejected Outright:      ${fb.summary.rejectedOutright}`, boxWidth));
+        push(row(`Unknown:                ${fb.summary.unknown}`, boxWidth));
+        push('');
+      }
+    } catch {
+      push(row('Phase 2B panels unavailable — provenance data not found', boxWidth));
+      push('');
+    }
   }
 
   // GitNexus Overlay
