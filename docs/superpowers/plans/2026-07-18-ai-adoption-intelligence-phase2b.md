@@ -42,7 +42,7 @@ base-ref: e069fc03877df99b8d1c8e5e36f430da98c7ab5f
   - `ValueIndex = { valueIndex: number; qualityFactor: number; businessImpactType: BusinessImpactType; businessImpactWeight: number; retentionRatio: number; reworkCost: number; abandonmentRate: number }`
   - `computeValueIndex(projection: OriginProjection, projectPath: string, retentionWindow?: number): Promise<ValueIndex>`
 
-- [ ] **Step 1: 在 adoption-engine.ts 中添加 ValueIndex 类型和 AdoptionProfile 扩展**
+- [x] **Step 1: 在 adoption-engine.ts 中添加 ValueIndex 类型和 AdoptionProfile 扩展**
 
 ```typescript
 // 在 adoption-engine.ts 的 AdoptionProfile 接口中，v2 fields 之后添加：
@@ -71,7 +71,7 @@ export interface ValueIndex {
   valueIndex?: ValueIndex;
 ```
 
-- [ ] **Step 2: 编写 value-engine.test.ts — 先写空 origins 测试**
+- [x] **Step 2: 编写 value-engine.test.ts — 先写空 origins 测试**
 
 ```typescript
 import { describe, it, expect } from 'vitest';
@@ -121,7 +121,7 @@ describe('computeValueIndex', () => {
 });
 ```
 
-- [ ] **Step 3: 运行测试确认失败**
+- [x] **Step 3: 运行测试确认失败**
 
 ```bash
 npx vitest run src/core/adoption/value-engine.test.ts
@@ -129,7 +129,7 @@ npx vitest run src/core/adoption/value-engine.test.ts
 
 Expected: FAIL — `computeValueIndex is not a function` 或类似
 
-- [ ] **Step 4: 实现 value-engine.ts**
+- [x] **Step 4: 实现 value-engine.ts**
 
 ```typescript
 import type { OriginProjection } from '../provenance/types.js';
@@ -210,7 +210,7 @@ export async function computeValueIndex(
 }
 ```
 
-- [ ] **Step 5: 运行测试确认通过**
+- [x] **Step 5: 运行测试确认通过**
 
 ```bash
 npx vitest run src/core/adoption/value-engine.test.ts
@@ -218,7 +218,7 @@ npx vitest run src/core/adoption/value-engine.test.ts
 
 Expected: PASS
 
-- [ ] **Step 6: 补充完整测试用例 — 分类测试和计算测试**
+- [x] **Step 6: 补充完整测试用例 — 分类测试和计算测试**
 
 ```typescript
 describe('classifyBusinessImpact (via computeValueIndex)', () => {
@@ -266,7 +266,7 @@ describe('classifyBusinessImpact (via computeValueIndex)', () => {
 });
 ```
 
-- [ ] **Step 7: 运行全部测试确认通过**
+- [x] **Step 7: 运行全部测试确认通过**
 
 ```bash
 npx vitest run src/core/adoption/value-engine.test.ts
@@ -274,7 +274,7 @@ npx vitest run src/core/adoption/value-engine.test.ts
 
 Expected: ALL PASS
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add src/core/adoption/value-engine.ts src/core/adoption/value-engine.test.ts src/core/adoption-engine.ts
@@ -298,7 +298,7 @@ git commit -m "feat: add Value Engine with business impact classification"
   - `CSIMetrics = { csi: number; taskType: AIOperation; confidence: 'low' | 'medium' | 'high'; dimensions: ContextDimension[] }`
   - `computeCSI(projection: OriginProjection): Promise<CSIMetrics>`
 
-- [ ] **Step 1: 在 adoption-engine.ts 中添加 CSI 类型和 AdoptionProfile 扩展**
+- [x] **Step 1: 在 adoption-engine.ts 中添加 CSI 类型和 AdoptionProfile 扩展**
 
 ```typescript
 // 在 adoption-engine.ts，ValueIndex 类型之后添加：
@@ -323,7 +323,7 @@ export interface CSIMetrics {
   csi?: CSIMetrics;
 ```
 
-- [ ] **Step 2: 编写 context-intelligence.test.ts — 空 origins 测试**
+- [x] **Step 2: 编写 context-intelligence.test.ts — 空 origins 测试**
 
 ```typescript
 import { describe, it, expect } from 'vitest';
@@ -366,7 +366,7 @@ describe('computeCSI', () => {
 });
 ```
 
-- [ ] **Step 3: 运行测试确认失败**
+- [x] **Step 3: 运行测试确认失败**
 
 ```bash
 npx vitest run src/core/adoption/context-intelligence.test.ts
@@ -374,7 +374,7 @@ npx vitest run src/core/adoption/context-intelligence.test.ts
 
 Expected: FAIL
 
-- [ ] **Step 4: 实现 context-intelligence.ts**
+- [x] **Step 4: 实现 context-intelligence.ts**
 
 ```typescript
 import type { OriginProjection, AIOperation } from '../provenance/types.js';
@@ -482,7 +482,7 @@ export async function computeCSI(
 }
 ```
 
-- [ ] **Step 5: 运行测试确认通过**
+- [x] **Step 5: 运行测试确认通过**
 
 ```bash
 npx vitest run src/core/adoption/context-intelligence.test.ts
@@ -490,7 +490,7 @@ npx vitest run src/core/adoption/context-intelligence.test.ts
 
 Expected: PASS
 
-- [ ] **Step 6: 补充完整测试用例**
+- [x] **Step 6: 补充完整测试用例**
 
 ```typescript
 describe('computeCSI with data', () => {
@@ -552,7 +552,7 @@ describe('computeCSI with data', () => {
 });
 ```
 
-- [ ] **Step 7: 运行全部测试确认通过**
+- [x] **Step 7: 运行全部测试确认通过**
 
 ```bash
 npx vitest run src/core/adoption/context-intelligence.test.ts
@@ -560,7 +560,7 @@ npx vitest run src/core/adoption/context-intelligence.test.ts
 
 Expected: ALL PASS
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add src/core/adoption/context-intelligence.ts src/core/adoption/context-intelligence.test.ts src/core/adoption-engine.ts
@@ -586,7 +586,7 @@ git commit -m "feat: add Context Intelligence (CSI) calculation"
   - `FeedbackLoopSummary = { entries: FeedbackEntry[]; summary: { acceptedAndKept: number; acceptedThenModified: number; acceptedThenDeleted: number; rejectedOutright: number; unknown: number } }`
   - `inferFeedback(projection: OriginProjection, projectPath: string): Promise<FeedbackLoopSummary>`
 
-- [ ] **Step 1: 在 adoption-engine.ts 中添加 Feedback 类型和 AdoptionProfile 扩展**
+- [x] **Step 1: 在 adoption-engine.ts 中添加 Feedback 类型和 AdoptionProfile 扩展**
 
 ```typescript
 // 在 adoption-engine.ts，CSIMetrics 类型之后添加：
@@ -620,7 +620,7 @@ export interface FeedbackLoopSummary {
   feedback?: FeedbackLoopSummary;
 ```
 
-- [ ] **Step 2: 编写 feedback-loop.test.ts — 空 origins 测试**
+- [x] **Step 2: 编写 feedback-loop.test.ts — 空 origins 测试**
 
 ```typescript
 import { describe, it, expect } from 'vitest';
@@ -671,7 +671,7 @@ describe('inferFeedback', () => {
 });
 ```
 
-- [ ] **Step 3: 运行测试确认失败**
+- [x] **Step 3: 运行测试确认失败**
 
 ```bash
 npx vitest run src/core/adoption/feedback-loop.test.ts
@@ -679,7 +679,7 @@ npx vitest run src/core/adoption/feedback-loop.test.ts
 
 Expected: FAIL
 
-- [ ] **Step 4: 实现 feedback-loop.ts**
+- [x] **Step 4: 实现 feedback-loop.ts**
 
 ```typescript
 import type { OriginProjection, Origin } from '../provenance/types.js';
@@ -791,7 +791,7 @@ export async function inferFeedback(
 }
 ```
 
-- [ ] **Step 5: 运行测试确认通过**
+- [x] **Step 5: 运行测试确认通过**
 
 ```bash
 npx vitest run src/core/adoption/feedback-loop.test.ts
@@ -799,7 +799,7 @@ npx vitest run src/core/adoption/feedback-loop.test.ts
 
 Expected: PASS
 
-- [ ] **Step 6: 补充完整测试用例**
+- [x] **Step 6: 补充完整测试用例**
 
 ```typescript
 describe('inferFeedback summary structure', () => {
@@ -834,7 +834,7 @@ describe('inferFeedback summary structure', () => {
 });
 ```
 
-- [ ] **Step 7: 运行全部测试确认通过**
+- [x] **Step 7: 运行全部测试确认通过**
 
 ```bash
 npx vitest run src/core/adoption/feedback-loop.test.ts
@@ -842,7 +842,7 @@ npx vitest run src/core/adoption/feedback-loop.test.ts
 
 Expected: ALL PASS
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add src/core/adoption/feedback-loop.ts src/core/adoption/feedback-loop.test.ts src/core/adoption-engine.ts
@@ -864,7 +864,7 @@ git commit -m "feat: add Feedback Loop with implicit feedback inference"
   - `inferFeedback` from `./adoption/feedback-loop.js`
 - Produces: 更新后的 `AdoptionProfile`（含 `valueIndex`, `csi`, `feedback` 字段）
 
-- [ ] **Step 1: 更新 adoption-engine.ts 的 imports 和 AdoptionEngineV2.computeProfile**
+- [x] **Step 1: 更新 adoption-engine.ts 的 imports 和 AdoptionEngineV2.computeProfile**
 
 在 `src/core/adoption-engine.ts` 顶部 import 区添加：
 
@@ -930,7 +930,7 @@ import { inferFeedback } from './adoption/feedback-loop.js';
   }
 ```
 
-- [ ] **Step 2: 扩展 adoption-engine-v2.test.ts**
+- [x] **Step 2: 扩展 adoption-engine-v2.test.ts**
 
 ```typescript
 describe('AdoptionEngineV2.computeProfile — Phase 2B fields', () => {
@@ -963,7 +963,7 @@ describe('AdoptionEngineV2.computeProfile — Phase 2B fields', () => {
 });
 ```
 
-- [ ] **Step 3: 运行测试确认通过**
+- [x] **Step 3: 运行测试确认通过**
 
 ```bash
 npx vitest run src/core/adoption-engine-v2.test.ts
@@ -971,7 +971,7 @@ npx vitest run src/core/adoption-engine-v2.test.ts
 
 Expected: ALL PASS
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/core/adoption-engine.ts src/core/adoption-engine-v2.test.ts
@@ -994,7 +994,7 @@ git commit -m "feat: integrate Value Engine, CSI, and Feedback Loop into Adoptio
   - `formatAdoptionProfileJson`（已有）
 - Produces: `runAnalytics` 处理新 flag 的分支逻辑
 
-- [ ] **Step 1: 扩展 AnalyticsOptions 接口**
+- [x] **Step 1: 扩展 AnalyticsOptions 接口**
 
 在 `src/commands/analytics.ts` 的 `AnalyticsOptions` 接口中添加：
 
@@ -1018,7 +1018,7 @@ export interface AnalyticsOptions {
 }
 ```
 
-- [ ] **Step 2: 在 runAnalytics 中添加 --provenance 分支的 flag 过滤输出**
+- [x] **Step 2: 在 runAnalytics 中添加 --provenance 分支的 flag 过滤输出**
 
 在 `src/commands/analytics.ts` 的 `runAnalytics` 函数中，`--provenance` 分支（第89-111行）的 JSON 输出之后、human output 之前，添加 flag 过滤逻辑：
 
@@ -1065,7 +1065,7 @@ export interface AnalyticsOptions {
   }
 ```
 
-- [ ] **Step 3: 添加输出格式化函数**
+- [x] **Step 3: 添加输出格式化函数**
 
 在 `src/commands/analytics.ts` 末尾（`formatDelta` 函数之后）添加：
 
@@ -1127,7 +1127,7 @@ function showFeedbackOutput(feedback: FeedbackLoopSummary): void {
 }
 ```
 
-- [ ] **Step 4: 更新 cli/index.ts — 注册 --value / --csi / --feedback flag**
+- [x] **Step 4: 更新 cli/index.ts — 注册 --value / --csi / --feedback flag**
 
 在 `src/cli/index.ts` 的 `analytics` 命令定义中（第162-192行），`.option('--provenance', ...)` 之后添加：
 
@@ -1151,7 +1151,7 @@ csi: opts.csi,
 feedback: opts.feedback,
 ```
 
-- [ ] **Step 5: 运行测试确认通过**
+- [x] **Step 5: 运行测试确认通过**
 
 ```bash
 npx vitest run src/commands/analytics.test.ts
@@ -1159,7 +1159,7 @@ npx vitest run src/commands/analytics.test.ts
 
 Expected: ALL PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/commands/analytics.ts src/cli/index.ts
@@ -1180,7 +1180,7 @@ git commit -m "feat: add --value, --csi, --feedback flags to analytics CLI"
   - `DashboardOptions` 接口（扩展）
 - Produces: dashboard 面板输出（ASCII 面板）
 
-- [ ] **Step 1: 在 renderOnce 中添加 Phase 2B 面板**
+- [x] **Step 1: 在 renderOnce 中添加 Phase 2B 面板**
 
 在 `src/commands/dashboard.ts` 顶部 import 区添加：
 
@@ -1253,7 +1253,7 @@ import { JSONLEventStore } from '../core/provenance/event-store-jsonl.js';
   }
 ```
 
-- [ ] **Step 2: 更新 cli/index.ts — 注册 dashboard --value / --csi / --feedback flag**
+- [x] **Step 2: 更新 cli/index.ts — 注册 dashboard --value / --csi / --feedback flag**
 
 在 `src/cli/index.ts` 的 `dashboard` 命令定义中，`.option('--demo', ...)` 之后添加：
 
@@ -1277,7 +1277,7 @@ csi: opts.csi,
 feedback: opts.feedback,
 ```
 
-- [ ] **Step 3: 运行测试确认通过**
+- [x] **Step 3: 运行测试确认通过**
 
 ```bash
 npx vitest run src/commands/dashboard.test.ts
@@ -1285,7 +1285,7 @@ npx vitest run src/commands/dashboard.test.ts
 
 Expected: ALL PASS
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/commands/dashboard.ts src/cli/index.ts
@@ -1298,7 +1298,7 @@ git commit -m "feat: add Value Leakage, CSI, and Feedback Loop panels to dashboa
 
 **Files:** 无新建
 
-- [ ] **Step 1: 运行完整测试套件**
+- [x] **Step 1: 运行完整测试套件**
 
 ```bash
 npx vitest run
@@ -1306,7 +1306,7 @@ npx vitest run
 
 Expected: ALL PASS（所有现有测试通过，新测试也通过）
 
-- [ ] **Step 2: 运行 typecheck**
+- [x] **Step 2: 运行 typecheck**
 
 ```bash
 npx tsc --noEmit
@@ -1314,7 +1314,7 @@ npx tsc --noEmit
 
 Expected: 无类型错误
 
-- [ ] **Step 3: 运行 lint**
+- [x] **Step 3: 运行 lint**
 
 ```bash
 npm run lint
@@ -1322,9 +1322,9 @@ npm run lint
 
 Expected: 无 lint 错误（或仅 pre-existing 错误）
 
-- [ ] **Step 4: 修复任何失败的测试或类型错误**
+- [x] **Step 4: 修复任何失败的测试或类型错误**
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add -A
