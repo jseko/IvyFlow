@@ -172,7 +172,8 @@ program
   .option('--demo', 'v0.15: Show demo analytics with built-in sample data', false)
   .option('--explain', 'v0.15: Show data provenance annotations with line-level detail', false)
   .option('--trend', 'v0.15: Show adoption trend over time periods', false)
-  .action(async (opts: { change?: string; project?: boolean; period?: string; enable?: boolean; disable?: boolean; json?: boolean; confidence?: boolean; demo?: boolean; explain?: boolean; trend?: boolean }) => {
+  .option('--provenance', 'Use provenance data source (Phase 0 Origin events)', false)
+  .action(async (opts: { change?: string; project?: boolean; period?: string; enable?: boolean; disable?: boolean; json?: boolean; confidence?: boolean; demo?: boolean; explain?: boolean; trend?: boolean; provenance?: boolean }) => {
     const period = opts.period === '90d' ? '90d' : opts.period === '30d' ? '30d' : '7d';
     const exitCode = await runAnalytics({
       change: opts.change,
@@ -185,6 +186,7 @@ program
       demo: opts.demo,
       explain: opts.explain,
       trend: opts.trend,
+      provenance: opts.provenance,
     });
     process.exit(exitCode);
   });
@@ -471,15 +473,16 @@ const stateCmd = program
 
 stateCmd
   .command('set')
-  .argument('<checkpoint>', 'Target checkpoint: open, design, build, verify, archive')
-  .description('Transition to a new lifecycle checkpoint')
+  .argument('<checkpoint> [value]', 'Target checkpoint to transition to, OR a workflow field when followed by [value]')
+  .description('Transition to a checkpoint, OR set a workflow field: `ivy state set <field> <value>`')
   .option('--change <name>', 'Change to operate on')
   .option('--rationale <text>', 'Transition rationale (recorded in Workflow Evidence)')
   .option('--refs <ids>', 'Comma-separated v0.12 EvidenceRecord IDs')
-  .action(async (checkpoint: string, opts: { change?: string; rationale?: string; refs?: string }) => {
+  .action(async (checkpoint: string, value: string | undefined, opts: { change?: string; rationale?: string; refs?: string }) => {
     const exitCode = await runState({
       command: 'set',
       checkpoint,
+      value,
       change: opts.change,
       rationale: opts.rationale,
       refs: opts.refs,
@@ -489,8 +492,18 @@ stateCmd
   });
 
 stateCmd
+  .command('get')
+  .argument('<field>', 'Workflow field to read (e.g. isolation, build_mode, branch_status)')
+  .description('Read a workflow field from the current change state')
+  .option('--change <name>', 'Change to operate on')
+  .action(async (field: string, opts: { change?: string }) => {
+    const exitCode = await runState({ command: 'get', field, change: opts.change, cwd: process.cwd() });
+    process.exit(exitCode);
+  });
+
+stateCmd
   .command('recover')
-  .description('Restore checkpoint from .ivy/state.yaml after restart')
+  .description('Restore checkpoint from the change state file (.ivy.yaml) after restart')
   .option('--change <name>', 'Change to recover')
   .action(async (opts: { change?: string }) => {
     const exitCode = await runState({ command: 'recover', change: opts.change, cwd: process.cwd() });

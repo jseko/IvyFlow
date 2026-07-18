@@ -13,6 +13,8 @@ import { logger } from '../utils/logger.js';
 import { readYaml, patchYaml } from '../utils/yaml.js';
 import { fileExists } from '../utils/fs.js';
 import { computeAdoptionProfile, formatAdoptionProfile, formatAdoptionProfileJson } from '../core/adoption-engine.js';
+import { AdoptionEngineV2 } from '../core/adoption-engine.js';
+import { JSONLEventStore } from '../core/provenance/event-store-jsonl.js';
 import { DEMO_ADOPTION_DATA } from '../core/adoption-demo-data.js';
 
 export interface AnalyticsOptions {
@@ -27,6 +29,7 @@ export interface AnalyticsOptions {
   demo?: boolean;
   explain?: boolean;
   trend?: boolean;
+  provenance?: boolean;
 }
 
 interface ProjectYaml {
@@ -81,6 +84,31 @@ export async function runAnalytics(opts: AnalyticsOptions = {}): Promise<number>
   }
 
   const periodDays = opts.period === '90d' ? 90 : opts.period === '30d' ? 30 : 7;
+
+  // ─── Provenance data source (Phase 1+2A) ───
+  if (opts.provenance) {
+    try {
+      const store = new JSONLEventStore(cwd);
+      const engine = new AdoptionEngineV2(store);
+      const profile = await engine.computeProfile({
+        projectPath: cwd,
+        changeName: opts.project ? undefined : opts.change,
+        periodDays,
+      });
+
+      if (opts.json) {
+        const json = formatAdoptionProfileJson(profile);
+        console.log(JSON.stringify(json, null, 2));
+        return 0;
+      }
+
+      logger.info(formatAdoptionProfile(profile));
+      return 0;
+    } catch (err) {
+      logger.error(`Provenance analytics failed: ${(err as Error).message}`);
+      return 1;
+    }
+  }
 
   try {
     // Compute adoption profile (uses cache if fresh)
