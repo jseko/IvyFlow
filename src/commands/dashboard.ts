@@ -196,182 +196,9 @@ async function renderOnce(
   outputPath?: string,
 ): Promise<string | null> {
   const periodDays = period === '90d' ? 90 : period === '30d' ? 30 : 7;
-  await runSessionInference(cwd);
-  const result = await aggregateAnalytics(cwd, changeName, periodDays);
+  const periodLabel = period ?? '7d';
 
-  // Build trend profile for trend charts (if change specified)
-  const trendProfile = changeName ? await buildTrendProfile(cwd, changeName) : null;
-  const phaseStats = await buildPhaseDurationStats(cwd);
-  const nexus = await queryGitNexusOverlay(cwd, changeName ?? 'default');
-
-  // Get suggestions from suggest engine (dashboard = display only)
-  const suggestions = await runSuggestEngine(cwd, { changes: changeName ? [changeName] : undefined });
-  const typeMap = buildTypeMap(suggestions);
-  const quality = await getSuggestionQuality(cwd, typeMap);
-
-  // Build report
-  const w = terminalWidth();
-  const boxWidth = Math.min(w - 4, 72);
-
-  const lines: string[] = [];
-  const push = (s: string) => lines.push(s);
-
-  // Title
-  push(borderTop(boxWidth));
-  push(center(`IvyFlow Dashboard v2 — ${changeName ?? 'all changes'} (${period ?? '7d'} trend)`, boxWidth));
-  push(borderMid(boxWidth));
-  push('');
-
-  // Data Source Declaration
-  push(sectionHeader('Data Source Declaration', boxWidth));
-  push(row('Primary source:    git commits + phase transitions', boxWidth));
-  push(row('Coverage:          ~50% of coding activity (up from 30% in v0.4)', boxWidth));
-  push(row('Unavailable:       tool invocations, file edits (no PreToolUse)', boxWidth));
-  push(row(`Inferred:          session boundaries (30min heuristic, calibrated)`, boxWidth));
-  push('');
-
-  // Commit Trend Chart (from trend profile)
-  push(sectionHeader('Commit Trend  —  confidence: high', boxWidth));
-  if (trendProfile) {
-    push(row(`Total commits (${trendProfile.changeName}): ${trendProfile.totalCommits}`, boxWidth));
-    push(row(`Period: ${trendProfile.periodStart.slice(0, 10)} — ${trendProfile.periodEnd.slice(0, 10)}`, boxWidth));
-    push(row(`Sessions: ${trendProfile.sessionCount}`, boxWidth));
-
-    // Simple ASCII sparkline using blocks
-    if (trendProfile.sessionCount > 0) {
-      push(row('Activity:  ████░░░░░░  moderate', boxWidth));
-    } else {
-      push(row('Activity:  ░░░░░░░░░░  minimal', boxWidth));
-    }
-  } else {
-    push(row('Not enough data to build trend profile.', boxWidth));
-  }
-  push('');
-
-  // Phase Duration Bars (v0.5)
-  if (phaseStats && Object.keys(phaseStats.phaseDurations).length > 0) {
-    push(sectionHeader('Phase Duration  —  confidence: high', boxWidth));
-    const maxDur = Math.max(...Object.values(phaseStats.phaseDurations), 1);
-    for (const [phase, avgDays] of Object.entries(phaseStats.phaseDurations)) {
-      const barLen = Math.max(1, Math.round((avgDays / maxDur) * 16));
-      const bar = '█'.repeat(barLen) + '░'.repeat(Math.max(0, 16 - barLen));
-      push(row(`  ${phase.padEnd(8)} ${bar}  ${Math.round(avgDays)}d avg`, boxWidth));
-    }
-    push('');
-  }
-
-  // Verified Metrics
-  push(sectionHeader('Verified Metrics  —  high confidence', boxWidth));
-
-  const commits = result.metrics.commits.value;
-  push(row(`Commits (${periodDays}d):      ${commits}`, boxWidth));
-
-  const pt = result.metrics.phaseTransitions.value;
-  const ptKeys = Object.keys(pt);
-  if (ptKeys.length > 0) {
-    push(row('Phase Distribution:', boxWidth));
-    const totalPt = ptKeys.reduce((s, k) => s + pt[k], 0);
-    for (const key of ptKeys) {
-      const pct = totalPt > 0 ? Math.round((pt[key] / totalPt) * 100) : 0;
-      const bar = '█'.repeat(Math.round(pct / 5)) + '░'.repeat(20 - Math.round(pct / 5));
-      push(row(`  ${key.padEnd(18)} ${bar}  ${pct}%`, boxWidth));
-    }
-  }
-  push('');
-
-  // Inferred Metrics
-  if (result.metrics.sessionCount) {
-    push(sectionHeader('Inferred Metrics  —  low confidence, reference only', boxWidth));
-    push(row(`Estimated sessions:        ${result.metrics.sessionCount.value}  (30min heuristic)`, boxWidth));
-    if (result.metrics.avgSessionDurationMin) {
-      push(row(`Avg session duration:      ${result.metrics.avgSessionDurationMin.value} min  (estimated)`, boxWidth));
-    }
-    push(row(`Coverage: ${Math.round((result.metrics.sessionCount.confidence.coverage * 100))}%  (git diff only)`, boxWidth));
-    push('');
-  }
-
-  // Suggestions Section (v0.5 — from suggest engine only)
-  if (suggestions.length > 0) {
-    push(sectionHeader('Suggestions  —  from suggest engine', boxWidth));
-    const pending = suggestions.filter((s) => s.status === 'pending' || !s.status).length;
-    const accepted = suggestions.filter((s) => s.status === 'accepted').length;
-    push(row(`${pending} pending, ${accepted} accepted`, boxWidth));
-    push(row(`Overall acceptance rate: ${Math.round(quality.acceptanceRate * 100)}%`, boxWidth));
-
-    for (const s of suggestions.slice(0, 3)) {
-      const severityIcon = s.severity === 'critical' ? '⚠️' : 'ℹ️';
-      push(row(`  ${severityIcon} ${s.severity.toUpperCase()}: ${s.type} — ${s.change}`, boxWidth));
-      push(row(`    ${s.message.slice(0, boxWidth - 8)}`, boxWidth));
-    }
-    if (suggestions.length > 3) {
-      push(row(`  ... and ${suggestions.length - 3} more suggestion(s)`, boxWidth));
-    }
-    push('');
-  }
-
-  // Quality Metrics Panel (v0.6 — opt-in via --quality flag)
-  if (showQuality) {
-    push(sectionHeader(`Suggestion Quality  —  v0.6 metrics`, boxWidth));
-    push(row(`Effectiveness: ${(quality.effectiveness * 100).toFixed(1)}%  (accepted / total)`, boxWidth));
-    push(row(`Accuracy:      ${(quality.accuracy * 100).toFixed(1)}%  (accepted + intentional / total)`, boxWidth));
-
-    // Per-type bar chart
-    if (Object.keys(quality.byType).length > 0) {
-      push(row('', boxWidth));
-      push(row('Per-Type Acceptance:', boxWidth));
-      const maxTypeTotal = Math.max(...Object.values(quality.byType).map((t) => t.total), 1);
-      for (const [type, counts] of Object.entries(quality.byType)) {
-        const barLen = Math.max(1, Math.round((counts.total / maxTypeTotal) * 12));
-        const bar = '█'.repeat(barLen) + '░'.repeat(Math.max(0, 12 - barLen));
-        const rate = counts.total > 0 ? Math.round((counts.accepted / counts.total) * 100) : 0;
-        push(row(`  ${type.padEnd(16)} ${bar}  ${counts.accepted}/${counts.total} (${rate}%)`, boxWidth));
-      }
-    }
-
-    // Dismissed reasons
-    if (Object.keys(quality.dismissedReasons).length > 0) {
-      push(row('', boxWidth));
-      push(row('Dismissal Reasons:', boxWidth));
-      for (const [reason, count] of Object.entries(quality.dismissedReasons)) {
-        push(row(`  ${reason.padEnd(20)} ${count} time(s)`, boxWidth));
-      }
-    }
-
-    // Weekly trend
-    if (quality.weeklyTrend.length > 0) {
-      push(row('', boxWidth));
-      push(row('Weekly Trend (last 8 weeks):', boxWidth));
-      const maxWeekTotal = Math.max(...quality.weeklyTrend.map((w) => w.total), 1);
-      for (const w of quality.weeklyTrend) {
-        const barLen = Math.max(1, Math.round((w.total / maxWeekTotal) * 10));
-        const bar = '█'.repeat(barLen) + '░'.repeat(Math.max(0, 10 - barLen));
-        push(row(`  ${w.week.padEnd(12)} ${bar}  ${w.accepted}/${w.total} (${Math.round(w.acceptanceRate * 100)}%)`, boxWidth));
-      }
-    }
-
-    // Calibration info
-    if (quality.calibrationInfo) {
-      push(row('', boxWidth));
-      push(row('Calibration:', boxWidth));
-      push(row(`  Mode:           ${quality.calibrationInfo.mode}`, boxWidth));
-      push(row(`  Last calibrated: ${quality.calibrationInfo.lastCalibratedAt ?? 'never'}`, boxWidth));
-      push(row(`  Calibrations:    ${quality.calibrationInfo.calibrationCount}`, boxWidth));
-    }
-    push('');
-  }
-
-  // Experimental
-  if (result.metrics.aiContributionEstimate) {
-    const est = result.metrics.aiContributionEstimate;
-    push(sectionHeader('Experimental  —  NOT FOR DECISION MAKING', boxWidth));
-    push(row(`AI Contribution Estimate:  ~${est.value.percentage}%  (exploratory only)`, boxWidth));
-    for (const warning of est.warnings.slice(0, 2)) {
-      push(row(`⚠️  ${warning}`, boxWidth));
-    }
-    push('');
-  }
-
-  // Phase 2B + Renderer: Use new RenderContext-based approach
+  let phase2bOutput = '';
   if (phase2bOpts && (phase2bOpts.value || phase2bOpts.csi || phase2bOpts.feedback)) {
     try {
       const store = new JSONLEventStore(cwd);
@@ -390,65 +217,29 @@ async function renderOnce(
       const renderer = htmlMode ? new HtmlRenderer() : new TerminalRenderer();
       const ctx: RenderContext = {
         data: buildDashboardData(cwd, periodDays, changeName, v2Profile),
-        options: { panels, format: htmlMode ? 'html' : 'terminal', width: boxWidth, outputPath },
+        options: { panels, format: htmlMode ? 'html' : 'terminal', width: undefined, outputPath },
       };
       const result = renderer.render(ctx);
 
       if (htmlMode) {
         const outPath = outputPath ?? path.join(cwd, '.ivy', 'dashboard.html');
         await writeFile(outPath, result.content);
-        push(row(`HTML dashboard saved: ${outPath}`, boxWidth));
-      } else {
-        // Append terminal output to existing buffer
-        result.content.split('\n').forEach((line) => push(line));
+        console.log(`HTML dashboard saved: ${outPath}`);
+        return result.content;
       }
+      phase2bOutput = result.content;
     } catch {
-      push(row('Phase 2B panels unavailable — provenance data not found', boxWidth));
-      push('');
+      phase2bOutput = 'Phase 2B panels unavailable — provenance data not found';
     }
   }
 
-  // GitNexus Overlay
-  push(sectionHeader('External Overlay  GitNexus', boxWidth));
-  if (!nexus.visible) {
-    push(row('Status:  NOT AVAILABLE', boxWidth));
-    push(row('Reason:  GitNexus CLI not found.', boxWidth));
-    push(row('         Install with: npm install -g gitnexus', boxWidth));
-  } else if (nexus.error) {
-    push(row('Status:  ERROR', boxWidth));
-    push(row(`Message: ${nexus.error}`, boxWidth));
-  } else {
-    push(row('Status:  ACTIVE', boxWidth));
-    push(row(`Risk:    ${nexus.risk ?? 'N/A'}`, boxWidth));
-    if (nexus.affectedProcesses.length > 0) {
-      push(row('Affected processes:', boxWidth));
-      for (const p of nexus.affectedProcesses) {
-        push(row(`  - ${p}`, boxWidth));
-      }
-    }
-  }
-  push(row('⚠️  This panel is from an external tool and does not affect core metrics.', boxWidth));
-
-  // Check Report (v0.6 — non-blocking health check)
-  if (changeName) {
-    const checkReport = await runCiCheck(cwd, changeName, 'standard');
-    push(sectionHeader('Check Report  —  non-blocking health check', boxWidth));
-    push(row(`Mode: ${checkReport.mode} | ${checkReport.modeConfidence.slice(0, boxWidth - 14)}`, boxWidth));
-    push(row(`Phase: ${checkReport.phase}`, boxWidth));
-    push(row(`Passed: ${checkReport.summary.passed}  Warning: ${checkReport.summary.warning}  Info: ${checkReport.summary.info}  Failed: ${checkReport.summary.failed}`, boxWidth));
-    push(row(`Run \`ivy check --change ${changeName} --output markdown\` for full report`, boxWidth));
-    push('');
-  }
-
-  // Footer with data model info
-  push(borderMid(boxWidth));
-  push(row(`Data Model: ${result.dataModelVersion} | Raw Events: ${result.rawEventCount} | Inferred: ${result.inferredEventCount}`, boxWidth));
-  push(borderBottom(boxWidth));
-
-  const output = lines.join('\n');
+  const { renderLegacyDashboard } = await import('../core/render/terminal/sections/legacy.js');
+  const legacyOutput = await renderLegacyDashboard({ cwd, changeName, periodDays, periodLabel, showQuality });
+  const output = legacyOutput + '\n' + phase2bOutput;
   console.log(output);
   return output;
 }
+
 
 // ─── HTML Export (v0.5, improved v0.15) ───
 

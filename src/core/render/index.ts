@@ -39,8 +39,8 @@ export function renderRule(format: RuleFormat, mdContent: string): string {
 export function renderHook(format: HookFormat): string {
   if (format === 'windsurf-json') return renderHookForWindsurf();
   if (format === 'cursor-json') return renderHookForCursor();
-  if (format === 'gemini-json') return renderHookForGemini();
-  if (format === 'qwen-json') return renderHookForQwen();
-  if (format === 'kiro-json') return renderHookForKiro();
+  if (format === 'gemini') return renderHookForGemini();
+  if (format === 'qwen') return renderHookForQwen();
+  if (format === 'kiro') return renderHookForKiro();
   throw new Error(`unsupported hookFormat: ${String(format)}`);
 }

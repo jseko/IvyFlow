@@ -4,6 +4,27 @@ function getWidth(requested?: number): number {
   return Math.min(Math.max(cols, 80), 120);
 }
 
+export function borderTop(width: number): string {
+  return `┌${'─'.repeat(width)}┐`;
+}
+
+export function borderMid(width: number): string {
+  return `├${'─'.repeat(width)}┤`;
+}
+
+export function borderBottom(width: number): string {
+  return `└${'─'.repeat(width)}┘`;
+}
+
+export function sectionHeader(title: string, width: number): string {
+  return `│ ${title.padEnd(width - 2)} │`;
+}
+
+export function center(text: string, width: number): string {
+  const pad = Math.max(0, Math.floor((width - text.length) / 2));
+  return ' '.repeat(pad) + text;
+}
+
 export function box(title: string, content: string, width?: number): string {
   const w = getWidth(width);
   const top = `┌─ ${title} ${'─'.repeat(Math.max(0, w - title.length - 6))}┐`;
@@ -12,7 +33,7 @@ export function box(title: string, content: string, width?: number): string {
   return [top, ...lines, bottom].join('\n');
 }
 
-export function row(label: string, value: string, width?: number): string {
+export function row(label: string, value: string | number, width?: number): string {
   const w = getWidth(width);
   const content = `${label}${value}`;
   return content.length > w - 4 ? content.slice(0, w - 7) + '...' : content;

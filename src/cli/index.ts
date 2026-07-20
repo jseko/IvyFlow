@@ -204,7 +204,7 @@ program
   .description('Interactive ASCII dashboard for workflow insights')
   .option('--change <name>', 'Filter to a specific change')
   .option('--watch', 'Auto-refresh every 30 seconds', false)
-  .option('--html', 'Export dashboard as HTML report', false)
+  .option('--html', 'Export dashboard as HTML report (alias for --format html)', false)
   .option('--period <days>', 'Time window: 7d, 30d, 90d', '7d')
   .option('--quality', 'Show suggestion quality panel', false)
   .option('--team', 'Show team-level overview (cross-change aggregation)', false)
@@ -213,7 +213,7 @@ program
   .option('--org <paths...>', 'v0.11: Organization Insights (cross-project aggregation)', false)
   .option('--knowledge', 'v0.11: Show knowledge graph overview', false)
   .option('--metrics <list>', 'v0.11: Metrics filter for --org (comma-separated)')
-  .option('--format <fmt>', 'v0.11: Output format: text, json (default: text)', 'text')
+  .option('--format <fmt>', 'v0.32: Output format: terminal, html (default: terminal)', 'terminal')
   .option('--demo', 'v0.15: Org Intelligence demo mode (built-in sample data)', false)
   .option('--value', 'Phase 2B: Show Value Index panel', false)
   .option('--csi', 'Phase 2B: Show Context Sufficiency Index panel', false)
@@ -221,10 +221,11 @@ program
   .option('--output <path>', 'Output file path (for --format html)')
   .action(async (opts: { change?: string; watch?: boolean; html?: boolean; period?: string; quality?: boolean; team?: boolean; adr?: boolean; memory?: boolean; org?: string[]; knowledge?: boolean; metrics?: string; format?: string; demo?: boolean; value?: boolean; csi?: boolean; feedback?: boolean; output?: string }) => {
     const period = opts.period === '90d' ? '90d' : opts.period === '30d' ? '30d' : '7d';
+    const format = opts.html ? 'html' : (opts.format ?? 'terminal');
     const exitCode = await runDashboard({
       change: opts.change,
       watch: opts.watch,
-      html: opts.html,
+      html: format === 'html',
       period,
       quality: opts.quality,
       team: opts.team,
