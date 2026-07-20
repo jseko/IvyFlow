@@ -218,7 +218,8 @@ program
   .option('--value', 'Phase 2B: Show Value Index panel', false)
   .option('--csi', 'Phase 2B: Show Context Sufficiency Index panel', false)
   .option('--feedback', 'Phase 2B: Show Feedback Loop panel', false)
-  .action(async (opts: { change?: string; watch?: boolean; html?: boolean; period?: string; quality?: boolean; team?: boolean; adr?: boolean; memory?: boolean; org?: string[]; knowledge?: boolean; metrics?: string; format?: string; demo?: boolean; value?: boolean; csi?: boolean; feedback?: boolean }) => {
+  .option('--output <path>', 'Output file path (for --format html)')
+  .action(async (opts: { change?: string; watch?: boolean; html?: boolean; period?: string; quality?: boolean; team?: boolean; adr?: boolean; memory?: boolean; org?: string[]; knowledge?: boolean; metrics?: string; format?: string; demo?: boolean; value?: boolean; csi?: boolean; feedback?: boolean; output?: string }) => {
     const period = opts.period === '90d' ? '90d' : opts.period === '30d' ? '30d' : '7d';
     const exitCode = await runDashboard({
       change: opts.change,
@@ -237,6 +238,7 @@ program
       value: opts.value,
       csi: opts.csi,
       feedback: opts.feedback,
+      output: opts.output,
     });
     process.exit(exitCode);
   });
@@ -491,7 +493,8 @@ stateCmd
   .option('--change <name>', 'Change to operate on')
   .option('--rationale <text>', 'Transition rationale (recorded in Workflow Evidence)')
   .option('--refs <ids>', 'Comma-separated v0.12 EvidenceRecord IDs')
-  .action(async (checkpoint: string, value: string | undefined, opts: { change?: string; rationale?: string; refs?: string }) => {
+  .option('--workflow <preset>', 'S3: declare workflow preset (full|hotfix|tweak) when opening a change')
+  .action(async (checkpoint: string, value: string | undefined, opts: { change?: string; rationale?: string; refs?: string; workflow?: string }) => {
     const exitCode = await runState({
       command: 'set',
       checkpoint,
@@ -499,6 +502,7 @@ stateCmd
       change: opts.change,
       rationale: opts.rationale,
       refs: opts.refs,
+      workflow: opts.workflow,
       cwd: process.cwd(),
     });
     process.exit(exitCode);

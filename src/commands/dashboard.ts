@@ -33,8 +33,17 @@ import { MemoryStore } from '../core/memory-arch.js';
 import { getMemoryStatus } from '../core/memory/manager.js';
 import type { MemoryStatusResult } from '../core/memory/manager.js';
 import type { ExtendedFeature } from '../core/memory/model.js';
-import { AdoptionEngineV2 } from '../core/adoption-engine.js';
+import { AdoptionEngineV2, type AdoptionProfile } from '../core/adoption-engine.js';
 import { JSONLEventStore } from '../core/provenance/event-store-jsonl.js';
+import { TerminalRenderer } from '../core/render/terminal/terminal-renderer.js';
+import { HtmlRenderer } from '../core/render/html/html-renderer.js';
+import { registerRenderer } from '../core/render/renderer-registry.js';
+import type { RenderContext, DashboardData, DashboardMeta, DashboardMetrics } from '../core/render/index.js';
+import { writeFile } from '../utils/fs.js';
+
+// Register renderers
+registerRenderer('terminal', () => new TerminalRenderer());
+registerRenderer('html', () => new HtmlRenderer());
 
 export interface DashboardOptions {
   cwd?: string;
@@ -59,6 +68,8 @@ export interface DashboardOptions {
   value?: boolean;
   csi?: boolean;
   feedback?: boolean;
+  /** v0.32: Output file path (for HTML renderer) */
+  output?: string;
 }
 
 interface ProjectYaml {
@@ -133,7 +144,7 @@ export async function runDashboard(opts: DashboardOptions = {}): Promise<number>
         value: opts.value,
         csi: opts.csi,
         feedback: opts.feedback,
-      });
+      }, opts.output);
       await sleep(REFRESH_INTERVAL_MS);
     }
     return 0;
@@ -143,11 +154,36 @@ export async function runDashboard(opts: DashboardOptions = {}): Promise<number>
     value: opts.value,
     csi: opts.csi,
     feedback: opts.feedback,
-  });
+  }, opts.output);
   if (opts.html && output) {
     await writeHtmlReport(cwd, opts.change, output);
   }
   return 0;
+}
+
+function buildDashboardData(
+  cwd: string,
+  periodDays: number,
+  changeName: string | undefined,
+  v2Profile: AdoptionProfile,
+): DashboardData {
+  const repoName = path.basename(cwd);
+  const now = new Date();
+  const start = new Date(now.getTime() - periodDays * 86400000);
+
+  const meta: DashboardMeta = {
+    repository: repoName,
+    period: { start: start.toISOString().split('T')[0], end: now.toISOString().split('T')[0] },
+    model: 'heuristic-v0.1',
+    confidence: 'medium',
+  };
+
+  const metrics: DashboardMetrics = {};
+  if (v2Profile.valueIndex) metrics.value = v2Profile.valueIndex;
+  if (v2Profile.csi) metrics.csi = v2Profile.csi;
+  if (v2Profile.feedback) metrics.feedback = v2Profile.feedback;
+
+  return { meta, metrics };
 }
 
 async function renderOnce(
@@ -157,6 +193,7 @@ async function renderOnce(
   period?: '7d' | '30d' | '90d',
   showQuality?: boolean,
   phase2bOpts?: { value?: boolean; csi?: boolean; feedback?: boolean },
+  outputPath?: string,
 ): Promise<string | null> {
   const periodDays = period === '90d' ? 90 : period === '30d' ? 30 : 7;
   await runSessionInference(cwd);
@@ -334,7 +371,7 @@ async function renderOnce(
     push('');
   }
 
-  // Phase 2B: Value Intelligence panels (when flags set)
+  // Phase 2B + Renderer: Use new RenderContext-based approach
   if (phase2bOpts && (phase2bOpts.value || phase2bOpts.csi || phase2bOpts.feedback)) {
     try {
       const store = new JSONLEventStore(cwd);
@@ -345,40 +382,25 @@ async function renderOnce(
         periodDays,
       });
 
-      if (phase2bOpts.value && v2Profile.valueIndex) {
-        const vi = v2Profile.valueIndex;
-        push(sectionHeader('Value Index  —  Phase 2B', boxWidth));
-        push(row(`Value Index:      ${vi.valueIndex.toFixed(2)}`, boxWidth));
-        push(row(`Quality Factor:   ${vi.qualityFactor.toFixed(2)}`, boxWidth));
-        push(row(`Business Impact:  ${vi.businessImpactType} (weight: ${vi.businessImpactWeight})`, boxWidth));
-        push(row(`Retention:        ${(vi.retentionRatio * 100).toFixed(0)}%`, boxWidth));
-        push(row(`Rework Cost:      ${(vi.reworkCost * 100).toFixed(0)}%`, boxWidth));
-        push(row(`Abandonment:      ${(vi.abandonmentRate * 100).toFixed(0)}%`, boxWidth));
-        push('');
-      }
+      const panels: string[] = [];
+      if (phase2bOpts.value) panels.push('value');
+      if (phase2bOpts.csi) panels.push('csi');
+      if (phase2bOpts.feedback) panels.push('feedback');
 
-      if (phase2bOpts.csi && v2Profile.csi) {
-        const csi = v2Profile.csi;
-        push(sectionHeader('Context Sufficiency Index (CSI)  —  Phase 2B', boxWidth));
-        push(row(`CSI:              ${(csi.csi * 100).toFixed(0)}%`, boxWidth));
-        push(row(`Task Type:        ${csi.taskType}`, boxWidth));
-        push(row(`Confidence:       ${csi.confidence}`, boxWidth));
-        for (const d of csi.dimensions) {
-          const bar = '█'.repeat(Math.round(d.ratio * 12)) + '░'.repeat(Math.max(0, 12 - Math.round(d.ratio * 12)));
-          push(row(`  ${d.dimension.padEnd(16)} ${bar}  ${(d.ratio * 100).toFixed(0)}% (${d.available}/${d.required})`, boxWidth));
-        }
-        push('');
-      }
+      const renderer = htmlMode ? new HtmlRenderer() : new TerminalRenderer();
+      const ctx: RenderContext = {
+        data: buildDashboardData(cwd, periodDays, changeName, v2Profile),
+        options: { panels, format: htmlMode ? 'html' : 'terminal', width: boxWidth, outputPath },
+      };
+      const result = renderer.render(ctx);
 
-      if (phase2bOpts.feedback && v2Profile.feedback) {
-        const fb = v2Profile.feedback;
-        push(sectionHeader('Human Feedback Loop  —  Phase 2B', boxWidth));
-        push(row(`Accepted & Kept:        ${fb.summary.acceptedAndKept}`, boxWidth));
-        push(row(`Accepted Then Modified: ${fb.summary.acceptedThenModified}`, boxWidth));
-        push(row(`Accepted Then Deleted:  ${fb.summary.acceptedThenDeleted}`, boxWidth));
-        push(row(`Rejected Outright:      ${fb.summary.rejectedOutright}`, boxWidth));
-        push(row(`Unknown:                ${fb.summary.unknown}`, boxWidth));
-        push('');
+      if (htmlMode) {
+        const outPath = outputPath ?? path.join(cwd, '.ivy', 'dashboard.html');
+        await writeFile(outPath, result.content);
+        push(row(`HTML dashboard saved: ${outPath}`, boxWidth));
+      } else {
+        // Append terminal output to existing buffer
+        result.content.split('\n').forEach((line) => push(line));
       }
     } catch {
       push(row('Phase 2B panels unavailable — provenance data not found', boxWidth));
