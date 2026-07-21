@@ -106,22 +106,27 @@ export async function runAnalytics(opts: AnalyticsOptions = {}): Promise<number>
         return 0;
       }
 
+      let hasOutput = false;
+
       if (opts.value && profile.valueIndex) {
         showValueOutput(profile.valueIndex);
-        return 0;
+        hasOutput = true;
       }
 
       if (opts.csi && profile.csi) {
         showCSIOutput(profile.csi);
-        return 0;
+        hasOutput = true;
       }
 
       if (opts.feedback && profile.feedback) {
         showFeedbackOutput(profile.feedback);
-        return 0;
+        hasOutput = true;
       }
 
-      logger.info(formatAdoptionProfile(profile));
+      if (!hasOutput) {
+        logger.info(formatAdoptionProfile(profile));
+      }
+
       return 0;
     } catch (err) {
       logger.error(`Provenance analytics failed: ${(err as Error).message}`);
