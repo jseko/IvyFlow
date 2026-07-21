@@ -1,26 +1,31 @@
 # ivy analytics — 采纳率分析
 
+> 版本：v0.32 | 基于 Phase 0+1+2A+2B 实际交付
+
 ## 功能介绍
 
-`ivy analytics` 展示 AI 代码采纳率指标，采用四层归因模型，每层标注置信度。提供透明、可量化的 AI 贡献数据。
+`ivy analytics` 展示 AI 代码采纳率指标，支持双数据源（sessions 和 provenance），覆盖从代码生成到工程价值的完整链路。所有指标标注置信度。
 
-### 四层归因模型
+### 数据源
 
-| 层级 | 数据源 | 置信度 | 说明 |
-|------|--------|--------|------|
-| **L1 会话边界** | 会话开始/结束的 git diff | >90% | 最可靠 |
-| **L2 Git Notes** | 基于注解的行级归因 | 70-85% | 较可靠 |
-| **L3 文件估算** | 基于会话覆盖率的文件级估算 | 60-80% | 参考值 |
-| **L4 代码特征** | 模式识别 | <60% | 仅参考，不纳入统计 |
+| 数据源 | flag | 说明 |
+|--------|------|------|
+| Sessions（默认） | — | 基于 git commits + phase transitions |
+| Provenance | `--provenance` | 基于 Phase 0 Origin Entity + Event Store |
 
-### 核心能力
+### 指标矩阵
 
-- 项目级和变更级采纳率统计
-- 多时间窗口（7 天 / 30 天 / 90 天）
-- 置信度透明标注
-- 演示数据模式
-- 趋势分析
-- 数据溯源
+| 指标 | 阶段 | flag | 说明 |
+|------|:--:|------|------|
+| Adoption Funnel | Phase 1+2A | 默认 | 提交数、变更数、完成率 |
+| Retention Ratio | Phase 1+2A | `--provenance` | AI 代码在 N 次 commit 后的存活率 |
+| Rework Cost | Phase 1+2A | `--provenance` | AI 代码被人工修改的比例 |
+| Abandonment Rate | Phase 1+2A | `--provenance` | AI 代码废弃率（8 类原因） |
+| Failure Intelligence | Phase 1+2A | `--provenance` | 按阶段失败分布 + Top 3 模式 |
+| Code Lineage L1-L3 | Phase 1+2A | `--provenance` | 文件/AST/语义三级血缘追踪 |
+| **Value Index** | Phase 2B | `--value` | 工程价值指数（Retention × Quality × Business Impact） |
+| **Context Intelligence** | Phase 2B | `--csi` | 上下文充分性指数 + Outcome Correlation |
+| **Feedback Loop** | Phase 2B | `--feedback` | 隐式反馈推断（kept/modified/deleted/rejected） |
 
 ## 操作步骤
 
@@ -34,6 +39,13 @@ ivy analytics
 
 ```bash
 ivy analytics --project
+```
+
+### Provenance 数据源
+
+```bash
+# 使用 Phase 0 provenance 数据
+ivy analytics --project --provenance
 ```
 
 ### 指定时间窗口
@@ -79,6 +91,22 @@ ivy analytics --trend
 ivy analytics --project --explain
 ```
 
+### Phase 2B 工程价值指标
+
+```bash
+# Value Index
+ivy analytics --provenance --value
+
+# Context Intelligence
+ivy analytics --provenance --csi
+
+# Feedback Loop
+ivy analytics --provenance --feedback
+
+# 组合指标 + JSON 输出
+ivy analytics --provenance --value --csi --feedback --json
+```
+
 ### 开关控制
 
 ```bash
@@ -95,7 +123,7 @@ ivy analytics --disable
 
 ```bash
 ivy analytics --project --period 7d
-# AI contributed ~1,200 lines (L1: 85%, L2: 10%, L3: 5%)
+# AI contributed ~1,200 lines
 ```
 
 ### 案例 2：月度团队报告
@@ -104,14 +132,21 @@ ivy analytics --project --period 7d
 ivy analytics --project --period 30d --json > monthly-report.json
 ```
 
-### 案例 3：演示和评估
+### 案例 3：AI 工程价值评估
+
+```bash
+ivy analytics --provenance --value --csi --feedback --json > ai-value.json
+# 包含 Value Index、CSI、Feedback Loop 完整数据
+```
+
+### 案例 4：演示和评估
 
 ```bash
 # 先用演示数据了解功能
 ivy analytics --demo --confidence
 ```
 
-### 案例 4：CI 中检查采纳率
+### 案例 5：CI 中检查采纳率
 
 ```bash
 ivy analytics --project --json | jq '.adoption_rate'
