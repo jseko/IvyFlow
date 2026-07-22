@@ -24,11 +24,11 @@ function err(msg) { console.error(`[check-manifest] ${msg}`); failed = true; }
 if (m.schemaVersion !== 6) err(`schemaVersion must be 6, got ${m.schemaVersion}`);
 if (!Array.isArray(m.skills) || m.skills.length === 0) err('skills[] must be non-empty');
 for (const s of m.skills ?? []) {
-  try { statSync(join(assetsDir, 'skills', s)); }
+  try { statSync(join(assetsDir, s)); }
   catch { err(`skill not found: ${s}`); }
 }
 for (const r of m.rules ?? []) {
-  try { statSync(join(assetsDir, 'rules', r)); }
+  try { statSync(join(assetsDir, 'roles', 'developer', 'rules', r)); }
   catch { err(`rule not found: ${r}`); }
 }
 

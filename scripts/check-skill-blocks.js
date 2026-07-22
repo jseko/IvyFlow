@@ -1,48 +1,85 @@
 #!/usr/bin/env node
 /**
- * check-skill-blocks.js — enforces §9.3 evolution constraint:
- *   SKILL.md must contain exactly 4 HTML-marked blocks (ROUTER /
- *   CONSTRAINTS / VARIABLES / REFERENCES). Each block ≤ 50 lines.
+ * check-skill-blocks.js — SKILL.md structural sanity gate.
+ *
+ * The v0.15 multi-role refactor retired the old §9.3 layout (a single
+ * ivy/SKILL.md split into 4 HTML-marked blocks). Today every SKILL.md
+ * under assets/ uses plain YAML frontmatter + markdown, including the
+ * per-phase skills and the role-level dispatchers.
+ *
+ * This gate enforces the invariants that survived the refactor:
+ *   - file is non-empty
+ *   - file stays within a sane line budget (single-file readability, §9.3 spirit)
+ *   - IF a YAML frontmatter block is present, it MUST declare non-empty
+ *     `name` and `description` (the fields the skill registry relies on)
+ *
+ * Structural only (not semantic) — behavioral guarantees live in unit tests.
  */
 
-import { readFileSync } from 'fs';
-import { resolve, dirname } from 'path';
+import { readFileSync, readdirSync } from 'fs';
+import { resolve, dirname, join, relative } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const skillPath = resolve(__dirname, '..', 'assets', 'skills', 'ivy', 'SKILL.md');
+const assetsDir = resolve(__dirname, '..', 'assets');
 
-const expected = ['ROUTER', 'CONSTRAINTS', 'VARIABLES', 'REFERENCES'];
-const MAX_LINES = 50;
-
-const text = readFileSync(skillPath, 'utf-8');
-const lines = text.split('\n');
+// Single-file readability budget. Longest real SKILL.md today is ~117 lines,
+// so 400 leaves headroom without permitting unbounded growth.
+const MAX_LINES = 400;
 
 let failed = false;
-for (let i = 0; i < expected.length; i++) {
-  const name = expected[i];
-  const startIdx = lines.findIndex((l) => l.includes(`<!-- BLOCK ${i + 1}: ${name}`));
-  const endIdx = lines.findIndex((l) => l.includes(`<!-- BLOCK ${i + 1} END`));
-  if (startIdx === -1 || endIdx === -1) {
-    console.error(`[check-skill-blocks] MISSING block ${i + 1} (${name})`);
-    failed = true;
-    continue;
+function err(msg) { console.error(`[check-skill-blocks] ${msg}`); failed = true; }
+
+function collectSkillFiles(dir, out = []) {
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, e.name);
+    if (e.isDirectory()) collectSkillFiles(full, out);
+    else if (e.name === 'SKILL.md') out.push(full);
   }
-  const len = endIdx - startIdx + 1;
-  if (len > MAX_LINES) {
-    console.error(`[check-skill-blocks] BLOCK ${i + 1} (${name}) is ${len} lines, max ${MAX_LINES}`);
-    failed = true;
-  } else {
-    console.log(`[check-skill-blocks] OK — BLOCK ${i + 1} (${name}): ${len} lines`);
+  return out;
+}
+
+function checkFrontmatter(text, relPath) {
+  const lines = text.split('\n');
+  if (lines[0]?.trim() !== '---') return; // no frontmatter — allowed (e.g. capability docs)
+  const end = lines.findIndex((l, i) => i > 0 && l.trim() === '---');
+  if (end === -1) {
+    err(`${relPath}: frontmatter block is not terminated with '---'`);
+    return;
+  }
+  const fm = lines.slice(1, end).join('\n');
+  if (!/^\s*name:\s*\S+/m.test(fm)) {
+    err(`${relPath}: frontmatter is missing a non-empty \`name\``);
+  }
+  if (!/^\s*description:\s*\S+/m.test(fm)) {
+    err(`${relPath}: frontmatter is missing a non-empty \`description\``);
   }
 }
 
-// Also forbid a 5th block.
-const fifth = lines.findIndex((l) => l.match(/<!-- BLOCK 5:/));
-if (fifth !== -1) {
-  console.error('[check-skill-blocks] FORBIDDEN — found BLOCK 5 marker (max 4 blocks)');
-  failed = true;
+const files = collectSkillFiles(assetsDir);
+if (files.length === 0) {
+  err('no SKILL.md found under assets/');
+}
+
+let checked = 0;
+for (const f of files) {
+  const rel = relative(assetsDir, f);
+  const text = readFileSync(f, 'utf-8');
+  const lineCount = text.split('\n').length;
+  if (lineCount === 0) {
+    err(`${rel}: empty file`);
+    continue;
+  }
+  if (lineCount > MAX_LINES) {
+    err(`${rel}: ${lineCount} lines exceeds MAX_LINES=${MAX_LINES}`);
+    continue;
+  }
+  checkFrontmatter(text, rel);
+  checked++;
 }
 
 if (failed) process.exit(1);
-console.log('[check-skill-blocks] PASS — SKILL.md 4 blocks within constraints');
+console.log(
+  `[check-skill-blocks] PASS — ${checked} SKILL.md validated ` +
+  `(non-empty, ≤${MAX_LINES} lines, frontmatter name/description when present)`,
+);

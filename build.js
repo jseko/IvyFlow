@@ -18,13 +18,13 @@ if (existsSync('dist')) {
   rmSync('dist', { recursive: true, force: true });
 }
 
-console.log('Syncing phase list to assets/rules/ivy-phase-guard.md...');
+console.log('Syncing phase list to assets/roles/developer/rules/ivy-phase-guard.md...');
 execFileSync(process.execPath, ['scripts/sync-phases.js'], { stdio: 'inherit' });
 
 console.log('Validating manifest.json schema...');
 execFileSync(process.execPath, ['scripts/check-manifest.js'], { stdio: 'inherit' });
 
-console.log('Validating SKILL.md 4-block structure...');
+console.log('Validating SKILL.md structure (frontmatter + size invariants)...');
 execFileSync(process.execPath, ['scripts/check-skill-blocks.js'], { stdio: 'inherit' });
 
 console.log('Validating §9.9/§9.10/§9.11/§9.12 evolution constraints...');

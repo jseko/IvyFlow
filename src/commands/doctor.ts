@@ -239,10 +239,12 @@ export async function runDoctor(opts: DoctorOptions = {}): Promise<number> {
   // 5) git pre-push hook.
   results.push(await checkGitPrePushHook(cwd, scope));
 
-  // 6) phase-machine sync (assets/rules/ivy-phase-guard.md must contain the 5 phases).
+  // 6) phase-machine sync (assets/roles/developer/rules/ivy-phase-guard.md must contain the 5 phases).
   const ruleSource = path.join(
     cwd,
     'assets',
+    'roles',
+    'developer',
     'rules',
     'ivy-phase-guard.md',
   );

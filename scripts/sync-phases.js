@@ -19,7 +19,7 @@ const __dirname = path.dirname(__filename);
 const repoRoot = path.resolve(__dirname, '..');
 
 const ENUM_SOURCE = path.join(repoRoot, 'src', 'core', 'phase-machine.ts');
-const RULE_FILE = path.join(repoRoot, 'assets', 'rules', 'ivy-phase-guard.md');
+const RULE_FILE = path.join(repoRoot, 'assets', 'roles', 'developer', 'rules', 'ivy-phase-guard.md');
 
 const BEGIN_MARK = '<!-- DO NOT EDIT: synced from src/core/phase-machine.ts -->';
 const END_MARK = '<!-- END DO NOT EDIT -->';

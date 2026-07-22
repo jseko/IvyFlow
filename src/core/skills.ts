@@ -1,6 +1,6 @@
 /**
  * Skill / Rule / Hook distribution — manifest-driven copy of `assets/skills/ivy/`,
- * `assets/rules/`, and `assets/hooks/` to the target platform's directories.
+ * `assets/roles/<role>/rules/`, and `assets/hooks/` to the target platform's directories.
  *
  * v0.2:
  *   - Skills: byte-identical copy across all 7 platforms.

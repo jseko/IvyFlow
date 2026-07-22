@@ -116,7 +116,7 @@ const TRANSITIONS: Record<IvyPhase, IvyPhase[]> = {
 };
 ```
 
-`scripts/sync-phases.ts` regenerates `assets/rules/ivy-phase-guard.md` from the enum at build time; CI fails on drift.
+`scripts/sync-phases.ts` regenerates `assets/roles/developer/rules/ivy-phase-guard.md` from the enum at build time; CI fails on drift.
 
 ### Triple Defense
 

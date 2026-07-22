@@ -15,7 +15,7 @@
  * Used by:
  * - `ivy validate` to verify `phase` and `phase_history` in `.ivy.yaml`
  * - `core/adoption-lite.ts` to gate `snapshotAdoption` to terminal phase only
- * - `assets/rules/ivy-phase-guard.md` (synced via `scripts/sync-phases.ts`)
+ * - `assets/roles/developer/rules/ivy-phase-guard.md` (synced via `scripts/sync-phases.ts`)
  */
 
 export enum IvyPhase {
