@@ -58,7 +58,6 @@
     "@vitest/coverage-v8": "^4.1.6",
     "esbuild": "^0.28.1",
     "eslint": "^9.0.0",
-    "typescript": "^5.9.0",
     "typescript-eslint": "^8.0.0",
     "vitepress": "^1.6.4",
     "vitest": "^4.1.6"
@@ -67,6 +66,7 @@
     "@fission-ai/openspec": "^1.6.0",
     "@inquirer/prompts": "^8.4.3",
     "commander": "^14.0.0",
+    "typescript": "^5.9.0",
     "yaml": "^2.9.0"
   }
 }
